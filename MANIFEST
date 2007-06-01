@@ -17,6 +17,17 @@ inc/Module/Install/Metadata.pm
 inc/Module/Install/Win32.pm
 inc/Module/Install/WriteAll.pm
 lib/SQL/API.pm
+lib/SQL/API/Delete.pm
+lib/SQL/API/Table.pm
+lib/SQL/API/Update.pm
+lib/SQL/API/Create.pm
+lib/SQL/API/Insert.pm
+lib/SQL/API/Query.pm
+lib/SQL/API/Select.pm
+lib/SQL/API/Column.pm
+lib/SQL/API/Expr.pm
+lib/SQL/API.pm
+test.pl
 Makefile.PL
 MANIFEST
 MANIFEST.SKIP

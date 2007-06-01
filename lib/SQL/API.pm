@@ -4,12 +4,11 @@ use strict;
 use warnings;
 
 use SQL::API::Table;
-use SQL::API::Index;
-use SQL::API::Create;
-use SQL::API::Insert;
+#use SQL::API::Create;
+#use SQL::API::Insert;
 use SQL::API::Select;
-use SQL::API::Update;
-use SQL::API::Delete;
+#use SQL::API::Update;
+#use SQL::API::Delete;
 
 our $VERSION = '0.01';
 
@@ -42,7 +41,8 @@ sub insert {
 
 sub select {
     shift;
-    my $s = SQL::API::Select->new(@_);
+    my $s = SQL::API::Select->new;
+    $s->select(@_);
     return $s;
 }
 
