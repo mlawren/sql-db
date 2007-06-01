@@ -1,0 +1,5 @@
+libsql-api-perl (0.01-1) stable; urgency=low
+
+  * Initial Package
+
+ -- Mark Lawrence <nomad@null.net>  Fri,  1 Jun 2007 15:33:25 +0200

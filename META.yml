@@ -1,0 +1,34 @@
+---
+name: xml-api
+version: 0.14
+author:
+  - Mark Lawrence <nomad@null.net>
+abstract: XML generation
+license: gpl
+resources:
+  license: http://www.opensource.org/licenses/gpl-license.php
+requires:
+  perl: 5.6.1
+provides:
+  XML::API:
+    file: lib/XML/API.pm
+    version: 0.14
+  XML::API::Element:
+    file: lib/XML/API.pm
+    version: 0.14
+  XML::API::Element::Cdata:
+    file: lib/XML/API.pm
+    version: 0.14
+  XML::API::Element::Comment:
+    file: lib/XML/API.pm
+    version: 0.14
+  XML::API::RSS:
+    file: lib/XML/API/RSS.pm
+    version: 0.14
+  XML::API::XHTML:
+    file: lib/XML/API/XHTML.pm
+    version: 0.14
+generated_by: Module::Build version 0.28
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.2.html
+  version: 1.2
