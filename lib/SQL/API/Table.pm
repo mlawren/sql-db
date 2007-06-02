@@ -14,7 +14,7 @@ sub _table {
     if (exists($tables{$name})) {
         return $tables{$name};
     }
-    croak "Table $name has not been defined";
+    return;
 }
 
 
@@ -68,22 +68,37 @@ sub _new {
 sub _setup {
     my $self = shift;
     my $pkg  = ref($self);
+    $self->{columns}      = [];
     $self->{column_names} = {};
     $self->{bind_values}  = [];
+    $self->{unique}       = [];
+    $self->{foreign}      = [];
 
-    foreach my $col_name (keys %{$self->{def}->{columns}}) {
-        if ($col_name eq 'sql' or $col_name eq 'bind_values') {
-            croak "SQL::API reserved column names: sql,bind_values";
+    foreach my $coldef (@{$self->{def}->{columns}}) {
+        my $col_name = $coldef->{name};
+        if ($col_name =~ m/(^sql$)|(^sql_index$)|(^bind_values$)/) {
+            croak "SQL::API sql,sql_index,bind_values are reserved column names";
         }
         if ($self->{column_names}->{$col_name}) {
             croak "Column $col_name already defined for table $self->{name}";
         }
+
+        if (exists($coldef->{foreign})) {
+            push(@{$self->{foreign}}, {
+                columns  => [$col_name],
+                table   => $coldef->{foreign}->{table},
+                fcolumns => [$coldef->{foreign}->{fcolumn}],
+            });
+        }
+
         my $col = SQL::API::Column->new(
             name  => $col_name,
             table => $self,
-            def   => $self->{def}->{columns}->{$col_name},
+            def   => $coldef,
         );
+        push(@{$self->{columns}}, $col);
         $self->{column_names}->{$col_name} = $col;
+
         push(@{$self->{bind_values}}, $col->bind_values);
 
         # set up the method in this class
@@ -95,23 +110,45 @@ sub _setup {
         }
     }
 
-    if (ref($self->{def}->{primary}) eq 'ARRAY') {
-        foreach my $key (@{$self->{def}->{primary}}) {
-            if (!exists($self->{column_names}->{$key})) {
-                croak "Primary key $key does not exist in table $self->{name}";
+    foreach my $key (@{$self->{def}->{primary}}) {
+        if (!exists($self->{column_names}->{$key})) {
+            croak "Primary key $key does not exist in table $self->{name}";
+        }
+        push(@{$self->{primary_keys}}, $self->{column_names}->{$key});
+    }
+
+    if ($self->{def}->{unique}) {
+        if (!ref($self->{def}->{unique}->[0])) {
+            $self->{unique} = [{columns => $self->{def}->{unique}}];
+        }
+        else {
+            foreach my $u (@{$self->{def}->{unique}}) {
+                push(@{$self->{unique}}, $u);
             }
-            push(@{$self->{primary_keys}}, $self->{column_names}->{$key});
         }
     }
-    else {
-        if (!exists($self->{column_names}->{$self->{def}->{primary}})) {
-            croak 'Primary key '
-                  . $self->{def}->{primary}
-                  . ' does not exist in table '
-                  . $self->{name};
+
+    foreach my $u (@{$self->{unique}}) {
+        foreach my $c (@{$u->{columns}}) {
+            if (!exists($self->{column_names}->{$c})) {
+                croak "Unique column $c does not exist in table $self->{name}";
+            }
         }
-        push(@{$self->{primary_keys}},
-              $self->{column_names}->{$self->{def}->{primary}});
+    }
+
+    if ($self->{def}->{foreign}) {
+        foreach my $u (@{$self->{def}->{foreign}}) {
+            push(@{$self->{foreign}}, $u);
+        }
+    }
+
+    foreach my $u (@{$self->{foreign}}) {
+        foreach my $c (@{$u->{columns}}) {
+            if (!exists($self->{column_names}->{$c})) {
+                croak "Foreign column $c does not exist in table $self->{name}";
+            }
+            # FIXME check that the referenced columns exist in the other Table
+        }
     }
 
     $self->{indexes} = $self->{def}->{indexes} || [];
@@ -119,7 +156,7 @@ sub _setup {
         foreach my $col (@{$i->{columns}}) {
             (my $c = $col) =~ s/\s.*//;
             if (!exists($self->{column_names}->{$c})) {
-                croak "Index key $c does not exist in table $self->{name}";
+                croak "Index column $c does not exist in table $self->{name}";
             }
         }
     }
@@ -135,14 +172,13 @@ sub _name {
 
 sub _columns {
     my $self = shift;
-    my @names = sort keys %{$self->{column_names}};
-    return map {$self->{column_names}->{$_}} @names;
+    return @{$self->{columns}};
 }
 
 
 sub _column_names {
     my $self = shift;
-    return sort keys %{$self->{column_names}};
+    return keys %{$self->{column_names}};
 }
 
 
@@ -150,7 +186,7 @@ sub _column {
     my $self = shift;
     my $name = shift;
     if (!exists($self->{column_names}->{$name})) {
-        croak "Column $name not in table $self->{name}";
+        return;
     }
     return $self->{column_names}->{$name};
 }
@@ -170,27 +206,43 @@ sub _primary_sql {
     if (!$self->{primary_keys}) {
         return '';
     }
-    return "\n    PRIMARY KEY("
-           . join(", ", map {$_->name} @{$self->{primary_keys}}) .")";
+    return 'PRIMARY KEY('
+           . join(', ', map {$_->name} @{$self->{primary_keys}}) .')';
 }
 
 
-sub _index_sql {
+
+sub _unique_sql {
     my $self = shift;
+    if (!@{$self->{unique}}) {
+        return '';
+    }
     my $sql = '';
-    foreach my $index (@{$self->{indexes}}) {
-        my @cols = @{$index->{columns}};
-        my @colsflat;
-        foreach (@cols) {
-            (my $x = $_) =~ s/\s/_/g;
-            push(@colsflat, $x);
-        }
-        $sql .= "\nCREATE INDEX "
-                . join('_',$self->{name}, @colsflat)
-                . " ON $self->{name} ("
+    foreach my $u (@{$self->{unique}}) {
+        my @cols = @{$u->{columns}};
+        $sql .= 'UNIQUE ('
                 . join(', ', @cols)
                 . ')'
-                . ($index->{using} ? " USING $index->{using}" : '')
+        ;
+    }
+    return $sql;
+}
+
+
+sub _foreign_sql {
+    my $self = shift;
+    if (!@{$self->{foreign}}) {
+        return '';
+    }
+    my $sql = '';
+    foreach my $f (@{$self->{foreign}}) {
+        my @cols = @{$f->{columns}};
+        my @refs = @{$f->{fcolumns}};
+        $sql .= 'FOREIGN KEY ('
+                . join(', ', @cols)
+                . ") REFERENCES $f->{table} ("
+                . join(', ', @refs)
+                . ')'
         ;
     }
     return $sql;
@@ -200,11 +252,37 @@ sub _index_sql {
 sub sql {
     my $self = shift;
     return 'CREATE TABLE '.$self->{name}. " (\n    "
-           . join(",\n    ",$self->_columns)
-           . $self->_primary_sql
+           . join(",\n    ",
+                $self->_columns,
+                $self->_primary_sql,
+                $self->_unique_sql,
+                $self->_foreign_sql,
+           )
            . "\n)"
-           . $self->_index_sql
     ;
+}
+
+sub sql_index {
+    my $self = shift;
+    my $sql = '';
+    foreach my $index (@{$self->{indexes}}) {
+        my @cols = @{$index->{columns}};
+        my @colsflat;
+        foreach (@cols) {
+            (my $x = $_) =~ s/\s/_/g;
+            push(@colsflat, $x);
+        }
+        $sql .= 'CREATE'
+                . ($index->{unique} ? ' UNIQUE' : '')
+                . ' INDEX '
+                . join('_',$self->{name}, @colsflat)
+                . " ON $self->{name} ("
+                . join(', ', @cols)
+                . ')'
+                . ($index->{using} ? " USING $index->{using}" : '')
+        ;
+    }
+    return $sql;
 }
 
 

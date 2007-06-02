@@ -22,7 +22,7 @@ sub new {
     }
 
     if (!$self->{def} or ref($self->{def} ne 'HASH')) {
-        croak 'column definition must be a HASHREF'; 
+        die 'column definition must be a HASHREF'; 
     }
 
     bless($self, $class);
@@ -32,14 +32,33 @@ sub new {
     $self->{default}        = delete $self->{def}->{default};
     $self->{auto_increment} = delete $self->{def}->{auto_increment};
     $self->{unique}         = delete $self->{def}->{unique};
+    $self->{foreign}        = delete $self->{def}->{foreign};
+    delete $self->{def}->{name};
 
     if (my @leftovers = keys %{$self->{def}}) {
-        carp "Unknown Column definition(s): ". join(',', @leftovers);
+        warn "Unknown Column definition(s): ". join(',', @leftovers);
     }
 
     if (defined $self->{default}) {
         push(@{$self->{bind_values}}, $self->{default});
     }
+
+    if ($self->{foreign}) {
+        my $table = SQL::API::Table->_table($self->{foreign}->{table});
+        if (!$table) {
+            die "Table $self->{foreign}->{table} doesn't exist for "
+                 ."foreign key ". $self->{table}->_name .".$self->{name}";
+        }
+        if (!$table->_column($self->{foreign}->{fcolumn})) {
+            die 'Column '. $self->{foreign}->{table}
+                  .'.'. $self->{foreign}->{fcolumn}
+                  . " doesn't exist for foreign key "
+                  . $self->{table}->_name .".$self->{name}";
+        }
+        $self->{foreign_column} = $table->_column($self->{foreign}->{fcolumn});
+    }
+
+
     delete $self->{def};
     return $self;
 }
@@ -58,11 +77,18 @@ sub table {
 }
 
 
+sub foreign {
+    my $self = shift;
+    return $self->{foreign_column};
+}
+
+
 sub sql {
     my $self = shift;
-    return $self->{name}
-           .' '. $self->{type}
-           .' '. ($self->{null} ? 'NULL' : 'NOT NULL')
+    return sprintf('%-15s %-15s %-8s',
+            $self->{name},
+            $self->{type},
+            $self->{null} ? 'NULL' : 'NOT NULL')
            . ($self->{default} ? ' DEFAULT ?' : '')
            . ($self->{auto_increment} ? " AUTO_INCREMENT" : '')
            . ($self->{unique} ? " UNIQUE" : '')

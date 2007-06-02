@@ -4,51 +4,25 @@ use warnings;
 use lib 'lib';
 use SQL::API;
 
-SQL::API->define_table(
-    'CD' => {
-        columns => {
-            id => {
-                type => 'INTEGER',
-                auto_increment => 1,
-            },
-            artist => {
-                type => 'INTEGER',
-            },
-            year => {
-                type => 'INTEGER',
-                default => '1997',
-            },
-            title => {
-                type => 'VARCHAR(255)',
-                null => 1,
-                unique => 1,
-            },
-        },
-        primary =>  [qw(id)],
-        indexes => [
-            {
-                columns => [qw(title)],
-            },
-        ]
-    },
-);
-
 
 SQL::API::Table->_define_table(
     'Artist' => {
-        columns => {
-            id => {
+        columns => [
+            {   name => 'id',
                 type => 'INTEGER',
+                auto_increment => 1,
             },
-            name => {
+            {   name => 'name',
                 type => 'VARCHAR(255)',
                 unique => 1,
             },
-        },
+        ],
         primary =>  [qw(id)],
+        unique  =>  [qw(name)],
         indexes => [
             {
                 columns => ['name 10 ASC'],
+                unique => 1,
                 using => 'BTREE',
             },
         ]
@@ -56,9 +30,86 @@ SQL::API::Table->_define_table(
 );
 
 
-print SQL::API->create('CD')->sql,"\n\n";
-print SQL::API->create('CD')->bind_values,"\n\n";
+SQL::API->define_table(
+    'CD' => {
+        columns => [
+            {   name => 'id',
+                type => 'INTEGER',
+                auto_increment => 1,
+            },
+            {   name => 'artist',
+                type => 'INTEGER',
+            },
+            {   name => 'year',
+                type => 'INTEGER',
+                default => '1997',
+            },
+            {   name => 'title',
+                type => 'VARCHAR(255)',
+                null => 1,
+                unique => 1,
+            },
+        ],
+        primary =>  [qw(id)],
+        unique => [
+            {
+                columns => [qw(title)],
+            },
+        ],
+        foreign => [
+            {
+                columns  => [qw(artist)],
+                table   => 'Artist',
+                fcolumns => [qw(id)],
+            },
+        ],
+        indexes => [
+            {
+                columns => [qw(title)],
+            },
+        ],
+    },
+);
+
+
+SQL::API->define_table(
+    'Tracks' => {
+        columns => [
+            {   name => 'id',
+                type => 'INTEGER',
+                auto_increment => 1,
+            },
+            {   name => 'cd',
+                type => 'INTEGER',
+                foreign => {
+                    table    => 'CD',
+                    fcolumn  => 'id',
+                },
+            },
+            {   name => 'title',
+                type => 'VARCHAR(255)',
+                null => 1,
+                unique => 1,
+            },
+        ],
+        primary =>  [qw(id)],
+        unique => [
+            {
+                columns => [qw(cd title)],
+            },
+        ],
+    },
+);
+
+
 print SQL::API->create('Artist')->sql,"\n";
+print SQL::API->create('Artist')->sql_index,"\n\n";
+print SQL::API->create('CD')->sql . "\n";
+print SQL::API->create('CD')->bind_values,"\n";
+print SQL::API->create('CD')->sql_index,"\n\n";
+print SQL::API->create('Tracks')->sql . "\n";
+print SQL::API->create('Tracks')->bind_values,"\n";
+print SQL::API->create('Tracks')->sql_index,"\n";
 
 #my $cd
 #
