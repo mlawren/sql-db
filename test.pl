@@ -3,21 +3,69 @@ use strict;
 use warnings;
 use lib 'lib';
 use SQL::API;
-use SQL::API::Table;
 
-my $users = SQL::API::Table->new(
-    name    => 'users',
-    columns => [qw(id login password)],
+SQL::API->define_table(
+    'CD' => {
+        columns => {
+            id => {
+                type => 'INTEGER',
+                auto_increment => 1,
+            },
+            artist => {
+                type => 'INTEGER',
+            },
+            year => {
+                type => 'INTEGER',
+                default => '1997',
+            },
+            title => {
+                type => 'VARCHAR(255)',
+                null => 1,
+                unique => 1,
+            },
+        },
+        primary =>  [qw(id)],
+        indexes => [
+            {
+                columns => [qw(title)],
+            },
+        ]
+    },
 );
 
-my $session = SQL::API::Table->new(
-    name    => 'session',
-    columns => [qw(id browser user lastseen)],
+
+SQL::API::Table->_define_table(
+    'Artist' => {
+        columns => {
+            id => {
+                type => 'INTEGER',
+            },
+            name => {
+                type => 'VARCHAR(255)',
+                unique => 1,
+            },
+        },
+        primary =>  [qw(id)],
+        indexes => [
+            {
+                columns => ['name 10 ASC'],
+                using => 'BTREE',
+            },
+        ]
+    },
 );
 
-my $s1 = SQL::API->select($session->id,$session->user);
-$s1->where($session->browser == '127.0.0.1');
 
+print SQL::API->create('CD')->sql,"\n\n";
+print SQL::API->create('CD')->bind_values,"\n\n";
+print SQL::API->create('Artist')->sql,"\n";
+
+#my $cd
+#
+#my $s1 = SQL::API->select($session->id,$session->user);
+#$s1->where($session->browser == '127.0.0.1');
+
+__END__
 my $s2 = SQL::API->select($users->_columns);
 $s2->where(
     ($session->browser->is_null & $users->id->in($s1)) |

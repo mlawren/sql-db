@@ -2,6 +2,7 @@ package SQL::API;
 use 5.006;
 use strict;
 use warnings;
+use Carp qw(carp croak);
 
 use SQL::API::Table;
 #use SQL::API::Create;
@@ -11,26 +12,26 @@ use SQL::API::Select;
 #use SQL::API::Delete;
 
 our $VERSION = '0.01';
+our %tables;
 
 #
 # Shortcut functions
 #
-sub table {
+sub define_table {
     shift;
-    my $t = SQL::API::Table->new(@_);
-    return $t;
-}
+    my $name       = shift;
+    my $column_def = shift;
 
-sub index {
-    shift;
-    my $i = SQL::API::Index->new(@_);
-    return $i;
+    if (!$name or ref($column_def) ne 'HASH') {
+        croak 'usage: define_table($name, $hashref)';
+    }
+
+    return SQL::API::Table->_define_table($name, $column_def);
 }
 
 sub create {
     shift;
-    my $c = SQL::API::Create->new(@_);
-    return $c;
+    return SQL::API::Table->_table(@_);
 }
 
 sub insert {

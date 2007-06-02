@@ -7,6 +7,7 @@ use base qw(SQL::API::Query);
 sub select {
     my $self = shift;
     $self->{select} = \@_;
+    return $self;
 }
 
 sub distinct {
@@ -17,6 +18,7 @@ sub distinct {
     else {
         $self->{distinct} = shift;
     }
+    return $self;
 }
 
 
@@ -54,6 +56,7 @@ sub select_sql {
 sub order_by {
     my $self = shift;
     $self->{order_by} = \@_;
+    return $self;
 }
 
 

@@ -9,6 +9,6 @@ Standards-Version: 3.6.1
 Package: libsql-api-perl
 Architecture: all
 Depends: ${perl:Depends}, ${misc:Depends}
-Description:  SQL::API - Perl extension for creating SQL statements
- SQL::API is a class for creating SQL statements using object method
- calls.
+Description:  SQL::API - Perl representation of SQL Tables
+ SQL::API is a Perl class for representing SQL tables and building
+ queries against those tables.
