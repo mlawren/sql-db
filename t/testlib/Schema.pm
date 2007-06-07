@@ -1,13 +1,6 @@
-#!/usr/bin/perl
-#!/usr/bin/speedy
-use strict;
-use warnings;
-use lib 'lib';
-use SQL::API;
+package Schema;
 
-our $DEBUG = 1;
-
-my @schema = (
+sub get { return (
     'Artist' => {
         columns => [
             {   name => 'id',
@@ -90,38 +83,7 @@ my @schema = (
                 columns => [qw(cd title)],
             },
         ],
-    },
-);
+    });
+}
 
-
-my $sql = SQL::API->new(@schema);
-
-my $cd  = $sql->row('CD');
-
-my $i = $sql->query(
-    insert => [$cd->artist, $cd->year, $cd->title],
-    values => ['Queen', 1987, 'A Kind of Magic' ],
-);
-print $i,"\n";
-
-
-my $cd2 = $sql->row('CD');
-
-my $q = $sql->query(
-    select   => [$cd->_columns],
-    where    => ($cd->artist == $cd->artist->id & $cd->artist->id == 23
-#    )
-#       & $cd->id->in(
-#        $sql->query(
-#            select   => [$cd2->_columns],
-#            distinct => [$cd2->year, $cd2->title],
-#            where    => ($cd2->id == 23),
-#        )
-    ),
-    order_by => [$cd->id],
-);
-
-
-print $q;
-
-
+1;
