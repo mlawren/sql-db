@@ -5,6 +5,7 @@ use Carp;
 use overload
     '""' => 'sql',
     '!' => 'expr_not',
+    'not' => 'expr_not',
     '==' => 'expr_eq',
     '&' => 'expr_and',
     '|' => 'expr_or',
@@ -17,32 +18,32 @@ sub new {
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = {
-        val   => shift,
-        multi => 0,
+        expr_val         => shift,
+        expr_multi       => 0,
+        expr_bind_values => \@_,
     };
 
     bless($self, $class);
-    $self->push_bind_values(@_);
     return $self;
 }
 
 
 sub multi {
     my $self = shift;
-    $self->{multi} = shift if(@_);
-    return $self->{multi};
+    $self->{expr_multi} = shift if(@_);
+    return $self->{expr_multi};
 }
 
 
 sub push_bind_values {
     my $self = shift;
-    push(@{$self->{bind_values}}, @_);
+    push(@{$self->{expr_bind_values}}, @_);
 }
 
 
 sub bind_values {
     my $self = shift;
-    return @{$self->{bind_values}};
+    return @{$self->{expr_bind_values}};
 }
 
 
@@ -68,7 +69,9 @@ sub expr_lt {
     if (ref($val) and $val->isa('SQL::API::Expr')) {
         return __PACKAGE__->($expr .' < '. $val);
     }
-    return __PACKAGE__->new($expr .' < ?', $val);
+    my $t =  __PACKAGE__->new($expr .' < ?', $val);
+    $t->multi(1);
+    return $t;
 }
 
 
@@ -78,13 +81,15 @@ sub expr_gt {
     if (ref($val) and $val->isa('SQL::API::Expr')) {
         return __PACKAGE__->new($expr .' > '. $val);
     }
-    return __PACKAGE__->new($expr .' > ?', $val);
+    my $t =  __PACKAGE__->new($expr .' > ?', $val);
+    $t->multi(1);
+    return $t;
 }
 
 
 sub expr_not {
     my $expr = shift;
-    if (ref($expr) and $expr->isa('SQL::Column')) {
+    if (ref($expr) and $expr->isa('SQL::API::AColumn')) {
         return __PACKAGE__->new($expr . ' NOT NULL');
     }
     if (ref($expr) and $expr->multi) {
@@ -152,9 +157,9 @@ sub in {
 sub sql {
     my $self = shift;
     if ($self->multi) {
-        return '(' . $self->{val} .')';
+        return '(' . $self->{expr_val} .')';
     }
-    return $self->{val};
+    return $self->{expr_val};
 }
 
 

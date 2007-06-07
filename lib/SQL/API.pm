@@ -5,58 +5,123 @@ use warnings;
 use Carp qw(carp croak);
 
 use SQL::API::Table;
-#use SQL::API::Create;
-#use SQL::API::Insert;
+use SQL::API::Insert;
 use SQL::API::Select;
 #use SQL::API::Update;
 #use SQL::API::Delete;
 
 our $VERSION = '0.01';
-our %tables;
 
-#
-# Shortcut functions
-#
-sub define_table {
-    shift;
-    my $name       = shift;
-    my $column_def = shift;
 
-    if (!$name or ref($column_def) ne 'HASH') {
-        croak 'usage: define_table($name, $hashref)';
+sub new {
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = {
+        tables => {},
+    };
+    bless($self,$class);
+
+    my @items;
+    if (ref($_[0]) eq 'ARRAY') {
+         @items = @{$_[0]};
+    }
+    else {
+         @items = @_;
     }
 
-    return SQL::API::Table->_define_table($name, $column_def);
+    while (@_) {
+        my $name = shift;
+        my $def  = shift;
+        $self->define($name, $def);
+    }
+    return $self;
 }
 
-sub create {
-    shift;
-    return SQL::API::Table->_table(@_);
+
+sub define {
+    my $self       = shift;
+    my $name       = shift;
+    my $definition = shift;
+
+    if (!$name or ref($definition) ne 'HASH') {
+        croak 'usage: define($name, $hashref)';
+    }
+
+    if (exists($self->{tables}->{$name})) {
+        warn "Redefining table '$name'";
+    }
+
+    $self->{tables}->{$name} = SQL::API::Table->new($name, $definition, $self);
+    return $self->{tables}->{$name};
 }
 
-sub insert {
-    shift;
-    my $i = SQL::API::Insert->new;
-    return $i;
+
+# class method
+sub table {
+    my $self = shift;
+    my $name  = shift;
+
+    if (!$name) {
+        croak 'usage table($name)';
+    }
+
+    if (!exists($self->{tables}->{$name})) {
+        croak "Table '$name' has not been defined";
+    }
+    return $self->{tables}->{$name};
 }
 
-sub select {
-    shift;
-    my $s = SQL::API::Select->new;
-    $s->select(@_);
-    return $s;
+
+sub deploy {
+    my $self = shift;
+    my $dbi  = shift;
+    die 'deploy not implemented yet.'
 }
 
-sub update {
-    shift;
-    my $u = SQL::API::Update->new(@_);
-    return $u;
+
+sub row {
+    my $self = shift;
+    my $name = shift;
+    if (!$name) {
+        croak 'usage table($name)';
+    }
+    if (!exists($self->{tables}->{$name})) {
+        croak "Table '$name' has not been defined";
+    }
+    
+    return $self->{tables}->{$name}->abstract_row;
 }
 
-sub delete {
-    shift;
-    my $d = SQL::API::Delete->new(@_);
-    return $d;
+
+sub query {
+    my $self = shift;
+
+    my $def;
+    unless (ref($_[0]) and ref($_[0]) eq 'HASH') {
+        my %def = @_;
+        $def = \%def;        
+    }
+    else {
+        $def = shift;
+    }
+#use Data::Dumper;
+#$Data::Dumper::Indent=1;
+
+#die ref($def);
+    if (exists($def->{insert})) {
+        return SQL::API::Insert->new($def);
+    }
+    elsif (exists($def->{select})) {
+        return SQL::API::Select->new($def);
+    }
+    elsif (exists($def->{update})) {
+        return SQL::API::Update->new($def);
+    }
+    elsif (exists($def->{delete})) {
+        return SQL::API::Delete->new($def);
+    }
+
+    croak 'query badly defined (missing select,insert,update etc)';
 }
 
 

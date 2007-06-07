@@ -4,70 +4,47 @@ use warnings;
 use overload '""' => 'sql';
 use Carp qw(carp croak);
 use SQL::API::Column;
+use SQL::API::ARow;
 
+        use Data::Dumper;
+        $Data::Dumper::Indent = 1;
 
-our %tables;
-
-sub _table {
-    my $proto = shift;
-    my $name  = shift;
-    if (exists($tables{$name})) {
-        return $tables{$name};
-    }
-    return;
-}
-
-
-sub _define_table {
-    my $proto = shift;
-
-    my $name       = shift;
-    my $column_def = shift;
-
-    if (!$name or ref($column_def) ne 'HASH') {
-        croak 'usage: _define_table($name, $hashref)';
-    }
-
-    if (exists($tables{$name})) {
-        carp "Redefining table $name";
-    }
-
-    no strict 'refs';
-    my $pkg = 'SQL::API::Table::'. $name;
-    my $isa = $pkg . '::ISA';
-    push(@{*{$isa}}, 'SQL::API::Table');
-
-    my $table = $pkg->_new($name,$column_def);
-    $tables{$name} = $table;
-    return $table;
-}
-
-
-sub _new {
+sub new {
     my $proto      = shift;
     my $class      = ref($proto) || $proto;
+
     my $name       = shift;
     my $column_def = shift;
+    my $schema     = shift;
 
-    if (!$name or ref($column_def) ne 'HASH') {
+    unless ($name and ref($column_def)  and ref($column_def) eq 'HASH') {
         croak 'usage: new($name, $hashref)';
     }
 
     my $self = {
         name         => $name,
-        def          => $column_def,
+        def          => \%{$column_def},
+        schema       => $schema,
     };
     bless($self, $class);
 
-    $self->_setup;
-    $tables{$name} = $self;
+    $self->setup;
     return $self;
 }
 
+my @reserved = qw(
+        sql
+        sql_index
+        bind_values
+        asc
+        desc
+        is_null
+        is_not_null
+); 
 
-sub _setup {
+sub setup {
     my $self = shift;
-    my $pkg  = ref($self);
+
     $self->{columns}      = [];
     $self->{column_names} = {};
     $self->{bind_values}  = [];
@@ -76,18 +53,20 @@ sub _setup {
 
     foreach my $coldef (@{$self->{def}->{columns}}) {
         my $col_name = $coldef->{name};
-        if ($col_name =~ m/(^sql$)|(^sql_index$)|(^bind_values$)/) {
-            croak "SQL::API sql,sql_index,bind_values are reserved column names";
+
+        if (grep(m/^$col_name$/, @reserved)) {
+            croak "Reserved column names: @reserved";
         }
+
         if ($self->{column_names}->{$col_name}) {
             croak "Column $col_name already defined for table $self->{name}";
         }
 
+        # move the foreign key definition into the table-wide definitions
         if (exists($coldef->{foreign})) {
             push(@{$self->{foreign}}, {
-                columns  => [$col_name],
-                table   => $coldef->{foreign}->{table},
-                fcolumns => [$coldef->{foreign}->{fcolumn}],
+                columns    => [$col_name],
+                references => [delete $coldef->{foreign}],
             });
         }
 
@@ -100,14 +79,6 @@ sub _setup {
         $self->{column_names}->{$col_name} = $col;
 
         push(@{$self->{bind_values}}, $col->bind_values);
-
-        # set up the method in this class
-        no strict 'refs';
-        my $ref = $pkg."::$col_name";
-        *{$ref} = sub {
-            my $self = shift;
-            return $self->{column_names}->{$col_name};
-        }
     }
 
     foreach my $key (@{$self->{def}->{primary}}) {
@@ -142,13 +113,46 @@ sub _setup {
         }
     }
 
-    foreach my $u (@{$self->{foreign}}) {
-        foreach my $c (@{$u->{columns}}) {
+    foreach my $f (@{$self->{foreign}}) {
+        # check columns exist in this table
+        foreach my $c (@{$f->{columns}}) {
             if (!exists($self->{column_names}->{$c})) {
-                croak "Foreign column $c does not exist in table $self->{name}";
+                croak "Column $c [foreign definition] does not exist "
+                     ."in table $self->{name}";
             }
-            # FIXME check that the referenced columns exist in the other Table
         }
+
+        # check reference columns exist in foreign table
+        my @references;
+        my $i = 0;
+
+        foreach my $r (@{$f->{references}}) {
+            unless ($r =~ m/(.*)\((.*)\)/) {
+                croak "Table $self->{name}: Bad foreign key reference: $r";
+            }
+
+            my $table;
+            my @column_names  = split(/,\s*/, $2);
+
+            unless (eval {$table = $self->{schema}->table($1);1;}) {
+                croak "Table $self->{name}: Foreign table $1 not yet "
+                     ."defined for foreign keys";
+            }
+
+            my @cols;
+            foreach my $column_name (@column_names) {
+                unless($table->column($column_name)) {
+                    croak "Table $self->{name}: Foreign table '$1' has no "
+                         ."column '$column_name'";
+                }
+                push(@cols, $table->column($column_name));
+            }
+            push(@references, \@cols);
+            if (scalar(@cols) == 1) {
+                $self->{column_names}->{$f->{columns}->[$i]}->foreign_key(@cols);
+            }
+        }
+        $f->{references} = \@references;
     }
 
     $self->{indexes} = $self->{def}->{indexes} || [];
@@ -164,25 +168,25 @@ sub _setup {
 }
 
 
-sub _name {
+sub name {
     my $self = shift;
     return $self->{name};
 }
 
 
-sub _columns {
+sub columns {
     my $self = shift;
     return @{$self->{columns}};
 }
 
 
-sub _column_names {
+sub column_names {
     my $self = shift;
     return keys %{$self->{column_names}};
 }
 
 
-sub _column {
+sub column {
     my $self = shift;
     my $name = shift;
     if (!exists($self->{column_names}->{$name})) {
@@ -192,16 +196,12 @@ sub _column {
 }
 
 
-sub AUTOLOAD {
-    our ($AUTOLOAD);
-    (my $colname = $AUTOLOAD) =~ s/.*:://;
-    if (ref($_[0])) {
-        croak "Table $_[0]->{name} doesn't have a column '$colname'";
-    }
-    croak "Method $colname not found in package ".__PACKAGE__;
+sub schema {
+    my $self = shift;
+    return $self->{schema};
 }
 
-sub _primary_sql {
+sub primary_sql {
     my $self = shift;
     if (!$self->{primary_keys}) {
         return '';
@@ -212,7 +212,7 @@ sub _primary_sql {
 
 
 
-sub _unique_sql {
+sub unique_sql {
     my $self = shift;
     if (!@{$self->{unique}}) {
         return '';
@@ -229,7 +229,7 @@ sub _unique_sql {
 }
 
 
-sub _foreign_sql {
+sub foreign_sql {
     my $self = shift;
     if (!@{$self->{foreign}}) {
         return '';
@@ -237,7 +237,7 @@ sub _foreign_sql {
     my $sql = '';
     foreach my $f (@{$self->{foreign}}) {
         my @cols = @{$f->{columns}};
-        my @refs = @{$f->{fcolumns}};
+        my @refs = @{$f->{references}};
         $sql .= 'FOREIGN KEY ('
                 . join(', ', @cols)
                 . ") REFERENCES $f->{table} ("
@@ -253,10 +253,10 @@ sub sql {
     my $self = shift;
     return 'CREATE TABLE '.$self->{name}. " (\n    "
            . join(",\n    ",
-                $self->_columns,
-                $self->_primary_sql,
-                $self->_unique_sql,
-                $self->_foreign_sql,
+                $self->columns,
+                $self->primary_sql,
+                $self->unique_sql,
+                $self->foreign_sql,
            )
            . "\n)"
     ;
@@ -290,6 +290,13 @@ sub bind_values {
     my $self = shift;
     return @{$self->{bind_values}};
 }
+
+
+sub abstract_row {
+    my $self = shift;
+    return SQL::API::ARow->_new($self);
+}
+
 
 1;
 __END__

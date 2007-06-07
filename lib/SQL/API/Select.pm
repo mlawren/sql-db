@@ -24,30 +24,33 @@ sub distinct {
 
 sub select_sql {
     my $self = shift;
-    my %tables;
+    my %aliases;
 
     foreach (@{$self->{select}}) {
-        $tables{$_->table->_name} = $_->table->_tid;
+        $aliases{$_->_arow->_name} = $_->_arow->_alias;
+        foreach ($_->_arow->_foreign_arows) {
+            $aliases{$_->_name} = $_->_alias;
+        }
     }
 
-    my $s = "\n".$self->{depth} . "SELECT";
+    my $s = 'SELECT';
 
     if ($self->{distinct}) {
         $s .= ' DISTINCT';
         if (ref($self->{distinct}) eq 'ARRAY') {
             foreach (@{$self->{distinct}}) {
-                $tables{$_->table->_name} = $_->table->_tid;
+                $aliases{$_->_arow->_name} = $_->_arow->_alias;
             }
             $s .= ' ON (' . join(', ', @{$self->{distinct}}) . ')';
         }
     }
 
-    $s .= "\n$self->{depth}    " .
-            join(",\n$self->{depth}    ", @{$self->{select}});
+    $s .= "\n    " .
+            join(",\n    ", @{$self->{select}});
 
-    $s .= "\n$self->{depth}FROM\n$self->{depth}    " .
-            join(",\n$self->{depth}    ",
-            map {"$_ AS t$tables{$_}"} keys %tables);
+    $s .= "\nFROM\n    " .
+            join(",\n    ",
+            map {"$_ AS $aliases{$_}"} keys %aliases);
 
     return $s;
 }
@@ -63,8 +66,8 @@ sub order_by {
 sub order_by_sql {
     my $self = shift;
     if ($self->{order_by}) {
-        return "$self->{depth}ORDER BY\n$self->{depth}    " .
-               join(",\n$self->{depth}    ", @{$self->{order_by}});
+        return "ORDER BY\n    " .
+               join(",\n    ", @{$self->{order_by}});
     }
     return '';
 }
@@ -90,6 +93,12 @@ sub columns {
     return @{$self->{select}};
 }
 
+sub column_names {
+    my $self = shift;
+    return map {$_->name} @{$self->{select}};
+}
+
 
 1;
 __END__
+
