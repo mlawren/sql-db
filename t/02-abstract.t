@@ -24,30 +24,3 @@ isa_ok($cd->artist->id->_arow, 'SQL::API::Abstract::Artist',
     'Abstract Foreign Row');
 
 
-
-my $i = $sql->query(
-    insert => [$cd->artist, $cd->year, $cd->title],
-    values => ['Queen', 1987, 'A Kind of Magic' ],
-);
-print $i,"\n";
-
-
-my $cd2 = $sql->row('CD');
-
-my $q = $sql->query(
-    select   => [$cd->_columns],
-    where    => (($cd->artist == $cd->artist->id) & ($cd->artist->id == 23))
-       & $cd->id->in(
-        $sql->query(
-            select   => [$cd2->_columns],
-            distinct => [$cd2->year, $cd2->title],
-            where    => ($cd2->id == 23),
-        )
-    ),
-    order_by => [$cd->id],
-);
-
-
-print $q;
-
-

@@ -17,7 +17,8 @@ sub new {
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = {
-        tables => {},
+        tables      => [],
+        table_names => {},
     };
     bless($self,$class);
 
@@ -51,12 +52,15 @@ sub define {
         croak 'usage: define($name, $hashref)';
     }
 
-    if (exists($self->{tables}->{$name})) {
+    if (exists($self->{table_names}->{$name})) {
         warn "Redefining table '$name'";
     }
 
-    $self->{tables}->{$name} = SQL::API::Table->new($name, $definition, $self);
-    return $self->{tables}->{$name};
+    my $table = SQL::API::Table->new($name, $definition, $self);
+    push(@{$self->{tables}}, $table);
+    $self->{table_names}->{$name} = $table;
+
+    return $table;
 }
 
 
@@ -64,14 +68,21 @@ sub table {
     my $self = shift;
     my $name  = shift;
 
-    if (!$name) {
-        croak 'usage: table($name)';
+    if ($name) {
+        if (!exists($self->{table_names}->{$name})) {
+            croak "Table '$name' has not been defined";
+        }
+        return $self->{table_names}->{$name};
     }
+    croak 'usage: table($name)';
+}
 
-    if (!exists($self->{tables}->{$name})) {
-        croak "Table '$name' has not been defined";
-    }
-    return $self->{tables}->{$name};
+
+sub tables {
+    my $self = shift;
+    my $name  = shift;
+
+    return @{$self->{tables}};
 }
 
 
@@ -81,11 +92,11 @@ sub row {
     if (!$name) {
         croak 'usage: row($name)';
     }
-    if (!exists($self->{tables}->{$name})) {
+    if (!exists($self->{table_names}->{$name})) {
         croak "Table '$name' has not been defined";
     }
     
-    return $self->{tables}->{$name}->abstract_row;
+    return $self->{table_names}->{$name}->abstract_row;
 }
 
 
@@ -126,32 +137,53 @@ __END__
 
 =head1 NAME
 
-SQL::API - Create SQL statements using Perl objects and logic
+SQL::API - Create SQL statements using Perl logic and objects
 
 =head1 SYNOPSIS
 
   use SQL::API;
 
-  my $schema = SQL::API->new('CD' => {...}, 'Artist' => {...});
-  my $cd     = $schema->row('CD');
-  my $artist = $schema->row('Artist');
+  my $schema = SQL::API->new(
+    'Artists' => {
+        columns => [
+            {name => 'id', primary => 1},
+            {name => 'name',unique => 1},
+        ],
+    },
+    'CDs' => {
+        columns => [
+            {name => 'id', primary => 1},
+            {name => 'title'},
+            {name => 'year'},
+            {name => 'artist', references => 'Artists(id)'}
+        ],
+    },
+    'Tracks' => {
+        columns => [
+            {name => 'id', primary => 1},
+            {name => 'length'},
+            {name => 'cd', references => 'CDs(id)'},
+        ],
+        unique => [
+            {
+                columns => 'length,cd',
+            },
+        ],
+     },
+  );
+
+  print join("\n\n",$schema->table),"\n\n";
+
+  my $track = $schema->row('Tracks');
 
   my $query = $schema->query(
-      select => [
-          $cd->_columns,
-          $artist->id,
-          $artist->name
-      ],
-      where => (
-          ($cd->artist == $artist->id) &
-          ($artist->name == 'Queen') &
-          ($cd->year > 1997)
-      ),
-      order_by => [
-          $cd->year->desc,
-          $cd->title->asc
-      ],
+      select   => [ $track->cd->title, $track->cd->artist->name ],
+      distinct => 1,
+      where    => ( $track->length > 248 ) & ! ($track->cd->year > 1997),
+      order_by => [ $track->cd->year->desc ],
   );
+
+  print $query,"\n";
 
   my $sth = $dbi->prepare($query->sql);
   $sth->execute($query->bind_values);
@@ -164,21 +196,21 @@ SQL::API - Create SQL statements using Perl objects and logic
 
 B<SQL::API> is a module for producing SQL statements using a combination
 of Perl objects, methods and logic operators such as '!', '&' and '|'.
+You can think of B<SQL::API> in the same category as L<SQL::Builder>
+and L<SQL::Abstract> but with extra abilities.
 
-B<SQL::API> is not an object <-> database mapping tool as it only
-generates SQL, but it would make a good base for such a system. You can
-think of B<SQL::API> in the same category as L<SQL::Builder>
-and L<SQL::Abstract> with the ability to easily create complex/nested
-queries.
-
-As B<SQL::API> is very simple it will create what it is asked
-to without knowing or caring if the statements are suitable for the
-target database. If you need to produce SQL which makes use of
-database specific statements which are not portable I suggest you
-create your own layer above this module for that purpose.
+As B<SQL::API> makes use of foreign key information, powerful
+queries can be created with minimal effort, requiring fewer statements
+than if you were to write the SQL yourself.
 
 If you actually want to do something with the SQL generated you need
 to have L<DBI> and the appropriate DBD:* module for your database installed.
+
+Because B<SQL::API> is very simple it will create what it is asked
+to without knowing or caring if the statements are suitable for the
+target database. If you need to produce SQL which makes use of
+non-portable database specific statements you will need to create your
+own layer above B<SQL::API> for that purpose.
 
 =head1 METHODS
 
@@ -243,33 +275,43 @@ your database backend.
                 references  => ['Labels(id,label)'],
             },
         ],
+        engine          => 'InnoDB',
+        default_charset => 'utf8',
     }
+
+Also note that the order in which the tables are defined matters
+when it comes to foreign keys. See a good SQL book or Google for why.
 
 L<SQL::API::Schema> for further details.
 
-=head2 table( )
+=head2 tables( )
 
-Return a list of SQL::API::Table objects representing the database
-tables. The CREATE TABLE statements are available via the 'sql' method,
-and the bind values (usually only from DEFAULT parameters) are returned
-by the 'bind_values' method. These are then suitable for using directly in
-L<DBI> calls.
+Return a list of objects representing the database
+tables. The CREATE TABLE statements are available via the 'sql' and
+'sql_index' methods, and the bind values (usually only from DEFAULT
+parameters) are returned in a list by the 'bind_values' method. These are
+suitable for using directly in L<DBI> calls.
 
-So a typical database installation would go like this:
+So a typical database installation might go like this:
 
     my $schema = SQL::API->new(@schema);
     my $dbi    = DBI->connect(...);
 
     foreach my $t ($schema->table) {
         $dbi->do($t->sql, {}, $t->bind_values);    
+        foreach my $i ($t->sql_index) {
+            $dbi->do($i);    
+        }
     }
 
-You can also call table with a single 'Table' argument to return
-a single object.
-
-The object can also be queried for details about the names of the columns
-but is otherwise not very useful. See L<SQL::API::Table>
+The returned objects can also be queried for details about the names
+of the columns but is otherwise not very useful. See L<SQL::API::Table>
 for more details.
+
+=head2 table('Table')
+
+Returns an object representing the database table 'Table'. Also see
+L<SQL::API::Table> for more details.
 
 =head2 row('Table')
 
@@ -305,7 +347,7 @@ See L<SQL::API::ARow> for more details.
 
 =head2 query(key => value, key => value, key => value, ...)
 
-Returns an SQL::API::Query based object representing an SQL query and
+Returns an object representing an SQL query and
 its associated bind values. The SQL text is available via the 'sql'
 method, and the bind values are returned in a list by the 'bind_values'
 method. These are then suitable for using directly in L<DBI> methods.
@@ -320,12 +362,13 @@ key/value pairs as follows.
 
 =head3 SELECT
 
-  select   => [@columns],       # mandatory
-  distinct => 1 | [@columns],   # optional
-  where    => $expression,      # optional
-  order_by => [@columns],       # optional
-  having   => [@columns]        # optional
-  limit    => [$count, $offset] # optional
+  select          => [@columns],       # mandatory
+  distinct        => 1 | [@columns],   # optional
+  join            => $row,             # optional
+  where           => $expression,      # optional
+  order_by        => [@columns],       # optional
+  having          => [@columns]        # optional
+  limit           => [$count, $offset] # optional
 
 =head3 UPDATE
 
@@ -337,6 +380,11 @@ key/value pairs as follows.
 
   delete   => [@rows],          # mandatory
   where    => $expression       # optional (but probably necessary)
+
+Note: 'from' is not needed because the table information is already
+associated with the columns.
+
+See L<SQL::API::Query>, L<SQL::API::Insert>, L<SQL::API::Select>,...
 
 =head1 EXPRESSIONS
 

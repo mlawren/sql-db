@@ -4,12 +4,13 @@ use warnings;
 use Carp qw(carp croak);
 use overload '""' => 'sql';
 
+use Data::Dumper;
+$Data::Dumper::Indent = 1;
 
 sub new {
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = {
-        name  => undef,
         table => undef,
         def   => undef,
         @_,
@@ -33,6 +34,7 @@ sub new {
 sub setup {
     my $self = shift;
 
+    $self->{name}           = delete $self->{def}->{name};
     $self->{bind_values}    = [];
     $self->{type}           = delete $self->{def}->{type};
     $self->{null}           = delete $self->{def}->{null};
@@ -43,12 +45,22 @@ sub setup {
             push(@{$self->{bind_values}}, $self->{default});
         }
 
+        delete $self->{def}->{default};
     }
-    delete $self->{def}->{default};
 
     $self->{auto_increment} = delete $self->{def}->{auto_increment};
     $self->{unique}         = delete $self->{def}->{unique};
-    delete $self->{def}->{name};
+    $self->{primary}        = delete $self->{def}->{primary};
+
+    if (exists($self->{def}->{references})) {
+        my @cols = $self->table->text2cols(
+            delete $self->{def}->{references}
+        );
+        if (@cols > 1) {
+            croak "Too many foreign keys for ".$self->table.'.'.$self->{name};
+        }
+        $self->{references} = $cols[0];
+    }
 
     if (my @leftovers = keys %{$self->{def}}) {
         warn "Unknown Column definition(s): ". join(',', @leftovers);
@@ -69,25 +81,28 @@ sub table {
 }
 
 
-# only set by API::Table during table definition
-sub foreign_key {
+sub references {
     my $self = shift;
-    if (@_) {
-        $self->{foreign_key} = shift;
-    }
-    return $self->{foreign_key};
+    return $self->{references};
 }
 
 
 sub sql {
     my $self = shift;
+#    if (!$self->{type}) {
+#        return $self->{name};
+#    }
     return sprintf('%-15s %-15s',
             $self->{name},
-            $self->{type})
+            ($self->{type} ? $self->{type} : '<type>'))
            . ($self->{null} ? 'NULL' : 'NOT NULL')
            . (exists($self->{default}) ? ' DEFAULT '.(defined($self->{default}) ? '?': 'NULL') : '')
            . ($self->{auto_increment} ? " AUTO_INCREMENT" : '')
            . ($self->{unique} ? " UNIQUE" : '')
+           . ($self->{primary} ? " PRIMARY" : '')
+           . ($self->{references} ? ' REFERENCES '
+                .$self->{references}->table->name .'('
+                .$self->{references}->name .')' : '')
     ;
 }
 

@@ -23,13 +23,20 @@ sub _define {
 
     warn $pkg if($main::DEBUG);
 
-    if ($col->foreign_key) {
-        foreach my $fcol ($col->foreign_key->table->columns) {
+    if ($col->references) {
+        foreach my $fcol ($col->references->table->columns) {
             my $fcolname = $fcol->name;
             my $sym = $pkg .'::'. $fcolname;
             *{$sym} = sub {
                 my $self = shift;
-                return $self->{aforeign_key}->$fcolname;
+                if (!$self->{reference}) {
+                    $self->{reference} = SQL::API::ARow->_new(
+                        $col->references->table,
+                        $self
+                    );
+                    $self->{arow}->_references($self->{reference});
+                }
+                return $self->{reference}->$fcolname;
             };
             warn $sym if($main::DEBUG);
         }
@@ -58,10 +65,6 @@ sub _new {
     }
 
     bless($self, $pkg);
-
-    if (my $foreign = $col->foreign_key) {
-        $self->{aforeign_key} = $arow->_foreign_arow($foreign->table);
-    }
 
     return $self;
 }

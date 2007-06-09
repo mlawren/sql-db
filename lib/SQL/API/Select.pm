@@ -24,23 +24,15 @@ sub distinct {
 
 sub select_sql {
     my $self = shift;
-    my %aliases;
 
-    foreach (@{$self->{select}}) {
-        $aliases{$_->_arow->_name} = $_->_arow->_alias;
-        foreach ($_->_arow->_foreign_arows) {
-            $aliases{$_->_name} = $_->_alias;
-        }
-    }
+    $self->get_aliases(map {$_->_arow} @{$self->{select}});
 
     my $s = 'SELECT';
 
     if ($self->{distinct}) {
         $s .= ' DISTINCT';
         if (ref($self->{distinct}) eq 'ARRAY') {
-            foreach (@{$self->{distinct}}) {
-                $aliases{$_->_arow->_name} = $_->_arow->_alias;
-            }
+            $self->get_aliases(map {$_->_arow} @{$self->{distinct}});
             $s .= ' ON (' . join(', ', @{$self->{distinct}}) . ')';
         }
     }
@@ -49,8 +41,7 @@ sub select_sql {
             join(",\n    ", @{$self->{select}});
 
     $s .= "\nFROM\n    " .
-            join(",\n    ",
-            map {"$_ AS $aliases{$_}"} keys %aliases);
+            join(",\n    ", $self->aliases);
 
     return $s;
 }

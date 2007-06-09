@@ -12,6 +12,9 @@ sub new {
     my $self  = $proto->SUPER::new;
     bless($self, $class);
 
+    $self->{aliases}    = {};
+    $self->{conditions} = [];
+
     my $def = shift;
     my %defs;
     unless (ref($def) and ref($def) eq 'HASH') {
@@ -40,6 +43,35 @@ sub new {
 }
 
 
+
+sub get_aliases {
+    my $self    = shift;
+    
+    foreach my $arow (@_) {
+        next if ($self->{aliases}->{$arow->_alias}); # already seen
+        $self->{aliases}->{$arow->_alias} = $arow->_name;
+
+        foreach my $acol ($arow->_referenced_by) {
+            foreach my $col ($arow->_table->primary_keys) {
+                my $name = $col->name;
+                push(@{$self->{conditions}}, $acol == $arow->$name);
+            }
+        }
+
+        foreach ($arow->_references, map {$_->_arow} $arow->_referenced_by) {
+            $self->get_aliases($_);
+        }
+    }
+
+}
+
+
+sub aliases {
+    my $self = shift;
+    return map {"$self->{aliases}->{$_} AS $_"} sort keys %{$self->{aliases}};
+}
+
+
 sub where {
     my $self = shift;
     $self->{where} = shift;
@@ -53,9 +85,19 @@ sub where {
 
 sub where_sql {
     my $self = shift;
+    my @conditions = @{$self->{conditions}};
+
     if ($self->{where}) {
-        return "\nWHERE\n    " .
-                 $self->{where} . "\n";
+        if (@conditions) {
+              $self->{where} = '('. join(") AND\n    (",@conditions) . ')'
+                              ." AND\n    (" . $self->{where} .')';
+        }
+        return "\nWHERE\n    "
+              . $self->{where} . "\n";
+    }
+    elsif (@conditions) {
+        return "\nWHERE\n    ("
+              . join(") AND\n    (",@conditions) . ")\n";
     }
     return '';
 }

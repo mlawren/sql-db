@@ -39,6 +39,7 @@ sub _define {
 sub _new {
     shift;
     my $table = shift;
+    my $referring_column = shift;
 
     #
     # The first time this is called we need to define the package
@@ -51,10 +52,16 @@ sub _new {
     }
 
     my $self = {
-        table        => $table,
-        tid          => $tcount++,
+        table         => $table,
+        tid           => $tcount++,
+        referenced_by => [],
+        references    => [],
     };
     bless($self, $pkg);
+
+    if ($referring_column) {
+        $self->{referenced_by} = [$referring_column];
+    }
 
     foreach my $col ($self->{table}->columns) {
         my $acol = SQL::API::AColumn->_new($col, $self);
@@ -66,23 +73,38 @@ sub _new {
 }
 
 
-sub _foreign_arow {
-    my $self  = shift;
-    my $table = shift;
+#sub _add_reference {
+#    my $self  = shift;
+#    my $table = shift;
+#
+#    if (!exists($self->{references}->{$table->name})) {
+#        my $arow = __PACKAGE__->_new($table);
+#        $arow->_referenced_by($self);
+#        $self->{references}->{$table->name} = $arow;
+#    }
+#    return $self->{references}->{$table->name};
+#}
 
-    if (!exists($self->{foreign_arows}->{$table->name})) {
-        my $arow = __PACKAGE__->_new($table);
-        $self->{foreign_arows}->{$table->name} = $arow;
-    }
-    return $self->{foreign_arows}->{$table->name};
-}
 
-
-sub _foreign_arows {
+sub _referenced_by {
     my $self = shift;
-    return map {$self->{foreign_arows}->{$_}}
-               keys %{$self->{foreign_arows}};
+#    if (@_) {
+#        push(@{$self->{referenced_by}}, @_);
+#        return;
+#    }
+    return @{$self->{referenced_by}};
 }
+
+
+sub _references {
+    my $self = shift;
+    if (@_) {
+        push(@{$self->{references}}, @_);
+        return;
+    }
+    return @{$self->{references}};
+}
+
 
 sub _name {
     my $self = shift;

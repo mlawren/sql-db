@@ -8,12 +8,12 @@ use Carp qw(croak confess);
 sub insert {
     my $self = shift;
 
-    if (!scalar(@_)) {
+    if (!@_) {
         confess 'usage: insert(@columns)';
     }
 
     if ($self->{values} and
-         my $count = scalar(@{$self->{values}})) { # values already defined
+        my $count = scalar(@{$self->{values}})) { # values already defined
         if ($count != scalar(@_)) {
             confess "# of values must be same as # of inserted columns";
         }
@@ -36,8 +36,12 @@ sub insert {
 sub values {
     my $self = shift;
 
+    if (!@_) {
+        confess 'usage: values(@values)';
+    }
+
     if ($self->{insert} and 
-         my $count = scalar(@{$self->{insert}})) { # columns already defined
+        my $count = scalar(@{$self->{insert}})) { # columns already defined
         if ($count != scalar(@_)) {
             confess "# of values must be same as # of inserted columns";
         }
@@ -64,7 +68,7 @@ sub sql {
 
 sub columns {
     my $self = shift;
-    return @{$self->{insert}};
+    return map {$_->_table} @{$self->{insert}};
 }
 
 

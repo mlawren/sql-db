@@ -5,7 +5,6 @@ use Carp;
 use overload
     '""' => 'sql',
     '!' => 'expr_not',
-    'not' => 'expr_not',
     '==' => 'expr_eq',
     '&' => 'expr_and',
     '|' => 'expr_or',
@@ -93,7 +92,7 @@ sub expr_not {
         return __PACKAGE__->new($expr . ' NOT NULL');
     }
     if (ref($expr) and $expr->multi) {
-        return __PACKAGE__->new('NOT '. $expr .'');
+        return __PACKAGE__->new('NOT '. $expr .'', $expr->bind_values);
     }
     return __PACKAGE__->new('NOT '. $expr);
 }

@@ -13,7 +13,9 @@ sub get { return (
             },
         ],
         primary =>  [qw(id)],
-        unique  =>  [qw(name)],
+        unique  =>  [
+            [qw(name)]
+        ],
         indexes => [
             {
                 columns => ['name 10 ASC'],
@@ -30,8 +32,9 @@ sub get { return (
                 type => 'INTEGER',
                 auto_increment => 1,
             },
-            {   name => 'artist',
-                type => 'INTEGER',
+            {   name        => 'artist',
+                type        => 'INTEGER',
+                references  => 'Artist(id)',
             },
             {   name => 'year',
                 type => 'INTEGER',
@@ -45,9 +48,7 @@ sub get { return (
         ],
         primary =>  [qw(id)],
         unique => [
-            {
-                columns => [qw(title)],
-            },
+            ['title'],
         ],
         foreign => [
             {
@@ -69,7 +70,7 @@ sub get { return (
             },
             {   name => 'cd',
                 type => 'INTEGER',
-                foreign => 'CD(id)',
+                references => 'CD(id)',
             },
             {   name => 'title',
                 type => 'VARCHAR(255)',
@@ -79,11 +80,10 @@ sub get { return (
         ],
         primary =>  [qw(id)],
         unique => [
-            {
-                columns => [qw(cd title)],
-            },
+            [qw(cd title)],
         ],
     });
 }
+
 
 1;
