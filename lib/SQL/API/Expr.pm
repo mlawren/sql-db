@@ -2,6 +2,7 @@ package SQL::API::Expr;
 use strict;
 use warnings;
 use Carp;
+
 use overload
     '""' => 'sql',
     '!' => 'expr_not',
@@ -10,6 +11,7 @@ use overload
     '|' => 'expr_or',
     '<' => 'expr_lt',
     '>' => 'expr_gt',
+    fallback => 1,
 ;
 
 
@@ -49,50 +51,41 @@ sub bind_values {
 sub expr_eq {
     my $expr = shift;
     my $val  = shift;
-    if (ref($val) and $val->isa('SQL::API::Expr')) {
-        return __PACKAGE__->new($expr .' = '. $val);
+    if (ref($val) and $val->isa(__PACKAGE__)) {
+        return __PACKAGE__->new($expr .' = '. $val, $expr->bind_values);
     }
     return __PACKAGE__->new($expr .' = ?', $val);
-}
-
-
-sub is_null {
-    my $expr = shift;
-    return __PACKAGE__->new($expr .' IS NULL');
 }
 
 
 sub expr_lt {
     my $expr = shift;
     my $val  = shift;
-    if (ref($val) and $val->isa('SQL::API::Expr')) {
-        return __PACKAGE__->($expr .' < '. $val);
+    if (ref($val) and $val->isa(__PACKAGE__)) {
+        return __PACKAGE__->new($expr .' < '. $val, $expr->bind_values);
     }
-    my $t =  __PACKAGE__->new($expr .' < ?', $val);
-    $t->multi(1);
-    return $t;
+    my $newexpr =  __PACKAGE__->new($expr .' < ?', $val);
+    $newexpr->multi(1);
+    return $newexpr;
 }
 
 
 sub expr_gt {
     my $expr = shift;
     my $val  = shift;
-    if (ref($val) and $val->isa('SQL::API::Expr')) {
-        return __PACKAGE__->new($expr .' > '. $val);
+    if (ref($val) and $val->isa(__PACKAGE__)) {
+        return __PACKAGE__->new($expr .' > '. $val, $expr->bind_values);
     }
-    my $t =  __PACKAGE__->new($expr .' > ?', $val);
-    $t->multi(1);
-    return $t;
+    my $newexpr =  __PACKAGE__->new($expr .' > ?', $val);
+    $newexpr->multi(1);
+    return $newexpr;
 }
 
 
 sub expr_not {
     my $expr = shift;
-    if (ref($expr) and $expr->isa('SQL::API::AColumn')) {
-        return __PACKAGE__->new($expr . ' NOT NULL');
-    }
-    if (ref($expr) and $expr->multi) {
-        return __PACKAGE__->new('NOT '. $expr .'', $expr->bind_values);
+    if (ref($expr) and $expr->isa(__PACKAGE__)) {
+        return __PACKAGE__->new('NOT '. $expr, $expr->bind_values);
     }
     return __PACKAGE__->new('NOT '. $expr);
 }
@@ -103,7 +96,7 @@ sub expr_and {
     my $expr2 = shift;
 
     my @values = $expr1->bind_values;
-    if (ref($expr2) and $expr2->isa('SQL::API::Expr')) {
+    if (ref($expr2) and $expr2->isa(__PACKAGE__)) {
         push(@values, $expr2->bind_values);
     }
 
@@ -118,7 +111,7 @@ sub expr_or {
     my $expr2 = shift;
 
     my @values = $expr1->bind_values;
-    if (ref($expr2) and $expr2->isa('SQL::API::Expr')) {
+    if (ref($expr2) and $expr2->isa(__PACKAGE__)) {
         push(@values, $expr2->bind_values);
     }
 
@@ -135,7 +128,7 @@ sub in {
     my @exprs;
 
     foreach my $e (@_) {
-        if (ref($e) and $e->isa('SQL::API::Expr')) {
+        if (ref($e) and $e->isa(__PACKAGE__)) {
             if ($e->isa('SQL::API')) {
                 $e->nobind(1);
             }

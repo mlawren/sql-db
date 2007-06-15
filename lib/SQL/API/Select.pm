@@ -2,24 +2,38 @@ package SQL::API::Select;
 use strict;
 use warnings;
 use base qw(SQL::API::Query);
+use Carp qw(croak confess carp);
 
 
 sub select {
-    my $self = shift;
-    $self->{select} = \@_;
+    my $self   = shift;
+    my $select = shift;
+    foreach (@{$select}) {
+        if (!ref($_)) {
+            confess "select needs AColumn or ARow";
+        }
+        elsif ($_->isa('SQL::API::AColumn')) {
+            push(@{$self->{select}}, $_);
+            push(@{$self->{columns}}, $_->_column)
+        }
+        elsif ($_->isa('SQL::API::ARow')) {
+            push(@{$self->{select}}, $_->_columns);
+            push(@{$self->{columns}}, map {$_->_column} $_->_columns);
+        }
+        else {
+            confess "select needs AColumn or ARow";
+        }
+    }
     return $self;
 }
 
+
 sub distinct {
     my $self = shift;
-    if (ref($_[0])) {
-        $self->{distinct} = \@_;
-    }
-    else {
-        $self->{distinct} = shift;
-    }
-    return $self;
+    $self->{distinct} = shift;
+    return;
 }
+
 
 
 sub select_sql {
@@ -49,7 +63,7 @@ sub select_sql {
 
 sub order_by {
     my $self = shift;
-    $self->{order_by} = \@_;
+    $self->{order_by} = shift;
     return $self;
 }
 
@@ -64,6 +78,22 @@ sub order_by_sql {
 }
 
 
+sub limit {
+    my $self = shift;
+    $self->{limit} = shift;
+    return;
+}
+
+
+sub limit_sql {
+    my $self = shift;
+    if ($self->{limit}) {
+        return "\nLIMIT ". $self->{limit}. "\n";
+    }
+    return '';
+}
+
+
 sub sql {
     my $self = shift;
 
@@ -73,7 +103,7 @@ sub sql {
 #        . $self->group_by_sql
 #        . $self->having_sql
         . $self->order_by_sql
-#        . $self->limit_sql
+        . $self->limit_sql
     ;
 
 }
@@ -81,7 +111,7 @@ sub sql {
 
 sub columns {
     my $self = shift;
-    return @{$self->{select}};
+    return @{$self->{columns}};
 }
 
 sub column_names {

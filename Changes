@@ -1,3 +1,9 @@
+Commit: 9b6517b3eb74d356cc3b061c8a7dc4c020b7bc86 
+Author: Mark Lawrence <nomad@null.net> Sat, 09 Jun 2007 23:50:08 +0200 
+
+    Now have automatic joins (matching up reference keys with primary columns)
+    INSERT and SELECT probably good for 90% of queries.
+
 Commit: 667303900595982625b062f3af20bbbac1804da7 
 Author: Mark Lawrence <nomad@null.net> Fri, 08 Jun 2007 01:51:04 +0200 
 

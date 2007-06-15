@@ -1,5 +1,5 @@
 package SQL::API;
-use 5.006;
+use 5.008;
 use strict;
 use warnings;
 use Carp qw(carp croak);
@@ -139,6 +139,12 @@ __END__
 
 SQL::API - Create SQL statements using Perl logic and objects
 
+=head1 STATUS
+
+This module is brand new and should not yet be used in production.
+However please feel free to give it a workout and let me know what
+doesn't work.
+
 =head1 SYNOPSIS
 
   use SQL::API;
@@ -164,11 +170,7 @@ SQL::API - Create SQL statements using Perl logic and objects
             {name => 'length'},
             {name => 'cd', references => 'CDs(id)'},
         ],
-        unique => [
-            {
-                columns => 'length,cd',
-            },
-        ],
+        unique => [['length,cd']],
      },
   );
 

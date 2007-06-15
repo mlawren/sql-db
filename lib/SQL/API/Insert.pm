@@ -7,47 +7,48 @@ use Carp qw(croak confess);
 
 sub insert {
     my $self = shift;
+    my $insert = shift;
 
-    if (!@_) {
-        confess 'usage: insert(@columns)';
-    }
+    foreach (@{$insert}) {
+        unless (ref($_) and ($_->isa('SQL::API::AColumn') or
+                            $_->isa('SQL::API::ARow'))) {
+            confess "insert needs AColumn or ARow" . $_;
+        }
 
-    if ($self->{values} and
-        my $count = scalar(@{$self->{values}})) { # values already defined
-        if ($count != scalar(@_)) {
-            confess "# of values must be same as # of inserted columns";
+        if ($_->isa('SQL::API::AColumn')) {
+            if ($self->{arow} and $self->{arow} != $_->_arow) {
+                confess "Can only insert into columns of the same table";
+            }
+            $self->{arow} = $_->_arow;
+            push(@{$self->{insert}}, $_);
+            push(@{$self->{columns}}, $_->_column);
+        }
+        else {
+            if ($self->{arow} and $self->{arow} != $_) {
+                confess "Can only insert into columns of the same table";
+            }
+            $self->{arow} = $_;
+            push(@{$self->{insert}}, $_->_columns);
+            push(@{$self->{columns}}, map {$_->_column} $_->_columns);
         }
     }
 
-    $self->{insert} = \@_;
-    $self->{arow}  = $_[0]->_arow;
-
-    foreach (@{$self->{insert}}) {
-        if ($_->_arow != $self->{arow}) {
-            croak "Can only insert into columns of the same table";
-        }
-        if (!ref($_) or !$_->isa('SQL::API::AColumn')) {
-            croak "arguments must be of type SQL::API::AColumn";
-        }
+    unless ($self->{insert}) {
+        confess "insert needs AColumn or ARow";
     }
     return $self;
 }
 
+
 sub values {
-    my $self = shift;
+    my $self   = shift;
+    my $values = shift;
 
-    if (!@_) {
-        confess 'usage: values(@values)';
+    if (!$values) {
+        confess 'usage: values(\@values)';
     }
 
-    if ($self->{insert} and 
-        my $count = scalar(@{$self->{insert}})) { # columns already defined
-        if ($count != scalar(@_)) {
-            confess "# of values must be same as # of inserted columns";
-        }
-    }
-
-    $self->push_bind_values(@_);
+    $self->push_bind_values(@{$values});
 }
 
 

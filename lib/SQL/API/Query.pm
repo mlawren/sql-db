@@ -5,6 +5,9 @@ use base qw(SQL::API::Expr);
 use overload '""' => 'as_string';
 use Carp qw(carp croak);
 
+use Data::Dumper;
+$Data::Dumper::Indent = 1;
+
 
 sub new {
     my $proto = shift;
@@ -16,25 +19,13 @@ sub new {
     $self->{conditions} = [];
 
     my $def = shift;
-    my %defs;
-    unless (ref($def) and ref($def) eq 'HASH') {
-        %defs = @_;
-    }
-    else {
-        %defs = %{$def};
-    }
 
-    while (my ($key,$val) = each %defs) {
+    while (my ($key,$val) = each %{$def}) {
         if ($self->can($key)) {
-            if (ref($val) and ref($val) eq 'ARRAY') {
-                $self->$key(@{$val});
-            }
-            else {
-                $self->$key($val);
-            }
+            $self->$key($val);
             next;
         }
-        carp "unknown argument: $key";
+        carp "unknown INSERT argument: $key";
     }
 
     $self->multi(1);
@@ -51,15 +42,14 @@ sub get_aliases {
         next if ($self->{aliases}->{$arow->_alias}); # already seen
         $self->{aliases}->{$arow->_alias} = $arow->_name;
 
-        foreach my $acol ($arow->_referenced_by) {
-            foreach my $col ($arow->_table->primary_keys) {
-                my $name = $col->name;
-                push(@{$self->{conditions}}, $acol == $arow->$name);
-            }
-        }
-
         foreach ($arow->_references, map {$_->_arow} $arow->_referenced_by) {
-            $self->get_aliases($_);
+            if (ref($_) eq 'ARRAY') {
+                $self->get_aliases($_->[0]);
+                push(@{$self->{conditions}}, $_->[1]);
+            }
+            else {
+                $self->get_aliases($_);
+            }
         }
     }
 
@@ -85,19 +75,21 @@ sub where {
 
 sub where_sql {
     my $self = shift;
-    my @conditions = @{$self->{conditions}};
+    my $condition;
+    if (my @conditions = @{$self->{conditions}}) {
+          $condition = '('. join(") AND\n    (",@conditions) . ')';
+    }
 
     if ($self->{where}) {
-        if (@conditions) {
-              $self->{where} = '('. join(") AND\n    (",@conditions) . ')'
-                              ." AND\n    (" . $self->{where} .')';
-        }
         return "\nWHERE\n    "
-              . $self->{where} . "\n";
+              . ($condition ? $condition ." AND\n    (" : '')
+              . $self->{where} 
+              . ($condition ? ')' : '')
+              . "\n";
     }
-    elsif (@conditions) {
-        return "\nWHERE\n    ("
-              . join(") AND\n    (",@conditions) . ")\n";
+    elsif ($condition) {
+        return "\nWHERE\n    $condition\n";
+#              . join(") AND\n    (",@conditions) . ")\n";
     }
     return '';
 }
@@ -116,6 +108,12 @@ sub as_string {
     my $self = shift;
     my @values = $self->bind_values;
     return $self->sql . "\n" . $self->bind_values_sql . "\n";
+}
+
+
+sub exists {
+    my $self = shift;
+    return SQL::API::Expr->new('EXISTS ('. $self->sql .')', $self->bind_values);
 }
 
 

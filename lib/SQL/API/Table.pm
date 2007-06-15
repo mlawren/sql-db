@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use overload '""' => 'sql';
 use Carp qw(carp croak confess);
+use Scalar::Util qw(weaken);
 use SQL::API::Column;
 use SQL::API::ARow;
 
@@ -24,10 +25,12 @@ sub new {
     }
 
     my $self = {
-        name         => $name,
+        name         => lc($name),
         def          => \%{$column_def},
         schema       => $schema,
     };
+    weaken($self->{schema});
+
     bless($self, $class);
 
     $self->setup;
@@ -336,6 +339,12 @@ sub bind_values {
 sub abstract_row {
     my $self = shift;
     return SQL::API::ARow->_new($self);
+}
+
+
+DESTROY {
+    my $self = shift;
+    warn "DESTROY $self" if($main::DEBUG);
 }
 
 

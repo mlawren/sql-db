@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use Carp qw(carp croak confess);
 use SQL::API::AColumn;
+use Scalar::Util qw(weaken);
 
 my $ABSTRACT = 'SQL::API::Abstract::';
 our $tcount = 0;
@@ -61,6 +62,7 @@ sub _new {
 
     if ($referring_column) {
         $self->{referenced_by} = [$referring_column];
+        weaken($self->{referenced_by});
     }
 
     foreach my $col ($self->{table}->columns) {
@@ -73,33 +75,19 @@ sub _new {
 }
 
 
-#sub _add_reference {
-#    my $self  = shift;
-#    my $table = shift;
-#
-#    if (!exists($self->{references}->{$table->name})) {
-#        my $arow = __PACKAGE__->_new($table);
-#        $arow->_referenced_by($self);
-#        $self->{references}->{$table->name} = $arow;
-#    }
-#    return $self->{references}->{$table->name};
-#}
-
-
 sub _referenced_by {
     my $self = shift;
-#    if (@_) {
-#        push(@{$self->{referenced_by}}, @_);
-#        return;
-#    }
-    return @{$self->{referenced_by}};
+    if ($self->{referenced_by}) {
+        return @{$self->{referenced_by}};
+    }
+    return;
 }
 
 
 sub _references {
     my $self = shift;
     if (@_) {
-        push(@{$self->{references}}, @_);
+        push(@{$self->{references}}, shift);
         return;
     }
     return @{$self->{references}};
@@ -139,6 +127,11 @@ sub _columns {
     return @cols;
 }
 
+
+DESTROY {
+    my $self = shift;
+    warn "DESTROY $self" if($main::DEBUG);
+}
 
 1;
 __END__

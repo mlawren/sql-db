@@ -85,7 +85,7 @@ isa_ok($sql->query(select => []), 'SQL::API::Select', '->query SELECT');
 isa_ok($sql->query({select => []}), 'SQL::API::Select', '->query SELECT hash');
 
 eval {$sql->query(insert => []);};
-like($@, qr/usage: insert/, '->query INSERT usage');
+like($@, qr/insert needs/m, '->query INSERT usage');
 
 isa_ok($sql->query(insert => [$sql->row('CD')->_columns]), 'SQL::API::Insert', '->query INSERT');
 

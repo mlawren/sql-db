@@ -2,7 +2,8 @@ package SQL::API::Column;
 use strict;
 use warnings;
 use Carp qw(carp croak);
-use overload '""' => 'sql';
+use Scalar::Util qw(weaken);
+use overload '""' => 'as_string';
 
 use Data::Dumper;
 $Data::Dumper::Indent = 1;
@@ -20,6 +21,8 @@ sub new {
     unless (ref($self->{table}) and ref($self->{table}) eq 'SQL::API::Table') {
         croak 'table must be an SQL::API::Table'; 
     }
+
+    weaken($self->{table});
 
     unless (ref($self->{def}) and ref($self->{def}) eq 'HASH') {
         die 'column definition must be a HASHREF'; 
@@ -60,6 +63,7 @@ sub setup {
             croak "Too many foreign keys for ".$self->table.'.'.$self->{name};
         }
         $self->{references} = $cols[0];
+        weaken($self->{references});
     }
 
     if (my @leftovers = keys %{$self->{def}}) {
@@ -110,6 +114,18 @@ sub sql {
 sub bind_values {
     my $self = shift;
     return @{$self->{bind_values}};
+}
+
+
+sub as_string {
+    my $self = shift;
+    return $self->{table}->name .'.'. $self->{name};
+}
+
+
+DESTROY {
+    my $self = shift;
+    warn "DESTROY $self" if($main::DEBUG);
 }
 
 1;
