@@ -1,4 +1,4 @@
-This is the debian package for the SQL::API module.
+This is the debian package for the SQL::DB module.
 It was created by Mark Lawrence <nomad@null.net> using dh-make-perl.
 
 This copyright info was automatically extracted from the perl module.

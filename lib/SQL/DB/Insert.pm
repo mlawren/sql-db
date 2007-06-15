@@ -1,7 +1,7 @@
-package SQL::API::Insert;
+package SQL::DB::Insert;
 use strict;
 use warnings;
-use base qw(SQL::API::Query);
+use base qw(SQL::DB::Query);
 use Carp qw(croak confess);
 
 
@@ -10,12 +10,12 @@ sub insert {
     my $insert = shift;
 
     foreach (@{$insert}) {
-        unless (ref($_) and ($_->isa('SQL::API::AColumn') or
-                            $_->isa('SQL::API::ARow'))) {
+        unless (ref($_) and ($_->isa('SQL::DB::AColumn') or
+                            $_->isa('SQL::DB::ARow'))) {
             confess "insert needs AColumn or ARow" . $_;
         }
 
-        if ($_->isa('SQL::API::AColumn')) {
+        if ($_->isa('SQL::DB::AColumn')) {
             if ($self->{arow} and $self->{arow} != $_->_arow) {
                 confess "Can only insert into columns of the same table";
             }

@@ -1,14 +1,14 @@
-package SQL::API;
+package SQL::DB::Schema;
 use 5.008;
 use strict;
 use warnings;
 use Carp qw(carp croak);
 
-use SQL::API::Table;
-use SQL::API::Insert;
-use SQL::API::Select;
-#use SQL::API::Update;
-#use SQL::API::Delete;
+use SQL::DB::Table;
+use SQL::DB::Insert;
+use SQL::DB::Select;
+#use SQL::DB::Update;
+#use SQL::DB::Delete;
 
 our $VERSION = '0.01';
 
@@ -56,7 +56,7 @@ sub define {
         warn "Redefining table '$name'";
     }
 
-    my $table = SQL::API::Table->new($name, $definition, $self);
+    my $table = SQL::DB::Table->new($name, $definition, $self);
     push(@{$self->{tables}}, $table);
     $self->{table_names}->{$name} = $table;
 
@@ -116,16 +116,16 @@ sub query {
 
 #die ref($def);
     if (exists($def->{insert})) {
-        return SQL::API::Insert->new($def);
+        return SQL::DB::Insert->new($def);
     }
     elsif (exists($def->{select})) {
-        return SQL::API::Select->new($def);
+        return SQL::DB::Select->new($def);
     }
 #    elsif (exists($def->{update})) {
-#        return SQL::API::Update->new($def);
+#        return SQL::DB::Update->new($def);
 #    }
 #    elsif (exists($def->{delete})) {
-#        return SQL::API::Delete->new($def);
+#        return SQL::DB::Delete->new($def);
 #    }
 
     croak 'query badly defined (missing select,insert,update etc)';
@@ -137,7 +137,7 @@ __END__
 
 =head1 NAME
 
-SQL::API - Create SQL statements using Perl logic and objects
+SQL::DB::Schema - Create SQL statements using Perl logic and objects
 
 =head1 STATUS
 
@@ -147,9 +147,9 @@ doesn't work.
 
 =head1 SYNOPSIS
 
-  use SQL::API;
+  use SQL::DB::Schema;
 
-  my $schema = SQL::API->new(
+  my $schema = SQL::DB::Schema->new(
     'Artists' => {
         columns => [
             {name => 'id', primary => 1},
@@ -196,35 +196,35 @@ doesn't work.
 
 =head1 DESCRIPTION
 
-B<SQL::API> is a module for producing SQL statements using a combination
+B<SQL::DB::Schema> is a module for producing SQL statements using a combination
 of Perl objects, methods and logic operators such as '!', '&' and '|'.
-You can think of B<SQL::API> in the same category as L<SQL::Builder>
+You can think of B<SQL::DB::Schema> in the same category as L<SQL::Builder>
 and L<SQL::Abstract> but with extra abilities.
 
-As B<SQL::API> makes use of foreign key information, powerful
+As B<SQL::DB::Schema> makes use of foreign key information, powerful
 queries can be created with minimal effort, requiring fewer statements
 than if you were to write the SQL yourself.
 
 If you actually want to do something with the SQL generated you need
 to have L<DBI> and the appropriate DBD:* module for your database installed.
 
-Because B<SQL::API> is very simple it will create what it is asked
+Because B<SQL::DB::Schema> is very simple it will create what it is asked
 to without knowing or caring if the statements are suitable for the
 target database. If you need to produce SQL which makes use of
 non-portable database specific statements you will need to create your
-own layer above B<SQL::API> for that purpose.
+own layer above B<SQL::DB::Schema> for that purpose.
 
 =head1 METHODS
 
 =head2 new(\@schema)
 
-Create a new SQL::API object to hold the table schema.
+Create a new SQL::DB::Schema object to hold the table schema.
 \@schema (a reference to an ARRAY) must be a list of
 ('Table' => {...}) pairs representing tables and their
 column definitions.
 
     my $def    = ['Users' => {columns => [{name => 'id'}]}];
-    my $schema = SQL::API->new($def);
+    my $schema = SQL::DB::Schema->new($def);
 
 The table definition can include almost anything you can think of
 using when creating a table. The following example (while overkill and
@@ -284,7 +284,7 @@ your database backend.
 Also note that the order in which the tables are defined matters
 when it comes to foreign keys. See a good SQL book or Google for why.
 
-L<SQL::API::Schema> for further details.
+L<SQL::DB::Schema> for further details.
 
 =head2 tables( )
 
@@ -296,7 +296,7 @@ suitable for using directly in L<DBI> calls.
 
 So a typical database installation might go like this:
 
-    my $schema = SQL::API->new(@schema);
+    my $schema = SQL::DB::Schema->new(@schema);
     my $dbi    = DBI->connect(...);
 
     foreach my $t ($schema->table) {
@@ -307,13 +307,13 @@ So a typical database installation might go like this:
     }
 
 The returned objects can also be queried for details about the names
-of the columns but is otherwise not very useful. See L<SQL::API::Table>
+of the columns but is otherwise not very useful. See L<SQL::DB::Table>
 for more details.
 
 =head2 table('Table')
 
 Returns an object representing the database table 'Table'. Also see
-L<SQL::API::Table> for more details.
+L<SQL::DB::Table> for more details.
 
 =head2 row('Table')
 
@@ -345,7 +345,7 @@ do the following:
         where  => $dvd->director->name == 'Spielberg'
     );
 
-See L<SQL::API::ARow> for more details.
+See L<SQL::DB::ARow> for more details.
 
 =head2 query(key => value, key => value, key => value, ...)
 
@@ -386,16 +386,16 @@ key/value pairs as follows.
 Note: 'from' is not needed because the table information is already
 associated with the columns.
 
-See L<SQL::API::Query>, L<SQL::API::Insert>, L<SQL::API::Select>,...
+See L<SQL::DB::Query>, L<SQL::DB::Insert>, L<SQL::DB::Select>,...
 
 =head1 EXPRESSIONS
 
-The real power of B<SQL::API> lies in the way that the WHERE
+The real power of B<SQL::DB::Schema> lies in the way that the WHERE
 $expression is constructed.  Abstract columns and queries are derived
 from an expression class. Using Perl's overload feature they can be
 combined and nested any way to directly map Perl logic to SQL logic.
 
-See L<SQL::API::Query> for more details.
+See L<SQL::DB::Query> for more details.
 
 =head1 INTERNAL METHODS
 

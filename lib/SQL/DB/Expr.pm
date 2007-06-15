@@ -1,4 +1,4 @@
-package SQL::API::Expr;
+package SQL::DB::Expr;
 use strict;
 use warnings;
 use Carp;
@@ -129,7 +129,7 @@ sub in {
 
     foreach my $e (@_) {
         if (ref($e) and $e->isa(__PACKAGE__)) {
-            if ($e->isa('SQL::API')) {
+            if ($e->isa('SQL::DB')) {
                 $e->nobind(1);
             }
             push(@exprs, $e);

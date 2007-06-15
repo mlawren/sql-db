@@ -1,7 +1,7 @@
-sql-api
+sql-db
 =======
 
-  SQL::API is a class for representing SQL tables and building queries
+  SQL::DB is a class for representing SQL tables and building queries
   against those tables.
 
 INSTALLATION

@@ -1,11 +1,11 @@
-package SQL::API::Table;
+package SQL::DB::Table;
 use strict;
 use warnings;
 use overload '""' => 'sql';
 use Carp qw(carp croak confess);
 use Scalar::Util qw(weaken);
-use SQL::API::Column;
-use SQL::API::ARow;
+use SQL::DB::Column;
+use SQL::DB::ARow;
 
         use Data::Dumper;
         $Data::Dumper::Indent = 1;
@@ -88,7 +88,7 @@ sub setup {
             }
         }
 
-        my $col = SQL::API::Column->new(
+        my $col = SQL::DB::Column->new(
             table => $self,
             def   => $coldef,
         );
@@ -338,7 +338,7 @@ sub bind_values {
 
 sub abstract_row {
     my $self = shift;
-    return SQL::API::ARow->_new($self);
+    return SQL::DB::ARow->_new($self);
 }
 
 

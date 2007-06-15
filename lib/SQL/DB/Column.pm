@@ -1,4 +1,4 @@
-package SQL::API::Column;
+package SQL::DB::Column;
 use strict;
 use warnings;
 use Carp qw(carp croak);
@@ -18,8 +18,8 @@ sub new {
     };
 
 
-    unless (ref($self->{table}) and ref($self->{table}) eq 'SQL::API::Table') {
-        croak 'table must be an SQL::API::Table'; 
+    unless (ref($self->{table}) and ref($self->{table}) eq 'SQL::DB::Table') {
+        croak 'table must be an SQL::DB::Table'; 
     }
 
     weaken($self->{table});

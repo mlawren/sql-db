@@ -1,7 +1,7 @@
-package SQL::API::Query;
+package SQL::DB::Query;
 use strict;
 use warnings;
-use base qw(SQL::API::Expr);
+use base qw(SQL::DB::Expr);
 use overload '""' => 'as_string';
 use Carp qw(carp croak);
 
@@ -65,7 +65,7 @@ sub aliases {
 sub where {
     my $self = shift;
     $self->{where} = shift;
-    if (ref($self->{where}) and $self->{where}->isa('SQL::API::Expr')) {
+    if (ref($self->{where}) and $self->{where}->isa('SQL::DB::Expr')) {
         $self->push_bind_values($self->{where}->bind_values);
         $self->{where}->multi(0);
     }
@@ -113,7 +113,7 @@ sub as_string {
 
 sub exists {
     my $self = shift;
-    return SQL::API::Expr->new('EXISTS ('. $self->sql .')', $self->bind_values);
+    return SQL::DB::Expr->new('EXISTS ('. $self->sql .')', $self->bind_values);
 }
 
 

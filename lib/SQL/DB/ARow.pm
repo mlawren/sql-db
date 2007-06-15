@@ -1,11 +1,11 @@
-package SQL::API::ARow;
+package SQL::DB::ARow;
 use strict;
 use warnings;
 use Carp qw(carp croak confess);
-use SQL::API::AColumn;
+use SQL::DB::AColumn;
 use Scalar::Util qw(weaken);
 
-my $ABSTRACT = 'SQL::API::Abstract::';
+my $ABSTRACT = 'SQL::DB::Abstract::';
 our $tcount = 0;
 
 
@@ -21,7 +21,7 @@ sub _define {
         carp "redefining $pkg";
     }
 
-    push(@{$isa}, 'SQL::API::ARow');
+    push(@{$isa}, 'SQL::DB::ARow');
 
     warn $pkg if($main::DEBUG);
 
@@ -32,7 +32,7 @@ sub _define {
             return $self->{column_names}->{$col->name};
         };
 
-#        SQL::API::AColumn->_define($col);
+#        SQL::DB::AColumn->_define($col);
     }
 }
 
@@ -66,7 +66,7 @@ sub _new {
     }
 
     foreach my $col ($self->{table}->columns) {
-        my $acol = SQL::API::AColumn->_new($col, $self);
+        my $acol = SQL::DB::AColumn->_new($col, $self);
 
         push(@{$self->{columns}}, $acol);
         $self->{column_names}->{$col->name} = $acol;

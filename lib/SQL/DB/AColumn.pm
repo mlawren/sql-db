@@ -1,11 +1,11 @@
-package SQL::API::AColumn;
+package SQL::DB::AColumn;
 use strict;
 use warnings;
-use base qw(SQL::API::Expr);
+use base qw(SQL::DB::Expr);
 use Carp qw(carp croak confess);
 use Scalar::Util qw(weaken);
 
-my $ABSTRACT = 'SQL::API::Abstract::';
+my $ABSTRACT = 'SQL::DB::Abstract::';
 
 sub _define {
     shift;
@@ -19,7 +19,7 @@ sub _define {
         carp "redefining $pkg";
     }
 
-    push(@{$isa}, 'SQL::API::AColumn');
+    push(@{$isa}, 'SQL::DB::AColumn');
 
     warn $pkg if($main::DEBUG);
 
@@ -39,7 +39,7 @@ sub _define {
             *{$sym} = sub {
                 my $self = shift;
                 if (!$self->{reference}) {
-                    my $foreign_row = SQL::API::ARow->_new(
+                    my $foreign_row = SQL::DB::ARow->_new(
                         $col->references->table,
                         $self
                     );
@@ -63,7 +63,7 @@ sub _new {
 
     my $col   = shift;
     my $arow  = shift;
-    $self->{col}  = $col;  # column definition SQL::API::AColumn
+    $self->{col}  = $col;  # column definition SQL::DB::AColumn
     $self->{arow} = $arow; # abstract representation of a table row
     weaken($self->{arow});
 
@@ -110,10 +110,10 @@ sub is_null {
 sub like {
     my $self = shift;
     my $val  = shift;
-    if (ref($val) and $val->isa('SQL::API::Expr')) {
-        return SQL::API::Expr->new($self .' LIKE '. $val, $val->bind_values);
+    if (ref($val) and $val->isa('SQL::DB::Expr')) {
+        return SQL::DB::Expr->new($self .' LIKE '. $val, $val->bind_values);
     }
-    my $newexpr =  SQL::API::Expr->new($self .' LIKE ?', $val);
+    my $newexpr =  SQL::DB::Expr->new($self .' LIKE ?', $val);
     return $newexpr;
 }
 

@@ -1,7 +1,7 @@
-package SQL::API::Select;
+package SQL::DB::Select;
 use strict;
 use warnings;
-use base qw(SQL::API::Query);
+use base qw(SQL::DB::Query);
 use Carp qw(croak confess carp);
 
 
@@ -12,11 +12,11 @@ sub select {
         if (!ref($_)) {
             confess "select needs AColumn or ARow";
         }
-        elsif ($_->isa('SQL::API::AColumn')) {
+        elsif ($_->isa('SQL::DB::AColumn')) {
             push(@{$self->{select}}, $_);
             push(@{$self->{columns}}, $_->_column)
         }
-        elsif ($_->isa('SQL::API::ARow')) {
+        elsif ($_->isa('SQL::DB::ARow')) {
             push(@{$self->{select}}, $_->_columns);
             push(@{$self->{columns}}, map {$_->_column} $_->_columns);
         }

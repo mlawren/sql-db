@@ -2,18 +2,18 @@ use strict;
 use warnings;
 use Test::More tests => 25;
 
-BEGIN { use_ok('SQL::API');}
+BEGIN { use_ok('SQL::DB::Schema');}
 require_ok('t/testlib/Schema.pm');
 
 
-can_ok('SQL::API', qw(new define tables table row query));
+can_ok('SQL::DB::Schema', qw(new define tables table row query));
 
 my $sql;
 my @schema = Schema->get;
 ok(scalar @schema, 'Have schema');
 
-$sql = SQL::API->new();
-isa_ok($sql, 'SQL::API', '->new empty');
+$sql = SQL::DB::Schema->new();
+isa_ok($sql, 'SQL::DB::Schema', '->new empty');
 
 my $table;
 
@@ -33,22 +33,22 @@ eval {$sql->row('Unknown');};
 like($@, qr/has not been defined/, '->row table not defined');
 
 @schema = Schema->get;
-$sql = SQL::API->new(@schema);
-isa_ok($sql, 'SQL::API', '->new with array');
-isa_ok($sql->table('CD'), 'SQL::API::Table');
+$sql = SQL::DB::Schema->new(@schema);
+isa_ok($sql, 'SQL::DB::Schema', '->new with array');
+isa_ok($sql->table('CD'), 'SQL::DB::Table');
 
 @schema = Schema->get;
-$sql = SQL::API->new([@schema]);
-isa_ok($sql, 'SQL::API', '->new with arrayref');
-isa_ok($sql->table('CD'), 'SQL::API::Table');
+$sql = SQL::DB::Schema->new([@schema]);
+isa_ok($sql, 'SQL::DB::Schema', '->new with arrayref');
+isa_ok($sql->table('CD'), 'SQL::DB::Table');
 
-eval {$sql = SQL::API->new({});};
+eval {$sql = SQL::DB::Schema->new({});};
 like($@, qr/requires an array or arrayref/, '->new requires arrayref');
 
 @schema = Schema->get;
-$sql = SQL::API->new(@schema);
-isa_ok($sql, 'SQL::API', '->new with array');
-isa_ok($sql->table('CD'), 'SQL::API::Table');
+$sql = SQL::DB::Schema->new(@schema);
+isa_ok($sql, 'SQL::DB::Schema', '->new with array');
+isa_ok($sql->table('CD'), 'SQL::DB::Table');
 
 {
     my $warning;
@@ -72,7 +72,7 @@ isa_ok($sql->table('CD'), 'SQL::API::Table');
 }
 
 
-$sql = SQL::API->new(Schema->get);
+$sql = SQL::DB::Schema->new(Schema->get);
 
 eval {$sql->query;};
 like($@, qr/query badly defined/, '->query badly defined');
@@ -80,13 +80,13 @@ like($@, qr/query badly defined/, '->query badly defined');
 eval {$sql->query({});};
 like($@, qr/query badly defined/, '->query badly defined with hash');
 
-isa_ok($sql->query(select => []), 'SQL::API::Select', '->query SELECT');
+isa_ok($sql->query(select => []), 'SQL::DB::Select', '->query SELECT');
 
-isa_ok($sql->query({select => []}), 'SQL::API::Select', '->query SELECT hash');
+isa_ok($sql->query({select => []}), 'SQL::DB::Select', '->query SELECT hash');
 
 eval {$sql->query(insert => []);};
 like($@, qr/insert needs/m, '->query INSERT usage');
 
-isa_ok($sql->query(insert => [$sql->row('CD')->_columns]), 'SQL::API::Insert', '->query INSERT');
+isa_ok($sql->query(insert => [$sql->row('CD')->_columns]), 'SQL::DB::Insert', '->query INSERT');
 
 
