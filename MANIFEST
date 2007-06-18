@@ -16,6 +16,7 @@ inc/Module/Install/Makefile.pm
 inc/Module/Install/Metadata.pm
 inc/Module/Install/Win32.pm
 inc/Module/Install/WriteAll.pm
+lib/SQL/DB.pm
 lib/SQL/DB/Schema.pm
 lib/SQL/DB/AColumn.pm
 lib/SQL/DB/ARow.pm
@@ -29,6 +30,7 @@ lib/SQL/DB/Table.pm
 lib/SQL/DB/Update.pm
 t/01-schema.t
 t/02-abstract.t
+t/Column.t
 t/testlib/Schema.pm
 Makefile.PL
 MANIFEST
