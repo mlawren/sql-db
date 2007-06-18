@@ -5,13 +5,17 @@ use warnings;
 use Carp qw(carp croak);
 
 use SQL::DB::Table;
+
 use SQL::DB::Insert;
 use SQL::DB::Select;
-#use SQL::DB::Update;
-#use SQL::DB::Delete;
+use SQL::DB::Update;
+use SQL::DB::Delete;
 
 our $VERSION = '0.01';
+our $DEBUG;
 
+use Data::Dumper;
+$Data::Dumper::Indent = 1;
 
 sub new {
     my $proto = shift;
@@ -22,45 +26,35 @@ sub new {
     };
     bless($self,$class);
 
-    my @items;
-    if (!ref($_[0])) {
-         @items = @_;
-    }
-    elsif (ref($_[0]) eq 'ARRAY') {
-         my $ref = shift;
-         @items = @{$ref};
-    }
-    else {
-        die 'new requires an array or arrayref'
-    }
 
-    while (@items) {
-        my $name = shift @items;
-        my $def  = shift @items;
-        $self->define($name, $def);
+    foreach (@_) {
+        unless (ref($_) and ref($_) eq 'ARRAY') {
+            croak 'usage: new($arrayref, $arrayref,...)'
+        }
+        $self->define($_);
     }
     return $self;
 }
 
 
 sub define {
-    my $self       = shift;
-    my $name       = shift;
-    my $definition = shift;
+    my $self = shift;
+    my $def  = shift;
 
-    if (!$name or ref($definition) ne 'HASH') {
-        croak 'usage: define($name, $hashref)';
+    unless (ref($def) and ref($def) eq 'ARRAY') {
+        croak 'usage: define($arrayref)';
     }
 
-    if (exists($self->{table_names}->{$name})) {
-        warn "Redefining table '$name'";
+    my $table = SQL::DB::Table->new($def, $self);
+
+    if (exists($self->{table_names}->{$table->name})) {
+        croak "Table ". $table->name ." already defined";
     }
 
-    my $table = SQL::DB::Table->new($name, $definition, $self);
     push(@{$self->{tables}}, $table);
-    $self->{table_names}->{$name} = $table;
+    $self->{table_names}->{$table->name} = $table;
 
-    return $table;
+    return;
 }
 
 
@@ -86,11 +80,11 @@ sub tables {
 }
 
 
-sub row {
+sub arow {
     my $self = shift;
     my $name = shift;
     if (!$name) {
-        croak 'usage: row($name)';
+        croak 'usage: arow($name)';
     }
     if (!exists($self->{table_names}->{$name})) {
         croak "Table '$name' has not been defined";
@@ -100,35 +94,24 @@ sub row {
 }
 
 
-sub query {
+sub insert {
     my $self = shift;
+    return SQL::DB::Insert->new(@_);
+}
 
-    my $def;
-    if (ref($_[0]) and ref($_[0]) eq 'HASH') {
-        $def = shift;
-    }
-    else {
-        my %defs = @_;
-        $def = \%defs;        
-    }
-#use Data::Dumper;
-#$Data::Dumper::Indent=1;
+sub select {
+    my $self = shift;
+    return SQL::DB::Select->new(@_);
+}
 
-#die ref($def);
-    if (exists($def->{insert})) {
-        return SQL::DB::Insert->new($def);
-    }
-    elsif (exists($def->{select})) {
-        return SQL::DB::Select->new($def);
-    }
-#    elsif (exists($def->{update})) {
-#        return SQL::DB::Update->new($def);
-#    }
-#    elsif (exists($def->{delete})) {
-#        return SQL::DB::Delete->new($def);
-#    }
+sub update {
+    my $self = shift;
+    return SQL::DB::Update->new(@_);
+}
 
-    croak 'query badly defined (missing select,insert,update etc)';
+sub delete {
+    my $self = shift;
+    return SQL::DB::Delete->new(@_);
 }
 
 
@@ -150,36 +133,36 @@ doesn't work.
   use SQL::DB::Schema;
 
   my $schema = SQL::DB::Schema->new(
-    'Artists' => {
+    'Artists' => [
         columns => [
-            {name => 'id', primary => 1},
-            {name => 'name',unique => 1},
+            [name => 'id', primary => 1],
+            [name => 'name',unique => 1],
         ],
-    },
-    'CDs' => {
+    ],
+    'CDs' => [
         columns => [
-            {name => 'id', primary => 1},
-            {name => 'title'},
-            {name => 'year'},
-            {name => 'artist', references => 'Artists(id)'}
+            [name => 'id', primary => 1],
+            [name => 'title'],
+            [name => 'year'],
+            [name => 'artist', references => 'Artists(id)']
         ],
-    },
-    'Tracks' => {
+    ],
+    'Tracks' => [
         columns => [
-            {name => 'id', primary => 1},
-            {name => 'length'},
-            {name => 'cd', references => 'CDs(id)'},
+            [name => 'id', primary => 1],
+            [name => 'length'],
+            [name => 'cd', references => 'CDs(id)'],
         ],
         unique => [['length,cd']],
-     },
+     ],
   );
 
   print join("\n\n",$schema->table),"\n\n";
 
-  my $track = $schema->row('Tracks');
+  my $track = $schema->arow('Tracks');
 
-  my $query = $schema->query(
-      select   => [ $track->cd->title, $track->cd->artist->name ],
+  my $query = $schema->select(
+      columns  => [ $track->cd->title, $track->cd->artist->name ],
       distinct => 1,
       where    => ( $track->length > 248 ) & ! ($track->cd->year > 1997),
       order_by => [ $track->cd->year->desc ],
@@ -196,23 +179,26 @@ doesn't work.
 
 =head1 DESCRIPTION
 
-B<SQL::DB::Schema> is a module for producing SQL statements using a combination
-of Perl objects, methods and logic operators such as '!', '&' and '|'.
-You can think of B<SQL::DB::Schema> in the same category as L<SQL::Builder>
-and L<SQL::Abstract> but with extra abilities.
+B<SQL::DB::Schema> is a module for producing SQL statements using a
+combination of Perl objects, methods and logic operators such as '!',
+'&' and '|'.  You can think of B<SQL::DB::Schema> in the same
+category as L<SQL::Builder> and L<SQL::Abstract> but with extra
+abilities.
 
 As B<SQL::DB::Schema> makes use of foreign key information, powerful
 queries can be created with minimal effort, requiring fewer statements
 than if you were to write the SQL yourself.
-
-If you actually want to do something with the SQL generated you need
-to have L<DBI> and the appropriate DBD:* module for your database installed.
 
 Because B<SQL::DB::Schema> is very simple it will create what it is asked
 to without knowing or caring if the statements are suitable for the
 target database. If you need to produce SQL which makes use of
 non-portable database specific statements you will need to create your
 own layer above B<SQL::DB::Schema> for that purpose.
+
+You probably don't want to B<SQL::DB::Schema> directly unless you
+are writing an Object Mapping Layer or need to produce SQL offline.
+If you need to talk to a real database you are much better off
+using something like L<SQL::DB>.
 
 =head1 METHODS
 
@@ -284,8 +270,6 @@ your database backend.
 Also note that the order in which the tables are defined matters
 when it comes to foreign keys. See a good SQL book or Google for why.
 
-L<SQL::DB::Schema> for further details.
-
 =head2 tables( )
 
 Return a list of objects representing the database
@@ -315,7 +299,7 @@ for more details.
 Returns an object representing the database table 'Table'. Also see
 L<SQL::DB::Table> for more details.
 
-=head2 row('Table')
+=head2 arow('Table')
 
 Returns an abstract representation of a row from 'Table' for
 use in all query types. This object has methods for each column
@@ -325,7 +309,7 @@ are the workhorse of the whole system.
 As an example, if a table 'DVDs' has been defined with columns 'id',
 'title' and 'director' and you create an abstract row using
 
-    my $dvd = $schema->row('DVDs')
+    my $dvd = $schema->arow('DVDs')
     
 then the following are equivalent:
 
@@ -366,7 +350,7 @@ key/value pairs as follows.
 
   select          => [@columns],       # mandatory
   distinct        => 1 | [@columns],   # optional
-  join            => $row,             # optional
+  join            => $arow,             # optional
   where           => $expression,      # optional
   order_by        => [@columns],       # optional
   having          => [@columns]        # optional
@@ -380,7 +364,7 @@ key/value pairs as follows.
 
 =head3 DELETE
 
-  delete   => [@rows],          # mandatory
+  delete   => [@arows],          # mandatory
   where    => $expression       # optional (but probably necessary)
 
 Note: 'from' is not needed because the table information is already

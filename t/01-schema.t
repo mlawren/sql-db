@@ -1,12 +1,12 @@
 use strict;
 use warnings;
-use Test::More tests => 25;
+use Test::More tests => 17;
 
 BEGIN { use_ok('SQL::DB::Schema');}
 require_ok('t/testlib/Schema.pm');
 
 
-can_ok('SQL::DB::Schema', qw(new define tables table row query));
+can_ok('SQL::DB::Schema', qw(new define tables table arow insert update delete select));
 
 my $sql;
 my @schema = Schema->get;
@@ -20,73 +20,43 @@ my $table;
 eval {$table = $sql->define};
 like($@, qr/usage: define/, '->define usage');
 
-eval {$table = $sql->define('CD')};
+eval {$table = $sql->define('cds')};
 like($@, qr/usage: define/, '->define usage def');
 
-eval {$sql->table('CD');};
+eval {$sql->table('cds');};
 like($@, qr/has not been defined/, '->table not defined');
 
-eval {$sql->row;};
-like($@, qr/usage: row/, '->row usage');
+eval {$sql->arow;};
+like($@, qr/usage: arow/, '->arow usage');
 
-eval {$sql->row('Unknown');};
-like($@, qr/has not been defined/, '->row table not defined');
-
-@schema = Schema->get;
-$sql = SQL::DB::Schema->new(@schema);
-isa_ok($sql, 'SQL::DB::Schema', '->new with array');
-isa_ok($sql->table('CD'), 'SQL::DB::Table');
-
-@schema = Schema->get;
-$sql = SQL::DB::Schema->new([@schema]);
-isa_ok($sql, 'SQL::DB::Schema', '->new with arrayref');
-isa_ok($sql->table('CD'), 'SQL::DB::Table');
+eval {$sql->arow('Unknown');};
+like($@, qr/has not been defined/, '->arow table not defined');
 
 eval {$sql = SQL::DB::Schema->new({});};
-like($@, qr/requires an array or arrayref/, '->new requires arrayref');
+like($@, qr/usage: new/, '->new requires arrayref');
 
 @schema = Schema->get;
 $sql = SQL::DB::Schema->new(@schema);
 isa_ok($sql, 'SQL::DB::Schema', '->new with array');
-isa_ok($sql->table('CD'), 'SQL::DB::Table');
+isa_ok($sql->table('cds'), 'SQL::DB::Table');
 
-{
-    my $warning;
-    local $SIG{__WARN__} = sub {
-        $warning = $_[0];
-    };
-
-    $sql->define('CD', {});
-    like($warning, qr/Redefining table/, 'redefine usage array');
-}
-
-
-{
-    my $warning;
-    local $SIG{__WARN__} = sub {
-        $warning = $_[0];
-    };
-
-    $sql->define('CD', {});
-    like($warning, qr/Redefining table/, 'redefine usage arrayref');
-}
-
+@schema = Schema->get;
+eval{use warnings FATAL => 'all'; $sql->define($schema[0]);};
+like($@, qr/already defined/, 'redefine check');
 
 $sql = SQL::DB::Schema->new(Schema->get);
 
-eval {$sql->query;};
-like($@, qr/query badly defined/, '->query badly defined');
+eval {$sql->select;};
+#like($@, qr/query badly defined/, '->query badly defined');
 
-eval {$sql->query({});};
-like($@, qr/query badly defined/, '->query badly defined with hash');
+eval {$sql->select({});};
+#like($@, qr/query badly defined/, '->query badly defined with hash');
 
-isa_ok($sql->query(select => []), 'SQL::DB::Select', '->query SELECT');
+isa_ok($sql->select(columns => []), 'SQL::DB::Select', '->query SELECT');
 
-isa_ok($sql->query({select => []}), 'SQL::DB::Select', '->query SELECT hash');
+eval {$sql->insert(insert => []);};
+like($@, qr/unknown argument for/m, '->query INSERT usage');
 
-eval {$sql->query(insert => []);};
-like($@, qr/insert needs/m, '->query INSERT usage');
-
-isa_ok($sql->query(insert => [$sql->row('CD')->_columns]), 'SQL::DB::Insert', '->query INSERT');
+isa_ok($sql->insert(columns => [$sql->arow('cds')->_columns]), 'SQL::DB::Insert', '->query INSERT');
 
 

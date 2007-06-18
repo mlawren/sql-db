@@ -135,6 +135,12 @@ sub desc {
 }
 
 
+#sub count {
+#    my $self = shift;
+#    return 'COUNT(' .$self->sql . ')';
+#}
+
+
 sub sql {
     my $self = shift;
     return $self->{arow}->_alias .'.'. $self->{col}->name;

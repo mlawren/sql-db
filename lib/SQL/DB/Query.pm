@@ -3,7 +3,8 @@ use strict;
 use warnings;
 use base qw(SQL::DB::Expr);
 use overload '""' => 'as_string';
-use Carp qw(carp croak);
+
+use Carp qw(carp croak confess);
 
 use Data::Dumper;
 $Data::Dumper::Indent = 1;
@@ -18,14 +19,13 @@ sub new {
     $self->{aliases}    = {};
     $self->{conditions} = [];
 
-    my $def = shift;
-
-    while (my ($key,$val) = each %{$def}) {
+    while (my $key = shift) {
+        my $val = shift;
         if ($self->can($key)) {
             $self->$key($val);
             next;
         }
-        carp "unknown INSERT argument: $key";
+        croak "unknown argument for $class: $key";
     }
 
     $self->multi(1);
@@ -62,6 +62,90 @@ sub aliases {
 }
 
 
+sub columns {
+    my $self    = shift;
+    my $columns = shift;
+    my %arows;
+
+    if (!$columns) {
+        if ($self->{columns}) {
+            return @{$self->{columns}};
+        }
+        return;
+    }
+
+    foreach (@{$columns}) {
+        unless (ref($_) and ($_->isa('SQL::DB::AColumn') or
+                            $_->isa('SQL::DB::ARow'))) {
+            confess "must specify either AColumn or ARow" . $_;
+        }
+
+        if ($_->isa('SQL::DB::AColumn')) {
+            if (!exists($arows{$_->_arow->_alias})) {
+                $arows{$_->_arow->_alias} = $_->_arow;
+            }
+            push(@{$self->{acolumns}}, $_);
+            push(@{$self->{columns}}, $_->_column);
+        }
+        else {
+            if (!exists($arows{$_->_alias})) {
+                $arows{$_->_alias} = $_;
+            }
+            push(@{$self->{acolumns}}, $_->_columns);
+            push(@{$self->{columns}}, map {$_->_column} $_->_columns);
+        }
+    }
+    while (my ($alias, $arow) = each %arows) {
+        push(@{$self->{arows}}, $arow);
+    }
+    return;
+}
+
+
+sub column_names {
+    my $self = shift;
+    if ($self->{columns}) {
+        return map {$_->name} @{$self->{columns}};
+    }
+    return;
+}
+
+
+=cut
+sub rows {
+    my $self     = shift;
+    my $elements = shift;
+    my %arows;
+
+    foreach (@{$columns}) {
+        unless (ref($_) and ($_->isa('SQL::DB::AColumn') or
+                            $_->isa('SQL::DB::ARow'))) {
+            confess "must specify either AColumn or ARow" . $_;
+        }
+
+        if ($_->isa('SQL::DB::AColumn')) {
+            if (!exists($arows{$_->_arow->_alias})) {
+                $arows{$_->_arow->_alias} = $_->_arow;
+            }
+            push(@{$self->{acolumns}}, $_);
+            push(@{$self->{columns}}, $_->_column);
+        }
+        else {
+            if (!exists($arows{$_->_alias})) {
+                $arows{$_->_alias} = $_;
+            }
+            push(@{$self->{acolumns}}, $_->_columns);
+            push(@{$self->{columns}}, map {$_->_column} $_->_columns);
+        }
+    }
+    while (my ($alias, $arow) = each %arows) {
+        push(@{$self->{arows}}, $arow);
+    }
+    return;
+}
+=cut
+
+
 sub where {
     my $self = shift;
     $self->{where} = shift;
@@ -89,9 +173,14 @@ sub where_sql {
     }
     elsif ($condition) {
         return "\nWHERE\n    $condition\n";
-#              . join(") AND\n    (",@conditions) . ")\n";
     }
     return '';
+}
+
+
+sub exists {
+    my $self = shift;
+    return SQL::DB::Expr->new('EXISTS ('. $self->sql .')', $self->bind_values);
 }
 
 
@@ -110,11 +199,6 @@ sub as_string {
     return $self->sql . "\n" . $self->bind_values_sql . "\n";
 }
 
-
-sub exists {
-    my $self = shift;
-    return SQL::DB::Expr->new('EXISTS ('. $self->sql .')', $self->bind_values);
-}
 
 
 1;

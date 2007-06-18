@@ -7,35 +7,10 @@ use Scalar::Util qw(weaken);
 use SQL::DB::Column;
 use SQL::DB::ARow;
 
-        use Data::Dumper;
-        $Data::Dumper::Indent = 1;
-# FIXME  Take the PRIMARY value from the column and add to a 'primary'
-#        method
-#
-sub new {
-    my $proto      = shift;
-    my $class      = ref($proto) || $proto;
+our $DEBUG;
 
-    my $name       = shift;
-    my $column_def = shift;
-    my $schema     = shift;
-
-    unless ($name and ref($column_def)  and ref($column_def) eq 'HASH') {
-        croak 'usage: new($name, $hashref)';
-    }
-
-    my $self = {
-        name         => lc($name),
-        def          => \%{$column_def},
-        schema       => $schema,
-    };
-    weaken($self->{schema});
-
-    bless($self, $class);
-
-    $self->setup;
-    return $self;
-}
+use Data::Dumper;
+$Data::Dumper::Indent = 1;
 
 my @reserved = qw(
         sql
@@ -46,99 +21,146 @@ my @reserved = qw(
         is_null
         not_null
         is_not_null
+        exists
 ); 
 
-sub setup {
-    my $self = shift;
 
-    $self->{columns}      = undef;
-    $self->{column_names} = undef;
-    $self->{primary_keys} = undef;
-    $self->{bind_values}  = undef;
-    $self->{unique}       = undef;
-    $self->{foreign}      = undef;
+sub new {
+    my $proto      = shift;
+    my $class      = ref($proto) || $proto;
 
-    foreach my $coldef (@{$self->{def}->{columns}}) {
-        my $col_name = $coldef->{name};
+    my $def        = shift;
+    my $schema     = shift;
 
-        if (grep(m/^$col_name$/, @reserved)) {
-            croak "Reserved column names: @reserved";
-        }
+    unless (ref($def)  and ref($def) eq 'ARRAY' and ref($schema)) {
+        croak 'usage: new($arrayref, $schema)';
+    }
 
-        if ($self->{column_names}->{$col_name}) {
-            croak "Column $col_name already defined for table $self->{name}";
-        }
+    my $self = {
+        schema       => $schema,
+    };
+    bless($self, $class);
+    weaken($self->{schema});
 
-        if (exists($coldef->{primary}) and $coldef->{primary}) {
-            if ($self->{def}->{primary}) {
-                croak "Table $self->{name}: Multiple primary column's "
-                     ."must be defined at the table level";
-            }
-            delete $coldef->{primary};
-            $self->{def}->{primary} = $col_name;
-        }
 
-        if (exists($coldef->{unique}) and $coldef->{unique}) {
-            if (my $unique = $self->{def}->{unique}) {
-                delete $coldef->{unique};
-                push(@{$unique}, [$col_name]);
+    my @definitions = @{$def};
+    while (my $key = shift(@definitions)) {
+        my $action = 'setup_'.$key;
+        my $val    = shift @definitions;
+        if ($self->can($action)) {
+            if (ref($val)) {
+                $self->$action(@{$val});
             }
             else {
-                $self->{def}->{unique} = [[$col_name]];
+                $self->$action($val);
             }
         }
+        else {
+            warn "Unknown Table definition: $key", Dumper($key);
+            shift @definitions;
+        }
+    }
 
-        my $col = SQL::DB::Column->new(
-            table => $self,
-            def   => $coldef,
-        );
+    return $self;
+}
+
+sub setup_table {
+    my $self      = shift;
+    $self->{name} = shift;
+    if ($self->{name} =~ m/[A-Z]/) {
+        warn "Table '$self->{name}' is not all lowercase";
+    }
+}
+
+
+sub setup_columns {
+    my $self = shift;
+
+    foreach my $array (@_) {
+        my $col = SQL::DB::Column->new();
+        $col->table($self);
+
+        while (my $key = shift @{$array}) {
+            if ($key eq 'name') {
+                my $val = shift @{$array};
+                if (grep(m/^$val$/, @reserved)) {
+                    croak "Column can't be called '$val': reserved name";
+                }
+
+                if (exists($self->{column_names}->{$val})) {
+                    croak "Column $val already defined for table $self->{name}";
+                }
+                $col->name($val);
+            }
+            elsif ($key eq 'references') {
+                $col->$key($self->text2cols(shift @{$array}));
+            }
+            else {
+                $col->$key(shift @{$array});
+            }
+        }
         push(@{$self->{columns}}, $col);
-        $self->{column_names}->{$col_name} = $col;
-
         push(@{$self->{bind_values}}, $col->bind_values);
+        $self->{column_names}->{$col->name} = $col;
     }
+}
 
-    if (my $primary = delete $self->{def}->{primary}) {
-        $self->{primary_keys} = [$self->text2cols($primary)];
+
+sub setup_primary {
+    my $self = shift;
+    push(@{$self->{primary}}, $self->text2cols(@_));
+}
+
+
+sub setup_unique {
+    my $self = shift;
+    foreach my $def (@_) {
+        push(@{$self->{unique}}, [$self->text2cols($def)]);
     }
+}
 
-#    foreach my $key (@{$self->{def}->{primary}}) {
-#        if (!exists($self->{column_names}->{$key})) {
-#            croak "Primary key $key does not exist in table $self->{name}";
-#        }
-#        push(@{$self->{primary_keys}}, $self->{column_names}->{$key});
-#    }
 
-    if (my $unique = delete $self->{def}->{unique}) {
-        foreach (@{$unique}) {
-            push(@{$self->{unique}}, [$self->text2cols($_)]);
-        }
-    }
-
-    if (my $foreign = delete $self->{def}->{foreign}) {
-        foreach my $f (@{$foreign}) {
-            unless (ref($f) and ref($f) eq 'HASH') {
-                die "foreign definition must be HASHref";
-            }
-            push(@{$self->{foreign}},{
-                columns    => [$self->text2cols($f->{columns})],
-                references => [$self->text2cols($f->{references})],
-            });
-        }
-    }
-
-    $self->{indexes} = $self->{def}->{indexes} || [];
-    foreach my $i (@{$self->{indexes}}) {
-        foreach my $col (@{$i->{columns}}) {
+sub setup_indexes {
+    my $self = shift;
+    foreach my $i (@_) {
+        my %hash = @{$i};
+        foreach my $col (@{$hash{columns}}) {
             (my $c = $col) =~ s/\s.*//;
             if (!exists($self->{column_names}->{$c})) {
                 croak "Index column $c does not exist in table $self->{name}";
             }
         }
     }
-    $self->{engine} = delete $self->{def}->{engine};
-    $self->{default_charset} = delete $self->{def}->{default_charset};
-    delete $self->{def};
+}
+
+
+sub setup_foreign {
+    my $self = shift;
+    warn 'multi foreign not implemented yet';
+}
+
+
+sub setup_type {
+    my $self = shift;
+    $self->{type} = shift;
+}
+
+
+sub setup_engine {
+    my $self = shift;
+    $self->{engine} = shift;
+}
+
+
+sub setup_default_charset {
+    my $self = shift;
+    $self->{default_charset} = shift;
+}
+
+
+sub setup_tablespace {
+    my $self = shift;
+    $self->{tablespace} = shift;
 }
 
 
@@ -213,7 +235,7 @@ sub column {
 
 sub primary_keys {
     my $self = shift;
-    return @{$self->{primary_keys}};
+    return @{$self->{primary}};
 }
 
 
@@ -222,15 +244,15 @@ sub schema {
     return $self->{schema};
 }
 
+
 sub primary_sql {
     my $self = shift;
-    if (!$self->{primary_keys}) {
+    if (!$self->{primary}) {
         return '';
     }
     return 'PRIMARY KEY('
-           . join(', ', map {$_->name} @{$self->{primary_keys}}) .')';
+           . join(', ', map {$_->name} @{$self->{primary}}) .')';
 }
-
 
 
 sub unique_sql {
@@ -281,6 +303,7 @@ sub sql_engine {
     }
     return ' ENGINE='.$self->{engine};
 }
+
 
 sub sql_default_charset {
     my $self = shift;
@@ -344,7 +367,7 @@ sub abstract_row {
 
 DESTROY {
     my $self = shift;
-    warn "DESTROY $self" if($main::DEBUG);
+    warn "DESTROY $self" if($DEBUG);
 }
 
 

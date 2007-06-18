@@ -145,6 +145,30 @@ sub in {
 }
 
 
+sub not_in {
+    my $expr1 = shift;
+
+    my @values = $expr1->bind_values;
+    my @exprs;
+
+    foreach my $e (@_) {
+        if (ref($e) and $e->isa(__PACKAGE__)) {
+            if ($e->isa('SQL::DB')) {
+                $e->nobind(1);
+            }
+            push(@exprs, $e);
+            push(@values, $e->bind_values);
+        }
+        else {
+            push(@exprs, '?');
+            push(@values, $e);
+        }
+    }
+
+    return __PACKAGE__->new($expr1 .' NOT IN ('.join(', ',@exprs).')', @values);
+}
+
+
 
 sub sql {
     my $self = shift;

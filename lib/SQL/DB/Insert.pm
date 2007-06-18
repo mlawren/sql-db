@@ -5,38 +5,19 @@ use base qw(SQL::DB::Query);
 use Carp qw(croak confess);
 
 
-sub insert {
+sub columns {
     my $self = shift;
-    my $insert = shift;
 
-    foreach (@{$insert}) {
-        unless (ref($_) and ($_->isa('SQL::DB::AColumn') or
-                            $_->isa('SQL::DB::ARow'))) {
-            confess "insert needs AColumn or ARow" . $_;
-        }
-
-        if ($_->isa('SQL::DB::AColumn')) {
-            if ($self->{arow} and $self->{arow} != $_->_arow) {
-                confess "Can only insert into columns of the same table";
-            }
-            $self->{arow} = $_->_arow;
-            push(@{$self->{insert}}, $_);
-            push(@{$self->{columns}}, $_->_column);
-        }
-        else {
-            if ($self->{arow} and $self->{arow} != $_) {
-                confess "Can only insert into columns of the same table";
-            }
-            $self->{arow} = $_;
-            push(@{$self->{insert}}, $_->_columns);
-            push(@{$self->{columns}}, map {$_->_column} $_->_columns);
-        }
+    if (!@_) {
+        return $self->SUPER::columns;
     }
 
-    unless ($self->{insert}) {
-        confess "insert needs AColumn or ARow";
+    $self->SUPER::columns(@_);
+
+    if (@{$self->{arows}} > 1) {
+        confess "Can only insert into columns of the same table";
     }
-    return $self;
+    return;
 }
 
 
@@ -64,12 +45,6 @@ sub sql {
     ;
 
     return $s;
-}
-
-
-sub columns {
-    my $self = shift;
-    return map {$_->_table} @{$self->{insert}};
 }
 
 

@@ -11,16 +11,16 @@ ok(scalar @schema, 'Have schema');
 my $sql = SQL::DB::Schema->new(@schema);
 isa_ok($sql, 'SQL::DB::Schema');
 
-my $cd  = $sql->row('CD');
+my $cd  = $sql->arow('cds');
 
-isa_ok($cd, 'SQL::DB::Abstract::cd', 'Abstract Row');
+isa_ok($cd, 'SQL::DB::Abstract::cds', 'Abstract Row');
 
-isa_ok($cd->id, 'SQL::DB::Abstract::cd::id', 'Abstract Column');
+isa_ok($cd->id, 'SQL::DB::Abstract::cds::id', 'Abstract Column');
 
-isa_ok($cd->artist->id, 'SQL::DB::Abstract::artist::id',
+isa_ok($cd->artist->id, 'SQL::DB::Abstract::artists::id',
     'Abstract Foreign Column');
 
-isa_ok($cd->artist->id->_arow, 'SQL::DB::Abstract::artist',
+isa_ok($cd->artist->id->_arow, 'SQL::DB::Abstract::artists',
     'Abstract Foreign Row');
 
 

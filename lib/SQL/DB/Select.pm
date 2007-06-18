@@ -5,29 +5,6 @@ use base qw(SQL::DB::Query);
 use Carp qw(croak confess carp);
 
 
-sub select {
-    my $self   = shift;
-    my $select = shift;
-    foreach (@{$select}) {
-        if (!ref($_)) {
-            confess "select needs AColumn or ARow";
-        }
-        elsif ($_->isa('SQL::DB::AColumn')) {
-            push(@{$self->{select}}, $_);
-            push(@{$self->{columns}}, $_->_column)
-        }
-        elsif ($_->isa('SQL::DB::ARow')) {
-            push(@{$self->{select}}, $_->_columns);
-            push(@{$self->{columns}}, map {$_->_column} $_->_columns);
-        }
-        else {
-            confess "select needs AColumn or ARow";
-        }
-    }
-    return $self;
-}
-
-
 sub distinct {
     my $self = shift;
     $self->{distinct} = shift;
@@ -35,11 +12,10 @@ sub distinct {
 }
 
 
-
 sub select_sql {
     my $self = shift;
 
-    $self->get_aliases(map {$_->_arow} @{$self->{select}});
+    $self->get_aliases(map {$_->_arow} @{$self->{acolumns}});
 
     my $s = 'SELECT';
 
@@ -52,7 +28,7 @@ sub select_sql {
     }
 
     $s .= "\n    " .
-            join(",\n    ", @{$self->{select}});
+            join(",\n    ", @{$self->{acolumns}});
 
     $s .= "\nFROM\n    " .
             join(",\n    ", $self->aliases);
@@ -108,16 +84,6 @@ sub sql {
 
 }
 
-
-sub columns {
-    my $self = shift;
-    return @{$self->{columns}};
-}
-
-sub column_names {
-    my $self = shift;
-    return map {$_->name} @{$self->{select}};
-}
 
 
 1;
