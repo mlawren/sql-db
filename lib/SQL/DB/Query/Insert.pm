@@ -1,4 +1,4 @@
-package SQL::DB::Insert;
+package SQL::DB::Query::Insert;
 use strict;
 use warnings;
 use base qw(SQL::DB::Query);

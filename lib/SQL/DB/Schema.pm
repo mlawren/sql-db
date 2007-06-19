@@ -6,10 +6,10 @@ use Carp qw(carp croak);
 
 use SQL::DB::Table;
 
-use SQL::DB::Insert;
-use SQL::DB::Select;
-use SQL::DB::Update;
-use SQL::DB::Delete;
+use SQL::DB::Query::Insert;
+use SQL::DB::Query::Select;
+use SQL::DB::Query::Update;
+use SQL::DB::Query::Delete;
 
 our $VERSION = '0.03';
 our $DEBUG;
@@ -96,22 +96,22 @@ sub arow {
 
 sub insert {
     my $self = shift;
-    return SQL::DB::Insert->new(@_);
+    return SQL::DB::Query::Insert->new(@_);
 }
 
 sub select {
     my $self = shift;
-    return SQL::DB::Select->new(@_);
+    return SQL::DB::Query::Select->new(@_);
 }
 
 sub update {
     my $self = shift;
-    return SQL::DB::Update->new(@_);
+    return SQL::DB::Query::Update->new(@_);
 }
 
 sub delete {
     my $self = shift;
-    return SQL::DB::Delete->new(@_);
+    return SQL::DB::Query::Delete->new(@_);
 }
 
 
@@ -370,7 +370,7 @@ key/value pairs as follows.
 Note: 'from' is not needed because the table information is already
 associated with the columns.
 
-See L<SQL::DB::Query>, L<SQL::DB::Insert>, L<SQL::DB::Select>,...
+See L<SQL::DB::Query>, L<SQL::DB::Query::Insert>, L<SQL::DB::Query::Select>,...
 
 =head1 EXPRESSIONS
 

@@ -52,11 +52,11 @@ eval {$sql->select;};
 eval {$sql->select({});};
 #like($@, qr/query badly defined/, '->query badly defined with hash');
 
-isa_ok($sql->select(columns => []), 'SQL::DB::Select', '->query SELECT');
+isa_ok($sql->select(columns => []), 'SQL::DB::Query::Select', '->query SELECT');
 
 eval {$sql->insert(insert => []);};
 like($@, qr/unknown argument for/m, '->query INSERT usage');
 
-isa_ok($sql->insert(columns => [$sql->arow('cds')->_columns]), 'SQL::DB::Insert', '->query INSERT');
+isa_ok($sql->insert(columns => [$sql->arow('cds')->_columns]), 'SQL::DB::Query::Insert', '->query INSERT');
 
 

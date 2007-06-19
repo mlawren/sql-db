@@ -1,4 +1,4 @@
-package SQL::DB::Delete;
+package SQL::DB::Query::Update;
 use strict;
 use warnings;
 use base qw(SQL::DB::Query);
@@ -15,9 +15,16 @@ sub columns {
     $self->SUPER::columns(@_);
 
     if (@{$self->{arows}} > 1) {
-        confess "Can only delete columns from a single table";
+        confess "Can only update columns from a single table";
     }
     return;
+}
+
+
+sub set {
+    my $self = shift;
+    my $vals = shift;
+    $self->push_bind_values(@{$vals});
 }
 
 
@@ -31,15 +38,15 @@ sub sql {
         $where =~ s/$alias\./$table\./g;
     }
 
-    my $s = 'DELETE FROM '
+    return 'UPDATE '
             . $self->{arows}->[0]->_table->name
+            . ' SET ' 
+            . (join(', ', map {$_->name .' = ?'} @{$self->{columns}}))
             . $where
     ;
-
-    return $s;
 }
 
 
 1;
-
 __END__
+

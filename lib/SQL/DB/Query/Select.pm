@@ -1,4 +1,4 @@
-package SQL::DB::Select;
+package SQL::DB::Query::Select;
 use strict;
 use warnings;
 use base qw(SQL::DB::Query);

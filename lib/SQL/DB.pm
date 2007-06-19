@@ -233,7 +233,7 @@ SQL::DB - Easy Perl interface to SQL Database
 
 =head1 VERSION
 
-0.02. Development release.
+0.03. Development release.
 
 =head1 SYNOPSIS
 
@@ -645,7 +645,7 @@ This is actually the arow method from L<SQL::DB::Schema>
 
 Will perform an INSERT according to the arguments given and return
 the number of rows affected. The arguments are the same as for
-L<SQL::DB::Insert>.
+L<SQL::DB::Query::Insert>.
 
   columns  => [@columns],       # mandatory
   values   => [@values]         # mandatory
@@ -654,7 +654,7 @@ L<SQL::DB::Insert>.
 
 Will perform an UPDATE according to the arguments given and return
 the number of rows affected. The arguments are the same as for
-L<SQL::DB::Update>.
+L<SQL::DB::Query::Update>.
 
   columns  => [@columns],       # mandatory
   set      => [@values]         # mandatory
@@ -663,7 +663,7 @@ L<SQL::DB::Update>.
 =head2 select(...)
 
 Will perform an SELECT according to the arguments given, and return
-an array of objects. The arguments are the same as for L<SQL::DB::Update>.
+an array of objects. The arguments are the same as for L<SQL::DB::Query::Update>.
 
   select          => [@columns],       # mandatory
   distinct        => 1 | [@columns],   # optional
@@ -676,7 +676,7 @@ an array of objects. The arguments are the same as for L<SQL::DB::Update>.
 
 Will perform a DELETE according to the arguments given and return
 the number of rows affected. The arguments are the same as
-for L<SQL::DB::Update>.
+for L<SQL::DB::Query::Update>.
 
   columns  => [@arows],          # mandatory
   where    => $expression       # optional (but probably necessary)
@@ -687,13 +687,13 @@ Documented here for completness.
 
 =head2 do($query)
 
-Takes a query object (one of SQL::DB::Insert, SQL::DB::Update,
-or SQL::DB::Delete) and runs the query against the database returning
+Takes a query object (one of SQL::DB::Query::Insert, SQL::DB::Query::Update,
+or SQL::DB::Query::Delete) and runs the query against the database returning
 the result. Dies if an error occurs.
 
 =head2 execute($query)
 
-Takes a SQL::DB::Select object, runs it against the database and
+Takes a SQL::DB::Query::Select object, runs it against the database and
 returns the DBI statement handle and the list of SQL::DB::Column objects
 that were retrieved.
 
