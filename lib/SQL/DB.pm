@@ -15,9 +15,13 @@ our $VERSION = '0.04';
 our $DEBUG   = undef;
 
 
-no strict 'refs';
-*schema = *SQL::DB::Schema::new;
-use strict;
+sub schema {
+    my $self = shift;
+    if (@_) {
+        return SQL::DB::Schema->new(@_);
+    }
+    return $self->{schema};
+}
 
 
 sub connect {
@@ -379,7 +383,7 @@ create them for you with a simple call to the deploy() method.
   $db->deploy();
 
 It is safe to call this even if the tables do already exist. B<SQL::DB>
-will emit a warning and continue.
+will just emit a warning and continue.
 
 =head2 Abstract Rows
 
@@ -389,8 +393,8 @@ method. The object returned has methods that match the columns of
 a table, plus some extra methods to compare columns in an SQL-like
 way.
 
-So we obtain an object that could represent any CD and use it expressions
-like this:
+So we obtain an object that could represent any CD and use in 
+it expressions like so:
 
   my $cd    = $db->arow('cds');
   my $expr1 = ($cd->id == 1);
