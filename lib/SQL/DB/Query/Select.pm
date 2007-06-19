@@ -28,7 +28,7 @@ sub select_sql {
     }
 
     $s .= "\n    " .
-            join(",\n    ", @{$self->{acolumns}});
+            join(",\n    ", map {$_->sql(1)} @{$self->{acolumns}});
 
     $s .= "\nFROM\n    " .
             join(",\n    ", $self->aliases);
@@ -113,9 +113,9 @@ sub sql {
     return
           $self->select_sql
         . $self->where_sql
-        . $self->union_sql
 #        . $self->group_by_sql
 #        . $self->having_sql
+        . $self->union_sql
         . $self->order_by_sql
         . $self->limit_sql
         . $self->offset_sql

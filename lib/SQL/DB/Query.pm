@@ -102,6 +102,15 @@ sub columns {
 }
 
 
+sub acolumns {
+    my $self = shift;
+    if ($self->{acolumns}) {
+        return @{$self->{acolumns}};
+    }
+    return;
+}
+
+
 sub column_names {
     my $self = shift;
     if ($self->{columns}) {

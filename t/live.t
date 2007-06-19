@@ -45,8 +45,8 @@ SKIP: {
     }
 
 our $db = SQL::DB->connect(
-    "dbi:SQLite:/tmp/sqldb$$.db",undef,undef,
-#    'dbi:Pg:dbname=test;port=5433', 'rekudos', 'rekudos',
+#    "dbi:SQLite:/tmp/sqldb$$.db",undef,undef,
+    'dbi:Pg:dbname=test;port=5433', 'rekudos', 'rekudos',
     {PrintError => 0, RaiseError => 1},
     $schema,
 ) unless($db);
@@ -100,6 +100,21 @@ foreach my $obj (@objs) {
     print $obj->id,', ',$obj->title,', ',$obj->name,"\n";
 }
 
+@objs = $db->select(
+    columns   => [ $track->id->func('count'), $track->length->func('max') ],
+    where     =># ( $track->length < 248 ) &
+                 ! ($track->cd->year > 1997),
+);
+
+#  print $query,"\n";
+
+foreach my $obj (@objs) {
+    print 'Track Count: '. $obj->count_id ."\n";
+    print 'Max length: ' . $obj->max_length ."\n";
+}
+
+
+
 my $cd = $db->arow('cds');
 $db->update(
     columns => [$cd->year],
@@ -118,7 +133,7 @@ my $q =  $schema->select(
 #    limit => '2',>select(
 );
 my $q2 =  $schema->select(
-    columns   => [ $track->id,$track->title,
+    columns   => [ $track->id->func('count'),$track->title,
                   $track->cd->year,$track->cd->artist->name ],
     distinct => 1,
     where    => ( $track->length < 248 ) &

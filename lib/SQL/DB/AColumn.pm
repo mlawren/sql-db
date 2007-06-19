@@ -91,6 +91,9 @@ sub _column {
 
 sub _name {
     my $self = shift;
+    if ($self->{func}) {
+        return $self->{func} .'_'. $self->{col}->name;
+    }
     return $self->{col}->name;
 }
 
@@ -135,15 +138,23 @@ sub desc {
 }
 
 
-#sub count {
-#    my $self = shift;
-#    return 'COUNT(' .$self->sql . ')';
-#}
+sub func {
+    my $self = shift;
+    $self->{func} = shift;
+    return $self;
+}
 
 
 sub sql {
-    my $self = shift;
-    return $self->{arow}->_alias .'.'. $self->{col}->name;
+    my $self     = shift;
+    my $withfunc = shift;
+
+    my $sql = $self->{arow}->_alias .'.'. $self->{col}->name;
+
+    if ($withfunc and $self->{func}) {
+        return uc($self->{func}) . '('.$sql.')';
+    }
+    return $sql;
 }
 
 

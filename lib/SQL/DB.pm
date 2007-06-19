@@ -152,24 +152,23 @@ sub execute {
     }
 
     return $sth unless(wantarray);
-    return ($sth, $query->columns);
+    return ($sth, $query->acolumns);
 }
 
 
 sub sth_to_simple_objects {
     my $self = shift;
-    my ($sth, @columns) = @_;
+    my ($sth, @acolumns) = @_;
 
-    if (!$sth or !@columns) {
-        croak 'usage: sth_to_simple_objects($sth, @columns)';
+    if (!$sth or !@acolumns) {
+        confess 'usage: sth_to_simple_objects($sth, @columns)';
     }
-    return unless($sth);
 
-    my $class = '_' . join('_', map {$_->table->name .'_'.$_->name} @columns);
+    my $class = '_' . join('_',map {$_->_arow->_name .'_'.$_->_name} @acolumns);
 
     no strict 'refs';
     if (ref(\*{$class.'::new'}{CODE}) eq 'SCALAR') {
-        struct($class => [map {$_ => '$'} map {$_->name} @columns]);
+        struct($class => [map {$_ => '$'} map {$_->_name} @acolumns]);
     }
     use strict;
 
@@ -177,7 +176,7 @@ sub sth_to_simple_objects {
     if (wantarray) {
         while (my $row = $sth->fetchrow_arrayref) {
             my $i = 0;
-            my $obj = $class->new(map {$columns[$i++]->name => $_} @$row);
+            my $obj = $class->new(map {$acolumns[$i++]->_name => $_} @$row);
             push(@returns, $obj);
         }
         die $self->{dbh}->errstr if ($self->{dbh}->errstr);
@@ -487,25 +486,14 @@ The above is all quite ordinary and not much different from writing
 the SQL statements directly. However, given that B<SQL::DB> is aware
 of of inter-table relationships we can make much more powerful queries.
 
-First of all, lets give our artist a CD and some Tracks to work with.
+The examples here are probably not good SQL as I'm not an SQL expert,
+but the point is B<SQL::DB> is powerful enough to produce what you
+want if you know what you are doing. It is also powerful enough for
+you to shoot yourself in the foot.
 
-  my $cd = $db->arow('cds');
-  $db->insert(
-      columns => [$cd->id, $cd->artist, $cd->name],
-      values  => [1, 1, 'A Kind of Magic'],
-  );
+=head2 Search using implicit join
 
-  my $track = $db->arow('tracks');
-  $db->insert(
-      columns => [$track->id, $track->cd, $track->title, $track->length],
-      values  => [1, 1, "Don't Lose Your Head", 278],
-  );
-  $db->insert(
-      columns => [$track->id, $track->cd, $track->title, $track->length],
-      values  => [2, 1, "Gimme the Prize", 274],
-  );
-
-Now lets do a search to find all the track titles for our Artist 'Queen',
+Lets do a search to find all the track titles for our Artist 'Queen',
 limited to the first 5, unique tracks ordered by reverse name.
 
   my $track  = $db->arow('tracks');
@@ -521,6 +509,8 @@ What happens here is that B<SQL::DB> understands the relationships
 inside $track->cd->artist and builds the appropriate statements
 to link those tables together based on the primary and foreign keys.
 
+=head2 Only retrieve desired columns
+
 Columns that are not in the 'columns' list are simply not retrieved
 and do not exist as methods in the returned object. So for the above
 query trying to call 'length' on a returned object will die.
@@ -529,6 +519,8 @@ If you want to retrieve the whole row you don't have to specify every
 column. Use the abstract row's _columns() method.
 
       columns  => [$track->_columns],
+
+=head2 Select from more than one table
 
 There is nothing to stop us selecting columns from different tables
 in the same query. Show me the Artist names and their Albumn titles
@@ -552,6 +544,8 @@ and 'cds.id' columns - there is no way to differentiate between
 the two using B<SQL::DB> this way. Take a look at the execute() method
 to get around this.
 
+=head2 Nested/multiple queries, subselects
+
 It is possible to perform subselects by defining a query (without
 running it) via the schema object, and using that query as an
 expression inside another one.
@@ -568,18 +562,41 @@ expression inside another one.
       where   => ($artist->id->not_in($query)),
   );
 
+  # UNION?
+
+  $db->select(
+      columns   => [$artist->name],
+      union     => $query,
+      order_by  => [$artist->name],
+  );
+
 Notice that we used two abstract rows instead of following through,
 because the two queries are in fact independent from each other.
 
-BTW this is probably not good SQL as I'm not an SQL expert, but the point
-is B<SQL::DB> is powerful enough to produce what you want if you
-know what you are doing. It is also powerful enough for you to shoot
-yourself in the foot if you don't know what you are doing.
+=head2 Database functions
 
-The final thing to remember is that using B<SQL::DB> you can only get
-to foreign tables through the reference, not the other way around. Ie
-there is no $cd->tracks method. I'm still having a think about if/how
-this should be implemented or left to higher layers.
+B<SQL::DB> has support for arbitary database functions. Use the
+func($name) method on any abstract column and the returned object
+will have a method called $name_$column.
+
+  my $track  = $db->arow('tracks');
+  my @objs = $db->select(
+      columns  => [$track->id->func('count')],
+      distinct => 1,
+      where    => ($track->length > 276)
+  );
+  
+  print "# tracks > 276 seconds: ",
+        $objs->[0]->count_id, "\n"; # OK
+
+
+=head2 Relationships
+
+One thing to remember is that using B<SQL::DB> you can only get
+to foreign tables through the reference/foreign key, not the other
+way around. Ie there is no $cd->tracks method. I'm still having a
+think about if/how this should be implemented or left to higher layers.
+
 
 =head1 EXPRESSIONS
 
@@ -602,6 +619,7 @@ combined and nested any way to very closely map Perl logic to SQL logic.
   exists        EXISTS          Expressions
   asc           ASC             Column (ORDER BY)
   desc          DESC            Column (ORDER BY)
+  func('x')     X(column)       Column
 
 See L<To::Be::Written> for more details.
 
