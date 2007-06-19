@@ -52,7 +52,7 @@ sub union {
 sub union_sql {
     my $self = shift;
     if ($self->{union}) {
-        return "UNION\n". $self->{union}->sql . "\n";
+        return "UNION (\n". $self->{union}->sql . "\n)\n";
     }
     return '';
 }
