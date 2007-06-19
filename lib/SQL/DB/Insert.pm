@@ -36,9 +36,9 @@ sub values {
 sub sql {
     my $self = shift;
 
-    my $s = 'INSERT INTO '. $self->{arow}->_table->name
+    my $s = 'INSERT INTO '. $self->{arows}->[0]->_table->name
             . ' ('
-            . join(', ', map {$_->_name} @{$self->{insert}})
+            . join(', ', map {$_->name} @{$self->{columns}})
             . ') VALUES ('
             . join(', ', map {'?'} $self->bind_values)
             . ')'

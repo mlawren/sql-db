@@ -11,7 +11,7 @@ use SQL::DB::Schema;
 use Data::Dumper;
 $Data::Dumper::Indent = 1;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 our $DEBUG   = undef;
 
 
@@ -111,7 +111,7 @@ sub do {
     my $attrs = shift;
 
     warn "debug: $query" if($DEBUG);
-    my $rv = $self->{dbi}->do($query->sql, $attrs, $query->bind_values);
+    my $rv = $self->{dbh}->do($query->sql, $attrs, $query->bind_values);
     if (!$rv) {
         croak "DBI->do: $DBI::errstr";
     }
@@ -144,7 +144,7 @@ sub execute {
         $res = $sth->execute_array($attrs, $query->bind_values);
     };
     if (!$res) {
-        croak "dbi: ". $DBI::errstr;
+        croak $DBI::errstr;
     }
 
     return $sth unless(wantarray);
@@ -433,19 +433,20 @@ additional possibility of filtering  - ie the WHERE clause.
   my $artist = $db->arow('artists');
   $db->update(
       columns => [$artist->name],
-      values  => ['Queen'],
+      set     => ['Queen'],
       where   => ($artist->name == 'Queens'),
   );
 
 =head2 Row Deletion
 
-Row deletion works the same way, although you still have to specify
-a column, even though the whole matching row will of course be removed.
+Row deletion works the same way although you still have to specify
+a column in the 'columns' field, and SQL::DB works out which row/table
+it is.
 
   my $artist = $db->arow('artists');
   $db->delete(
       columns => [$artist->id],
-      where   => ($artist->name->like('Q%'))
+      where   => $artist->name->like('Q%')
   );
 
 =head2 Row Selection
@@ -500,10 +501,8 @@ First of all, lets give our artist a CD and some Tracks to work with.
       values  => [2, 1, "Gimme the Prize", 274],
   );
 
-Now lets do a search to find all the track titles for our Artist 'Queen'.
-But lets also pretend that there are hundreds of them and we only want
-to see the first 5, and we don't want to see the same track twice
-if it appeared on different albums, and let us also order them.
+Now lets do a search to find all the track titles for our Artist 'Queen',
+limited to the first 5, unique tracks ordered by reverse name.
 
   my $track  = $db->arow('tracks');
   my @tracks = $db->select(
@@ -521,6 +520,11 @@ to link those tables together based on the primary and foreign keys.
 Columns that are not in the 'columns' list are simply not retrieved
 and do not exist as methods in the returned object. So for the above
 query trying to call 'length' on a returned object will die.
+
+If you want to retrieve the whole row you don't have to specify every
+column. Use the abstract row's _columns() method.
+
+      columns  => [$track->_columns],
 
 There is nothing to stop us selecting columns from different tables
 in the same query. Show me the Artist names and their Albumn titles
@@ -653,7 +657,7 @@ the number of rows affected. The arguments are the same as for
 L<SQL::DB::Update>.
 
   columns  => [@columns],       # mandatory
-  values   => [@values]         # mandatory
+  set      => [@values]         # mandatory
   where    => $expression,      # optional (but probably necessary)
 
 =head2 select(...)

@@ -11,7 +11,7 @@ use SQL::DB::Select;
 use SQL::DB::Update;
 use SQL::DB::Delete;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 our $DEBUG;
 
 use Data::Dumper;
