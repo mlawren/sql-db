@@ -11,7 +11,7 @@ use SQL::DB::Schema;
 use Data::Dumper;
 $Data::Dumper::Indent = 1;
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 our $DEBUG   = undef;
 
 
@@ -233,7 +233,7 @@ SQL::DB - Easy Perl interface to SQL Database
 
 =head1 VERSION
 
-0.03. Development release.
+0.04. Development release.
 
 =head1 SYNOPSIS
 
@@ -739,3 +739,4 @@ the Free Software Foundation; either version 2 of the License, or
 
 =cut
 
+# vim: set tabstop=4 expandtab:

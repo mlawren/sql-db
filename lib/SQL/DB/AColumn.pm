@@ -155,3 +155,4 @@ DESTROY {
 
 1;
 __END__
+# vim: set tabstop=4 expandtab:

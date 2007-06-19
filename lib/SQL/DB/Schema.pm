@@ -11,7 +11,7 @@ use SQL::DB::Query::Select;
 use SQL::DB::Query::Update;
 use SQL::DB::Query::Delete;
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 our $DEBUG;
 
 use Data::Dumper;
@@ -414,3 +414,4 @@ the Free Software Foundation; either version 2 of the License, or
 
 =cut
 
+# vim: set tabstop=4 expandtab:
