@@ -107,12 +107,35 @@ $db->update(
     where    => $cd->id == 10,
 );
 
-END {
-    unlink "/tmp/sqldb$$.db";
-}
+my $q =  $schema->select(
+    columns   => [ $track->id,$track->title,
+                  $track->cd->year,$track->cd->artist->name ],
+    distinct => 1,
+    where    => ( $track->length < 248 ) &
+              ! ($track->cd->year > 1997), #&
+#                  $track->title->like('%Life%'),
+    order_by => [ $track->title ],
+#    limit => '2',>select(
+);
+my $q2 =  $schema->select(
+    columns   => [ $track->id,$track->title,
+                  $track->cd->year,$track->cd->artist->name ],
+    distinct => 1,
+    where    => ( $track->length < 248 ) &
+              ! ($track->cd->year > 1997), #&
+#                  $track->title->like('%Life%'),
+    union => $q,
+    order_by => [ $track->title ],
+#    limit => '2',
+);
+print $q2;
+
 
 } # SKIP
 
+END {
+    unlink "/tmp/sqldb$$.db";
+}
 __DATA__
 artists,1,Queen
 artists,2,INXS

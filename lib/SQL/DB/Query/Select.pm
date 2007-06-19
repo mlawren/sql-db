@@ -37,6 +37,27 @@ sub select_sql {
 }
 
 
+sub union {
+    my $self = shift;
+    my $union = shift;
+    unless(ref($union) and $union->isa('SQL::DB::Expr')) {
+        confess "Select union must be based on SQL::DB::Expr";
+    }
+    $self->{union} = $union;
+    $self->push_bind_values($union->bind_values);
+    return;
+}
+
+
+sub union_sql {
+    my $self = shift;
+    if ($self->{union}) {
+        return "UNION\n". $self->{union}->sql . "\n";
+    }
+    return '';
+}
+
+
 sub order_by {
     my $self = shift;
     $self->{order_by} = shift;
@@ -70,16 +91,34 @@ sub limit_sql {
 }
 
 
+sub offset {
+    my $self = shift;
+    $self->{offset} = shift;
+    return;
+}
+
+
+sub offset_sql {
+    my $self = shift;
+    if ($self->{offset}) {
+        return "\nOFFSET ". $self->{offset}. "\n";
+    }
+    return '';
+}
+
+
 sub sql {
     my $self = shift;
 
     return
           $self->select_sql
         . $self->where_sql
+        . $self->union_sql
 #        . $self->group_by_sql
 #        . $self->having_sql
         . $self->order_by_sql
         . $self->limit_sql
+        . $self->offset_sql
     ;
 
 }

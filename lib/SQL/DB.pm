@@ -668,9 +668,11 @@ an array of objects. The arguments are the same as for L<SQL::DB::Query::Update>
   select          => [@columns],       # mandatory
   distinct        => 1 | [@columns],   # optional
   where           => $expression,      # optional
+  union           => $expression,      # optional
   order_by        => [@columns],       # optional
   having          => [@columns]        # optional
-  limit           => [$count, $offset] # optional
+  limit           => $scalar           # optional
+  offset          => [$count, $offset] # optional
 
 =head2 delete(...)
 
