@@ -316,7 +316,7 @@ sub sql_default_charset {
 
 sub sql {
     my $self = shift;
-    my @vals = $self->columns;
+    my @vals = map {$_->name} $self->columns;
     push(@vals, $self->primary_sql) if ($self->{primary_keys});
     push(@vals, $self->unique_sql) if ($self->{unique});
     push(@vals, $self->foreign_sql) if ($self->{foreign});
@@ -328,6 +328,7 @@ sub sql {
            . $self->sql_default_charset
     ;
 }
+
 
 sub sql_index {
     my $self = shift;
