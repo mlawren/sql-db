@@ -262,9 +262,9 @@ SQL::DB - Easy Perl interface to SQL Database
 
 B<SQL::DB> provides an abstraction layer to SQL databases. It allows
 you to generate and run queries using Perl constructs such as objects
-and logic operators. It is not quite an Object Mapping Layer
+and logic operators. It is not an Object Mapping Layer
 (such as Class::DBI) but is also more than a pure SQL abstraction (such
-as SQL::Builder). It falls somewhere inbetween.
+as SQL::Abstract). It falls somewhere inbetween.
 
 Because B<SQL::DB> (or rather the schema class L<SQL::DB::Schema>) makes use
 of foreign key information, powerful queries can be created with minimal
@@ -722,7 +722,7 @@ queries and other important actions are 'warn'ed to STDERR
 
 =head1 SEE ALSO
 
-L<SQL::Builder>, L<SQL::Abstract>, L<Class::DBI>, L<Tangram>
+L<SQL::Abstract>, L<SQL::Builder>, L<Class::DBI>, L<Tangram>
 
 =head1 AUTHOR
 
