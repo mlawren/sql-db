@@ -1,8 +1,6 @@
 package SQL::DB::Column;
 use strict;
-use Class::Struct;
-
-struct('SQL::DB::Column' => {
+use Class::Struct 'SQL::DB::Column' => {
     table          => 'SQL::DB::Table',
     name           => '$',
     primary        => '$',
@@ -12,7 +10,7 @@ struct('SQL::DB::Column' => {
     unique         => '$',
     auto_increment => '$',
     references     => 'SQL::DB::Column',
-});    
+};    
 
 use warnings;
 use Carp qw(carp croak);
