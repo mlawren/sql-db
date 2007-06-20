@@ -1,21 +1,23 @@
 package SQL::DB::Column;
 use strict;
-use Class::Struct 'SQL::DB::Column' => {
-    table          => 'SQL::DB::Table',
-    name           => '$',
-    primary        => '$',
-    type           => '$',
-    null           => '$',
-    default        => '$',
-    unique         => '$',
-    auto_increment => '$',
-    references     => 'SQL::DB::Column',
-};    
-
 use warnings;
+use base qw(Class::Accessor::Fast);
+use overload '""' => 'as_string', fallback => 1;
 use Carp qw(carp croak);
 use Scalar::Util qw(weaken);
-use overload '""' => 'as_string', fallback => 1;
+
+SQL::DB::Column->mk_accessors(qw(
+    table
+    name
+    primary
+    type
+    null
+    default
+    unique
+    auto_increment
+    references
+));
+
 
 our $DEBUG;
 
@@ -27,10 +29,10 @@ sub table {
         unless(ref($table) and ref($table) eq 'SQL::DB::Table') {
             croak "table must be a SQL::DB::Table";
         }
-        $self->{'SQL::DB::Column::table'} = $table;
-        weaken($self->{'SQL::DB::Column::table'});
+        $self->{'table'} = $table;
+        weaken($self->{'table'});
     }
-    return $self->{'SQL::DB::Column::table'};
+    return $self->{'table'};
 }
 
 
@@ -41,10 +43,10 @@ sub references {
         unless(ref($col) and ref($col) eq 'SQL::DB::Column') {
             croak "reference must be a SQL::DB::Column";
         }
-        $self->{'SQL::DB::Column::references'} = $col;
-        weaken($self->{'SQL::DB::Column::references'});
+        $self->{'references'} = $col;
+        weaken($self->{'references'});
     }
-    return $self->{'SQL::DB::Column::references'};
+    return $self->{'references'};
 }
 
 

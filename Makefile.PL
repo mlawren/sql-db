@@ -6,7 +6,8 @@ license         'GPL';
 all_from        'lib/SQL/DB.pm';
 requires        'Scalar::Util'       => 0;
 requires        'Class::Struct'      => 0;
-build_requires  'Test::More'        => 0;
+requires        'Class::Accessor'    => 0;
+build_requires  'Test::More'         => 0;
     
 auto_install;
 
