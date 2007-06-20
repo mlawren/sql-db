@@ -1,48 +1,27 @@
 use strict;
 use warnings;
-use Test::More tests => 3;
+use Test::More;
 use Scalar::Util qw(refaddr);
 
-BEGIN { use_ok('SQL::DB');}
+BEGIN {
+    if (!eval {require DBD::SQLite;1;}) {
+        plan skip_all => "DBD::SQLite not installed: $@";
+    }
+    else {
+        plan tests => 4;
+    }
 
-#$SQL::DB::DEBUG = 1;
+}
+
+use_ok('SQL::DB');
+require_ok('t/testlib/Schema.pm');
+
+$SQL::DB::DEBUG = 1;
 
 our $schema;
-$schema = SQL::DB::Schema->new(
-    [  
-        table => 'artists',
-        columns => [
-            [name => 'id', type => 'INTEGER', primary => 1],
-            [name => 'name',type => 'VARCHAR(255)',unique => 1],
-        ],
-    ],
-    [  
-        table => 'cds',
-        columns => [
-            [name => 'id', type => 'INTEGER', primary => 1],
-            [name => 'title', type => 'VARCHAR(255)'],
-            [name => 'year', type => 'INTEGER'],
-            [name => 'artist', type => 'INTEGER', references => 'artists(id)'],
-        ],
-    ],
-    [  
-        table => 'tracks',
-        columns => [
-            [name => 'id', type => 'INTEGER', primary => 1],
-            [name => 'cd', type => 'INTEGER', references => 'cds(id)'],
-            [name => 'title', type => 'VARCHAR(255)'],
-            [name => 'length', type => 'INTEGER'],
-        ],
-        unique => ['length,cd'],
-     ],
-) unless($schema);
+$schema = SQL::DB::Schema->new(Schema->get) unless($schema);
 
 isa_ok($schema, 'SQL::DB::Schema', 'Schema');
-
-SKIP: {
-    unless (eval {require DBD::SQLite;1;}) {
-        skip "DBD::SQLite not installed", 0;
-    }
 
 our $db = SQL::DB->connect(
 #    "dbi:SQLite:/tmp/sqldb$$.db",undef,undef,
@@ -145,8 +124,6 @@ my $q2 =  $schema->select(
 );
 print $q2;
 
-
-} # SKIP
 
 END {
     unlink "/tmp/sqldb$$.db";
