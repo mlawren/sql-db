@@ -56,7 +56,7 @@ sub sql {
                . (defined($self->default) ? '?' : 'NULL') : '')
            . ($self->auto_increment ? ' AUTO_INCREMENT' : '')
            . ($self->unique ? ' UNIQUE' : '')
-           . ($self->primary ? ' PRIMARY' : '')
+           . ($self->primary ? ' PRIMARY KEY' : '')
            . ($self->references ? ' REFERENCES '
                . $self->references->table->name .'('
                . $self->references->name .')' : '')

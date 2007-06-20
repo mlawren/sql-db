@@ -56,7 +56,7 @@ sub new {
             }
         }
         else {
-            warn "Unknown Table definition: $key", Dumper($key);
+            warn "Unknown Table definition: $key: ", Dumper($key);
             shift @definitions;
         }
     }
@@ -97,6 +97,7 @@ sub setup_columns {
             }
             else {
                 $col->$key(shift @{$array});
+            warn "setting $key => ". $col->$key;
             }
         }
         push(@{$self->{columns}}, $col);
@@ -108,29 +109,48 @@ sub setup_columns {
 
 sub setup_primary {
     my $self = shift;
-    push(@{$self->{primary}}, $self->text2cols(@_));
+    my $def  = shift;
+    push(@{$self->{primary}}, $self->text2cols($def));
 }
 
 
 sub setup_unique {
     my $self = shift;
-    foreach my $def (@_) {
-        push(@{$self->{unique}}, [$self->text2cols($def)]);
-    }
+    my $def  = shift;
+    push(@{$self->{unique}}, [$self->text2cols($def)]);
 }
 
 
-sub setup_indexes {
+sub setup_index {
     my $self = shift;
-    foreach my $i (@_) {
-        my %hash = @{$i};
-        foreach my $col (@{$hash{columns}}) {
-            (my $c = $col) =~ s/\s.*//;
-            if (!exists($self->{column_names}->{$c})) {
-                croak "Index column $c does not exist in table $self->{name}";
+    my $hashref = {};
+
+    while (my $def = shift) {
+        my $val = shift;
+        if ($def eq 'columns' and ref($val) and ref($val) eq 'ARRAY') {
+            foreach my $col (@{$val}) {
+                (my $c = $col) =~ s/\s.*//;
+                if (!exists($self->{column_names}->{$c})) {
+                    croak "Index column $c not in table $self->{name}";
+                }
             }
         }
+        elsif ($def eq 'columns') {
+            my @vals;
+            foreach my $col (split(m/,\s*/, $val)) {
+                (my $c = $col) =~ s/\s.*//;
+                if (!exists($self->{column_names}->{$c})) {
+                    croak "Index column $c not in table $self->{name}";
+                }
+                push(@vals, $col);
+            }
+            $val = \@vals;
+        }
+        $hashref->{$def} = $val;
     }
+
+    push(@{$self->{index}}, $hashref);
+
 }
 
 
@@ -316,7 +336,7 @@ sub sql_default_charset {
 
 sub sql {
     my $self = shift;
-    my @vals = map {$_->name} $self->columns;
+    my @vals = map {$_->sql} $self->columns;
     push(@vals, $self->primary_sql) if ($self->{primary_keys});
     push(@vals, $self->unique_sql) if ($self->{unique});
     push(@vals, $self->foreign_sql) if ($self->{foreign});
@@ -333,7 +353,8 @@ sub sql {
 sub sql_index {
     my $self = shift;
     my @sql = ();
-    foreach my $index (@{$self->{indexes}}) {
+
+    foreach my $index (@{$self->{index}}) {
         my @cols = @{$index->{columns}};
         my @colsflat;
         foreach (@cols) {
@@ -344,10 +365,9 @@ sub sql_index {
                 . ($index->{unique} ? ' UNIQUE' : '')
                 . ' INDEX '
                 . join('_',$self->{name}, @colsflat)
-                . " ON $self->{name} ("
-                . join(', ', @cols)
-                . ')'
-                . ($index->{using} ? " USING $index->{using}" : '')
+                . ' ON ' . $self->{name}
+                . ($index->{using} ? ' USING '.$index->{using} : '')
+                . ' (' . join(', ', @cols) . ')'
         );
     }
     return @sql;
