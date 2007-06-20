@@ -5,8 +5,8 @@ use warnings;
 use Carp qw(carp croak confess);
 use DBI;
 use Scalar::Util qw(refaddr);
-use Class::Struct qw(struct);
 use SQL::DB::Schema;
+use Class::Accessor::Fast;
 
 use Data::Dumper;
 $Data::Dumper::Indent = 1;
@@ -164,19 +164,27 @@ sub sth_to_simple_objects {
         confess 'usage: sth_to_simple_objects($sth, @columns)';
     }
 
-    my $class = '_' . join('_',map {$_->_arow->_name .'_'.$_->_name} @acolumns);
+    my @names = map {$_->_name} @acolumns;
+    my $class = '_' . join('_', @names);
 
-    no strict 'refs';
-    if (ref(\*{$class.'::new'}{CODE}) eq 'SCALAR') {
-        struct($class => [map {$_ => '$'} map {$_->_name} @acolumns]);
+    {
+        no strict 'refs';
+        if (!@{$class .'::ISA'}) {
+            push(@{$class.'::ISA'}, 'Class::Accessor::Fast');
+            $class->mk_accessors(@names);
+        };
     }
-    use strict;
+
+#        struct($class => [map {$_ => '$'} map {$_->_name} @acolumns]);
+#    }
+#    use strict;
 
     my @returns;
     if (wantarray) {
         while (my $row = $sth->fetchrow_arrayref) {
+            my $obj = $class->new;
             my $i = 0;
-            my $obj = $class->new(map {$acolumns[$i++]->_name => $_} @$row);
+            map {$obj->$_($row->[$i++])} @names;
             push(@returns, $obj);
         }
         die $self->{dbh}->errstr if ($self->{dbh}->errstr);
