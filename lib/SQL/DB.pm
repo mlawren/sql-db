@@ -82,9 +82,8 @@ sub deploy {
             next;
         }
 
-#        print $table;
-
         warn "debug: $table" if($DEBUG);
+
         if (!$self->{dbh}->do($table->sql, undef, $table->bind_values)) {
             die $self->{dbh}->errstr;
         }
@@ -145,10 +144,10 @@ sub execute {
 
     my $res;
     eval {
-        $res = $sth->execute_array($attrs, $query->bind_values);
+        $res = $sth->execute($query->bind_values);
     };
-    if (!$res) {
-        croak $DBI::errstr;
+    if (!$res or $@) {
+        croak "DBI: $DBI::errstr $@";
     }
 
     return $sth unless(wantarray);
@@ -174,10 +173,6 @@ sub sth_to_simple_objects {
             $class->mk_accessors(@names);
         };
     }
-
-#        struct($class => [map {$_ => '$'} map {$_->_name} @acolumns]);
-#    }
-#    use strict;
 
     my @returns;
     if (wantarray) {
@@ -584,8 +579,8 @@ because the two queries are in fact independent from each other.
 =head2 Database functions
 
 B<SQL::DB> has support for arbitary database functions. Use the
-func($name) method on any abstract column and the returned object
-will have a method called $name_$column.
+func($func) method on any abstract column and the returned object
+will have a method called $func_$column.
 
   my $track  = $db->arow('tracks');
   my @objs = $db->select(
@@ -597,6 +592,42 @@ will have a method called $name_$column.
   print "# tracks > 276 seconds: ",
         $objs->[0]->count_id, "\n"; # OK
 
+Here is a better example with multiple functions and multiple tables.
+For each CD, show me the number of tracks, the length of the longest
+track, and the total length of the CD in one query:
+
+  track = $db->arow('tracks');
+  @objs = $db->select(
+      columns   => [
+                     $track->id->func('count'),
+                     $track->cd->title,
+                     $track->length->func('max'),
+                     $track->length->func('sum')
+                   ],
+      group_by  => [ $track->cd->title ],
+  );
+
+  foreach my $obj (@objs) {
+      print 'Title: '            . $obj->title      ."\n";
+      print 'Number of Tracks: ' . $obj->count_id   ."\n";
+      print 'Longest Track: '    . $obj->max_length ."\n";
+      print 'CD Length: '        . $obj->sum_length ."\n\n";
+  }
+
+For interests sake, here is the actual SQL:
+
+  SELECT
+      COUNT(t33.id),
+      t34.title,
+      MAX(t33.length),
+      SUM(t33.length)
+  FROM
+      tracks AS t33,
+      cds AS t34
+  WHERE
+      (t33.cd = t34.id)
+  GROUP BY
+      t34.title
 
 =head2 Relationships
 
@@ -699,6 +730,7 @@ an array of objects. The arguments are the same as for L<SQL::DB::Query::Update>
   distinct        => 1 | [@columns],   # optional
   where           => $expression,      # optional
   union           => $expression,      # optional
+  group_by        => [@columns],       # optional
   order_by        => [@columns],       # optional
   having          => [@columns]        # optional
   limit           => $scalar           # optional
@@ -726,7 +758,7 @@ the result. Dies if an error occurs.
 =head2 execute($query)
 
 Takes a SQL::DB::Query::Select object, runs it against the database and
-returns the DBI statement handle and the list of SQL::DB::Column objects
+returns the DBI statement handle and the list of SQL::DB::AColumn objects
 that were retrieved.
 
 =head2 sth_to_simple_objects($sth, @columns)
@@ -744,8 +776,8 @@ own layer above B<SQL::DB> for that purpose.
 
 =head1 TODO
 
-COUNT() statements. This module needs more exposure/use to find
-out what is missing.
+This module needs more exposure/use to find out what is missing and
+what doesn't work.
 
 =head1 DEBUGGING
 

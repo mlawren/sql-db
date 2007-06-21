@@ -37,6 +37,24 @@ sub select_sql {
 }
 
 
+sub group_by {
+    my $self = shift;
+    $self->{group_by} = shift;
+    return $self;
+}
+
+
+sub group_by_sql {
+    my $self = shift;
+    if ($self->{group_by}) {
+        return "GROUP BY\n    " .
+               join(",\n    ", @{$self->{group_by}});
+    }
+    return '';
+}
+
+
+
 sub union {
     my $self = shift;
     my $union = shift;
@@ -113,7 +131,7 @@ sub sql {
     return
           $self->select_sql
         . $self->where_sql
-#        . $self->group_by_sql
+        . $self->group_by_sql
 #        . $self->having_sql
         . $self->union_sql
         . $self->order_by_sql
