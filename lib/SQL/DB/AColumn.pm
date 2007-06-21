@@ -1,3 +1,49 @@
+package SQL::DB::AColumn::Func;
+use strict;
+use warnings;
+use base qw(SQL::DB::Expr);
+use Carp qw(carp croak confess);
+
+#
+# This class pretends to be an SQL::DB::AColumn just enough to be
+# able to print the column with whatever function is has been called
+# with.
+#
+
+
+sub _new {
+    my ($proto,$acol,$func) = @_;
+    my $class = ref($proto) || $proto;
+    my $self = {
+        acol => $acol,
+        func => $func,
+    };
+    bless($self, $class);
+    return $self;
+}
+
+
+sub _name {
+    my $self = shift;
+    return $self->{func} .'_'. $self->{acol}->_name;
+}
+
+sub _arow {
+    my $self = shift;
+    return $self->{acol}->_arow;
+}
+
+sub _column {
+    my $self = shift;
+    return $self->{acol}->_column;
+}
+
+sub sql {
+    my $self = shift;
+    return uc($self->{func}) . '('. $self->{acol}->sql .')';
+}
+
+
 package SQL::DB::AColumn;
 use strict;
 use warnings;
@@ -140,8 +186,8 @@ sub desc {
 
 sub func {
     my $self = shift;
-    $self->{func} = shift;
-    return $self;
+    my $func = shift;
+    return SQL::DB::AColumn::Func->_new($self, $func);
 }
 
 
@@ -151,9 +197,6 @@ sub sql {
 
     my $sql = $self->{arow}->_alias .'.'. $self->{col}->name;
 
-    if ($withfunc and $self->{func}) {
-        return uc($self->{func}) . '('.$sql.')';
-    }
     return $sql;
 }
 

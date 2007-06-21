@@ -97,7 +97,6 @@ sub setup_columns {
             }
             else {
                 $col->$key(shift @{$array});
-            warn "setting $key => ". $col->$key;
             }
         }
         push(@{$self->{columns}}, $col);

@@ -7,6 +7,7 @@ use Scalar::Util qw(weaken);
 
 my $ABSTRACT = 'SQL::DB::Abstract::';
 our $tcount = 0;
+our $DEBUG;
 
 
 sub _define {
@@ -62,7 +63,7 @@ sub _new {
 
     if ($referring_column) {
         $self->{referenced_by} = [$referring_column];
-        weaken($self->{referenced_by});
+#        weaken($self->{referenced_by});
     }
 
     foreach my $col ($self->{table}->columns) {
@@ -87,7 +88,8 @@ sub _referenced_by {
 sub _references {
     my $self = shift;
     if (@_) {
-        push(@{$self->{references}}, shift);
+        my $ref = shift;
+        push(@{$self->{references}}, $ref);
         return;
     }
     return @{$self->{references}};

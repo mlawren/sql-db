@@ -9,6 +9,8 @@ use Carp qw(carp croak confess);
 use Data::Dumper;
 $Data::Dumper::Indent = 1;
 
+our $DEBUG;
+
 
 sub new {
     my $proto = shift;
@@ -41,6 +43,7 @@ sub get_aliases {
     foreach my $arow (@_) {
         next if ($self->{aliases}->{$arow->_alias}); # already seen
         $self->{aliases}->{$arow->_alias} = $arow->_name;
+        warn "get aliases: ".$arow->_name if($DEBUG);
 
         foreach ($arow->_references, map {$_->_arow} $arow->_referenced_by) {
             if (ref($_) eq 'ARRAY') {
@@ -76,11 +79,12 @@ sub columns {
 
     foreach (@{$columns}) {
         unless (ref($_) and ($_->isa('SQL::DB::AColumn') or
-                            $_->isa('SQL::DB::ARow'))) {
-            confess "must specify either AColumn or ARow" . $_;
+                            $_->isa('SQL::DB::ARow') or
+                            $_->isa('SQL::DB::AColumn::Func'))) {
+            confess "must specify either AColumn or ARow: " . $_;
         }
 
-        if ($_->isa('SQL::DB::AColumn')) {
+        if ($_->isa('SQL::DB::AColumn') or $_->isa('SQL::DB::AColumn::Func')) {
             if (!exists($arows{$_->_arow->_alias})) {
                 $arows{$_->_arow->_alias} = $_->_arow;
             }
