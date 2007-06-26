@@ -3,6 +3,7 @@ use warnings;
 use Test::More;
 use Scalar::Util qw(refaddr);
 
+
 BEGIN {
     if (!eval {require DBD::SQLite;1;}) {
         plan skip_all => "DBD::SQLite not installed: $@";
@@ -17,6 +18,7 @@ use_ok('SQL::DB');
 require_ok('t/testlib/Schema.pm');
 
 $SQL::DB::DEBUG = 1;
+$SQL::DB::ARow::DEBUG = 1;
 
 our $schema;
 $schema = SQL::DB::Schema->new(Schema->get) unless($schema);
@@ -24,8 +26,8 @@ $schema = SQL::DB::Schema->new(Schema->get) unless($schema);
 isa_ok($schema, 'SQL::DB::Schema', 'Schema');
 
 our $db = SQL::DB->connect(
-#    "dbi:SQLite:/tmp/sqldb$$.db",undef,undef,
-    'dbi:Pg:dbname=test;port=5433', 'rekudos', 'rekudos',
+    "dbi:SQLite:/tmp/sqldb$$.db",undef,undef,
+#    'dbi:Pg:dbname=test;port=5433', 'rekudos', 'rekudos',
     {PrintError => 0, RaiseError => 1},
     $schema,
 ) unless($db);
@@ -79,17 +81,25 @@ foreach my $obj (@objs) {
     print $obj->id,', ',$obj->title,', ',$obj->name,"\n";
 }
 
+
+$track = $db->arow('tracks');
 @objs = $db->select(
-    columns   => [ $track->id->func('count'), $track->length->func('max') ],
-    where     =># ( $track->length < 248 ) &
-                 ! ($track->cd->year > 1997),
+    columns   => [ $track->id->func('count'),
+                   $track->cd->title,
+                   $track->length->func('max'),
+                   $track->length->func('sum')],
+    group_by  => [$track->cd->title],
+#    where     =># ( $track->length < 248 ) &
+#                 ! ($track->cd->year > 1997),
 );
 
 #  print $query,"\n";
 
 foreach my $obj (@objs) {
-    print 'Track Count: '. $obj->count_id ."\n";
-    print 'Max length: ' . $obj->max_length ."\n";
+    print 'Title: '. $obj->title ."\n";
+    print '# Tracks: '. $obj->count_id ."\n";
+    print 'Longest Track: ' . $obj->max_length ."\n";
+    print 'CD Length: ' . $obj->sum_length ."\n\n";
 }
 
 
@@ -125,6 +135,32 @@ my $q2 =  $schema->select(
 print $q2;
 
 
+my $link = $db->arow('artists_fans');
+my @res = $db->select(
+    columns => [$link->fan->name, $link->fan->craziness],
+    where   => $link->artist->name == 'Queen',
+);
+
+print "Queen Fans (with craziness)\n";
+foreach (@res) {
+    print $_->name .' ('.$_->craziness .")\n";
+}
+
+
+my $fan = $db->arow('fans');
+$link = $db->arow('artists_fans');
+@res = $db->select(
+    columns => [$fan->name, $fan->craziness],
+    where   => $fan->id->not_in($db->schema->select(columns => [$link->fan->id])),
+);
+
+print "Un-Fans\n";
+foreach (@res) {
+    print $_->name .' ('.$_->craziness .")\n";
+}
+
+
+
 END {
     unlink "/tmp/sqldb$$.db";
 }
@@ -148,11 +184,28 @@ tracks,12,2,God Save the Queen,138
 tracks,13,2,I'm in Love with My Car,208
 tracks,14,2,You're My Best Friend,172
 tracks,15,2,One Vision,310
-tracks,16,2,A Kind of Magic,264
-tracks,17,2,One Year of Love,266
-tracks,18,2,Pain Is So Close to Pleasure,261
-tracks,19,2,Friends Will Be Friends,247
-tracks,20,2,Who Wants to Live Forever,305
-tracks,21,2,Gimme the Prize,274
-tracks,22,2,Don't Lose Your Head,278
-tracks,23,2,Princes of the Universe,212
+tracks,16,1,A Kind of Magic,264
+tracks,17,1,One Year of Love,266
+tracks,18,1,Pain Is So Close to Pleasure,261
+tracks,19,1,Friends Will Be Friends,247
+tracks,20,1,Who Wants to Live Forever,305
+tracks,21,1,Gimme the Prize,274
+tracks,22,1,Don't Lose Your Head,278
+tracks,23,1,Princes of the Universe,212
+fans,1,Fan1,100
+fans,2,Fan2,83
+fans,3,Fan3,3
+fans,4,Faker,4
+fans,5,Fan5,52
+fans,6,Fan6,88
+fans,7,Fan7,36
+fans,8,Not a Fan,0
+artists_fans,1,1
+artists_fans,1,2
+artists_fans,1,3
+artists_fans,1,6
+artists_fans,1,7
+artists_fans,2,1
+artists_fans,2,3
+artists_fans,2,5
+artists_fans,2,6

@@ -11,7 +11,7 @@ sub get { return (
     index  => [
         columns => 'name',
         unique  => 1,
-        using   => 'BTREE',
+#        using   => 'BTREE', # postgres only?
     ],
 ],
 [
@@ -27,6 +27,9 @@ sub get { return (
     index   => [
         columns => 'title',
     ],
+    index  => [
+        columns => 'artist',
+    ],
 ],
 [
     table => 'tracks',
@@ -37,7 +40,34 @@ sub get { return (
         [name => 'length', type => 'INTEGER'],
     ],
     unique => 'cd,title,length',
+    index  => [
+        columns => 'cd',
+    ],
 ],
+[
+    table => 'fans',
+    columns => [
+        [name => 'id', type => 'INTEGER', primary => 1],
+        [name => 'name', type => 'VARCHAR(255)'],
+        [name => 'craziness', type => 'INTEGER'],
+    ],
+    unique => 'name',
+],
+[
+    table => 'artists_fans',
+    columns => [
+        [name => 'artist', type => 'INTEGER', references => 'artists(id)'],
+        [name => 'fan', type => 'INTEGER', references => 'fans(id)'],
+    ],
+    unique => 'artist,fan',
+    index  => [
+        columns => 'artist',
+    ],
+    index  => [
+        columns => 'fan',
+    ],
+],
+
 
 );}
     
