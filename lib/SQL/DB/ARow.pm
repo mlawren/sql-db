@@ -24,7 +24,7 @@ sub _define {
 
     push(@{$isa}, 'SQL::DB::ARow');
 
-    warn $pkg if($main::DEBUG);
+    warn $pkg if($SQL::DB::DEBUG && $SQL::DB::DEBUG>2);
 
     foreach my $col ($table->columns) {
         my $sym = $pkg .'::'. $col->name;
@@ -32,9 +32,9 @@ sub _define {
             my $self = shift;
             return $self->{column_names}->{$col->name};
         };
-
-#        SQL::DB::AColumn->_define($col);
     }
+
+    return;
 }
 
 
@@ -132,7 +132,7 @@ sub _columns {
 
 DESTROY {
     my $self = shift;
-    warn "DESTROY $self" if($main::DEBUG);
+    warn "DESTROY $self" if($SQL::DB::DEBUG && $SQL::DB::DEBUG>3);
 }
 
 1;
