@@ -5,65 +5,53 @@ use overload '""' => 'sql';
 use Carp qw(carp croak confess);
 use Scalar::Util qw(weaken);
 use SQL::DB::Column;
-use SQL::DB::ARow;
-use SQL::DB::Object;
 
 our $DEBUG;
 
-use Data::Dumper;
-$Data::Dumper::Indent = 1;
-
 my @reserved = qw(
-        sql
-        sql_index
-        bind_values
-        asc
-        desc
-        is_null
-        not_null
-        is_not_null
-        exists
+    sql
+    sql_index
+    asc
+    desc
+    is_null
+    not_null
+    is_not_null
+    exists
 ); 
 
 
 sub new {
-    my $proto      = shift;
-    my $class      = ref($proto) || $proto;
-
-    my $def        = shift;
-    my $schema     = shift;
-
-    unless (ref($def)  and ref($def) eq 'ARRAY' and ref($schema)) {
-        croak 'usage: new($arrayref, $schema)';
-    }
-
-    my $self = {
-        schema       => $schema,
-    };
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self  = {};
     bless($self, $class);
-    weaken($self->{schema});
 
-
-    my @definitions = @{$def};
-    while (my $key = shift(@definitions)) {
+    while (my ($key,$val) = splice(@_, 0, 2)) {
         my $action = 'setup_'.$key;
-        my $val    = shift @definitions;
-        if ($self->can($action)) {
-            if (ref($val)) {
-                $self->$action(@{$val});
-            }
-            else {
-                $self->$action($val);
-            }
+        if (!$self->can($action)) {
+            warn "Unknown Table definition: $key";
+            next;
+        }
+
+        if (ref($val) and ref($val) eq 'ARRAY') {
+            $self->$action(@{$val});
         }
         else {
-            warn "Unknown Table definition: $key: ", Dumper($key);
-            shift @definitions;
+            $self->$action($val);
         }
     }
 
     return $self;
 }
+
+
+sub setup_schema {
+    my $self = shift;
+    $self->{schema} = shift;
+    weaken($self->{schema});
+    return;
+}
+
 
 sub setup_table {
     my $self      = shift;
@@ -104,7 +92,6 @@ sub setup_columns {
             }
         }
         push(@{$self->{columns}}, $col);
-        push(@{$self->{bind_values}}, $col->bind_values);
         $self->{column_names}->{$col->name} = $col;
     }
 
@@ -294,7 +281,7 @@ sub schema {
 }
 
 
-sub primary_sql {
+sub sql_primary {
     my $self = shift;
     if (!$self->{primary}) {
         return '';
@@ -304,7 +291,7 @@ sub primary_sql {
 }
 
 
-sub unique_sql {
+sub sql_unique {
     my $self = shift;
 
     if (!$self->{unique}) {
@@ -325,7 +312,7 @@ sub unique_sql {
 }
 
 
-sub foreign_sql {
+sub sql_foreign {
     my $self = shift;
     if (!$self->{foreign}) {
         return '';
@@ -366,9 +353,9 @@ sub sql_default_charset {
 sub sql {
     my $self = shift;
     my @vals = map {$_->sql} $self->columns;
-    push(@vals, $self->primary_sql) if ($self->{primary});
-    push(@vals, $self->unique_sql) if ($self->{unique});
-    push(@vals, $self->foreign_sql) if ($self->{foreign});
+    push(@vals, $self->sql_primary) if ($self->{primary});
+    push(@vals, $self->sql_unique) if ($self->{unique});
+    push(@vals, $self->sql_foreign) if ($self->{foreign});
 
     return 'CREATE TABLE '
            . $self->{name}
@@ -403,25 +390,182 @@ sub sql_index {
 }
 
 
-sub bind_values {
-    my $self = shift;
-    return; # FIXME placeholders don't work with CREATE TABLE?
-    return @{$self->{bind_values}};
-}
-
-
-sub abstract_row {
-    my $self = shift;
-    return SQL::DB::ARow->_new($self);
-}
-
-
 DESTROY {
     my $self = shift;
-    warn "DESTROY $self" if($DEBUG);
+    warn "DESTROY $self" if($DEBUG and $DEBUG>2);
 }
 
 
 1;
 __END__
+
+=head1 NAME
+
+SQL::DB::Table - Perl representation of an SQL database table
+
+=head1 SYNOPSIS
+
+  use SQL::DB::Table;
+
+  my $table = SQL::DB::Table->new(
+      table   => 'users',
+      class   => 'User',
+      columns => [
+           [name => 'id',  type => 'INT',          primary => 1],
+           [name => 'name',type => 'VARCHAR(255)', unique  => 1],
+      ],
+      index => [
+        columns => 'name',
+        type    => 'BTREE',
+      ],
+  );
+
+  print $table->sql;
+
+  #
+
+=head1 DESCRIPTION
+
+B<SQL::DB::Table> objects represent SQL database tables. Once
+defined, a B<SQL::DB::Table> object can be queried for information
+about the table such as the primary keys, name and type of the
+columns, and the SQL table creation syntax.
+
+=head1 DEFINITION KEYS
+
+Key/value pairs can be set multiple times, for example when there is
+more than one index in the table.
+
+=head2 schema => $schema
+
+$schema must be a L<SQL::DB::Schema> object. The internal reference to
+the schema is set to be weak.
+
+=head2 table => $name
+
+$name is the SQL name of the table.
+
+=head2 class => $name
+
+$name is the Perl class to be created for representing table rows.
+
+=head2 columns => [ $col1, $col2, ... ]
+
+$col1, $col2, ... are passed directly to L<SQL::DB::Column> new().
+
+=head2 primary => [ $name1, $name2, ... ]
+
+$name1, $name2, ... are the columns names which are primary.
+Should only be used if the table has a multiple-column primary key.
+If the table has only a single primary key then that should be set
+in the column definition.
+
+=head2 unique => [ $name1, $name2, ... ]
+
+$name1, $name2, ... are columns names which must be unique.
+Should only be used if the table has a multiple-column unique requirements,
+Note that column definitions can also include unique requirements.
+This key can be defined more than once with a culmative result.
+
+=head2 index => $def
+
+$def is an array reference of the following form. Note that not all
+databases accept all definitions.
+
+  [ columns => 'col1,col2', type => $type ]
+
+=head2 foreign
+
+For multiple foreign key definition. Not presently implemented.
+
+=head2 type => $type
+
+$type specifies the SQL table type. Applies only to PostgreSQL.
+
+=head2 engine => $engine
+
+$engine specifies the SQL backend engine. Applies only to MySQL.
+
+=head2 default_charset => $charset
+
+$charset specifies the SQL default character set. Applies only to MySQL.
+
+=head2 tablespace => $tspace
+
+$tspace specifies the PostgreSQL tablespace definition.
+
+=head1 METHODS
+
+=head2 new(@definition)
+
+Returns a new B<SQL::DB::Table> object. The @definition is a list
+of key/value pairs as defined under L<DEFINITION KEYS>.
+
+=head2 name
+
+Returns the SQL name of the database table.
+
+=head2 class
+
+Returns the name of the Perl class which can represent rows in the
+table.
+
+=head2 columns
+
+Returns the list of L<SQL::DB::Column> objects representing each column
+definition in the database. The order is the same as they were defined.
+
+=head2 column($name)
+
+Returns the L<SQL::DB::Column> object for the column $name.
+
+=head2 column_names
+
+Returns a list of the SQL names of the columns.
+
+=head2 primary_columns
+
+Returns the list of L<SQL::DB::Column> objects which have been defined
+as primary.
+
+=head2 schema
+
+Returns the schema (a L<SQL::DB::Schema> object) which this table
+is a part of.
+
+=head2 sql
+
+Returns the SQL statement for table creation.
+
+=head2 sql_index
+
+Returns the list of SQL statements for table index creation.
+
+=head1 INTERNAL METHODS
+
+These are used internally but are documented here for completeness.
+
+=head2 add_primary
+
+=head2 text2cols
+
+=head1 SEE ALSO
+
+L<SQL::DB::Schema>, L<SQL::DB::Column>, L<SQL::DB>
+
+=head1 AUTHOR
+
+Mark Lawrence E<lt>nomad@null.netE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2007 Mark Lawrence <nomad@null.net>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+=cut
+
 # vim: set tabstop=4 expandtab:
