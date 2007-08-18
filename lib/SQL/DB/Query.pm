@@ -3,31 +3,35 @@ use strict;
 use warnings;
 use base qw(SQL::DB::Expr);
 use overload '""' => 'as_string';
-
 use Carp qw(carp croak confess);
-
-use Data::Dumper;
-$Data::Dumper::Indent = 1;
-
-our $DEBUG;
+use UNIVERSAL;
 
 
+#
+# A new query - could be insert,select,update or delete
+#
 sub new {
     my $proto = shift;
     my $class = ref($proto) || $proto;
-    my $self  = $proto->SUPER::new;
+    my $self = $proto->SUPER::new; # Get an Expr-based object
     bless($self, $class);
 
-    $self->{aliases}    = {};
-    $self->{conditions} = [];
+    unless (@_) {
+        confess "usage: ". __PACKAGE__ ."->new(\@statements)";
+    }
+
+    $self->{query} = [];
 
     while (my $key = shift) {
-        my $val = shift;
-        if ($self->can($key)) {
-            $self->$key($val);
+        my $action = 'st_'.$key;
+
+        unless($self->can($action)) {
+            carp "Unknown command: $key";
             next;
         }
-        croak "unknown argument for $class: $key";
+
+        my $val    = shift;
+        $self->$action($val);
     }
 
     $self->multi(1);
@@ -36,73 +40,20 @@ sub new {
 }
 
 
-
-sub get_aliases {
-    my $self    = shift;
-    
-    foreach my $arow (@_) {
-        next if ($self->{aliases}->{$arow->_alias}); # already seen
-        $self->{aliases}->{$arow->_alias} = $arow->_name;
-        warn "get aliases: ".$arow->_name if($DEBUG);
-
-        foreach ($arow->_references, map {$_->_arow} $arow->_referenced_by) {
-            if (ref($_) eq 'ARRAY') {
-                $self->get_aliases($_->[0]);
-                push(@{$self->{conditions}}, $_->[1]);
-            }
-            else {
-                $self->get_aliases($_);
-            }
-        }
-    }
-
-}
-
-
-sub aliases {
+sub push_bind_values {
     my $self = shift;
-    return map {"$self->{aliases}->{$_} AS $_"} sort keys %{$self->{aliases}};
-}
-
-
-sub columns {
-    my $self    = shift;
-    my $columns = shift;
-    my %arows;
-
-    if (!$columns) {
-        if ($self->{columns}) {
-            return @{$self->{columns}};
-        }
-        return;
-    }
-
-    foreach (@{$columns}) {
-        unless (ref($_) and ($_->isa('SQL::DB::AColumn') or
-                            $_->isa('SQL::DB::ARow') or
-                            $_->isa('SQL::DB::AColumn::Func'))) {
-            confess "must specify either AColumn or ARow: " . $_;
-        }
-
-        if ($_->isa('SQL::DB::AColumn') or $_->isa('SQL::DB::AColumn::Func')) {
-            if (!exists($arows{$_->_arow->_alias})) {
-                $arows{$_->_arow->_alias} = $_->_arow;
-            }
-            push(@{$self->{acolumns}}, $_);
-            push(@{$self->{columns}}, $_->_column);
+    my @values;
+    foreach my $item (@_) {
+        if (UNIVERSAL::isa($item, 'SQL::DB::Object')) {
+            my @cols = $item->_table->primary_columns;
+            my $colname = $cols[0]->name;
+            push(@values, $item->$colname);
         }
         else {
-            if (!exists($arows{$_->_alias})) {
-                $arows{$_->_alias} = $_;
-            }
-            push(@{$self->{acolumns}}, $_->_columns);
-            push(@{$self->{columns}}, map {$_->_column} $_->_columns);
+            push(@values, $item);
         }
     }
-    while (my ($alias, $arow) = each %arows) {
-        push(@{$self->{arows}}, $arow);
-    }
-    return;
+    $self->SUPER::push_bind_values(@values);
 }
 
 
@@ -124,83 +75,30 @@ sub column_names {
 }
 
 
-=cut
-sub rows {
-    my $self     = shift;
-    my $elements = shift;
-    my %arows;
-
-    foreach (@{$columns}) {
-        unless (ref($_) and ($_->isa('SQL::DB::AColumn') or
-                            $_->isa('SQL::DB::ARow'))) {
-            confess "must specify either AColumn or ARow" . $_;
-        }
-
-        if ($_->isa('SQL::DB::AColumn')) {
-            if (!exists($arows{$_->_arow->_alias})) {
-                $arows{$_->_arow->_alias} = $_->_arow;
-            }
-            push(@{$self->{acolumns}}, $_);
-            push(@{$self->{columns}}, $_->_column);
-        }
-        else {
-            if (!exists($arows{$_->_alias})) {
-                $arows{$_->_alias} = $_;
-            }
-            push(@{$self->{acolumns}}, $_->_columns);
-            push(@{$self->{columns}}, map {$_->_column} $_->_columns);
-        }
-    }
-    while (my ($alias, $arow) = each %arows) {
-        push(@{$self->{arows}}, $arow);
-    }
-    return;
-}
-=cut
-
-
-sub where {
-    my $self = shift;
-    $self->{where} = shift;
-    if (ref($self->{where}) and $self->{where}->isa('SQL::DB::Expr')) {
-        $self->push_bind_values($self->{where}->bind_values);
-        $self->{where}->multi(0);
-    }
-    return $self;
-}
-
-
-sub where_sql {
-    my $self = shift;
-    my $condition;
-    if (my @conditions = @{$self->{conditions}}) {
-          $condition = '('. join(") AND\n    (",@conditions) . ')';
-    }
-
-    if ($self->{where}) {
-        return "\nWHERE\n    "
-              . ($condition ? $condition ." AND\n    (" : '')
-              . $self->{where} 
-              . ($condition ? ')' : '')
-              . "\n";
-    }
-    elsif ($condition) {
-        return "\nWHERE\n    $condition\n";
-    }
-    return '';
-}
-
-
 sub exists {
     my $self = shift;
     return SQL::DB::Expr->new('EXISTS ('. $self->sql .')', $self->bind_values);
 }
 
 
+sub sql {
+    my $self = shift;
+    my @statements = @{$self->{query}};
+
+    my $s;
+    while (my ($stm,$val) = splice(@statements,0,2)) {
+        $s .= $self->$stm($val);    
+    }
+    return $s;
+}
+
+
 sub bind_values_sql {
     my $self = shift;
     if ($self->bind_values) {
-        return q{/* ('} . join("', '",$self->bind_values) . q{') */};
+        return '/* ('
+           . join(", ", map {defined $_ ? "'$_'" : 'NULL'} $self->bind_values) 
+           . ') */';
     }
     return '';
 }
@@ -209,10 +107,518 @@ sub bind_values_sql {
 sub as_string {
     my $self = shift;
     my @values = $self->bind_values;
-    return $self->sql . "\n" . $self->bind_values_sql . "\n";
+    return $self->sql . $self->bind_values_sql . "\n";
 }
 
 
+# ------------------------------------------------------------------------
+# WHERE - used in SELECT, UPDATE, DELETE
+# ------------------------------------------------------------------------
+
+sub st_where {
+    my $self  = shift;
+    my $where = shift;
+
+    push(@{$self->{query}}, 'sql_where', $where);
+    $self->push_bind_values($where->bind_values);
+    return;
+}
+
+
+sub sql_where {
+    my $self  = shift;
+    my $where = shift;
+    if (!$self->{acolumns}) {
+        $where =~ s/\S+\.//;
+    }
+    return "WHERE\n    " . $where . "\n";
+}
+
+
+
+# ------------------------------------------------------------------------
+# INSERT
+# ------------------------------------------------------------------------
+
+sub st_insert {
+    my $self = shift;
+    my $ref  = shift;
+
+#    if (@{$self->{arows}} > 1) {
+#        confess "Can only insert into columns of the same table";
+#    }
+
+    push(@{$self->{query}}, 'sql_insert', $ref);
+
+    return;
+}
+
+sub sql_insert {
+    my $self = shift;
+    my $ref  = shift;
+
+    return "INSERT INTO\n    ". $ref->[0]->_arow->_name
+           . ' ('
+           . join(', ', map {$_->_name} @{$ref})
+           . ")\n";
+}
+
+
+sub st_values {
+    my $self = shift;
+    my $ref  = shift;
+
+#    if (@{$self->{arows}} > 1) {
+#        confess "Can only insert into columns of the same table";
+#    }
+
+    push(@{$self->{query}}, 'sql_values', $ref);
+    $self->push_bind_values(@{$ref});
+
+    return;
+}
+
+
+sub sql_values {
+    my $self = shift;
+    my $ref  = shift;
+
+    return "VALUES\n    ("
+           . join(', ', map {'?'} @{$ref})
+           . ")\n"
+    ;
+}
+
+
+# ------------------------------------------------------------------------
+# UPDATE
+# ------------------------------------------------------------------------
+
+sub st_update {
+    my $self = shift;
+    my $ref  = shift;
+
+#    if (@{$self->{arows}} > 1) {
+#        confess "Can only insert into columns of the same table";
+#    }
+
+    push(@{$self->{query}}, 'sql_update', $ref->[0]->_arow->_name);
+    $self->{update} = $ref;
+
+    return;
+}
+
+sub sql_update {
+    my $self = shift;
+    my $name = shift;
+    return "UPDATE\n    " . $name . "\n";
+}
+
+
+sub st_set {
+    my $self = shift;
+    my $ref  = shift;
+
+
+#    if (@{$self->{arows}} > 1) {
+#        confess "Can only insert into columns of the same table";
+#    }
+
+    push(@{$self->{query}}, 'sql_set', undef);
+    $self->push_bind_values(@{$ref});
+    return;
+}
+
+
+sub sql_set {
+    my $self = shift;
+    return "SET\n    " 
+           . join(", ", map {$_->_name .' = ?'} @{$self->{update}})
+           . "\n";
+}
+
+
+# ------------------------------------------------------------------------
+# SELECT
+# ------------------------------------------------------------------------
+
+sub st_columns {st_select(@_)};
+sub st_select {
+    my $self = shift;
+    my $ref  = shift;
+
+    my @acols;
+
+    if (UNIVERSAL::isa($ref,'ARRAY')) {
+        foreach (@{$ref}) {
+            if (UNIVERSAL::isa($_, 'SQL::DB::ARow') ) {
+                push(@acols, $_->_columns);
+            }
+            elsif (UNIVERSAL::isa($_, 'ARRAY') and $_->[0] eq 'coalesce' ) {
+                push(@acols, Coalesce->new(@{$_}));
+            }
+            else {
+                push(@acols, $_);
+            }
+        }
+    }
+    else {
+        push(@acols, $ref);
+    }
+    push(@{$self->{acolumns}}, @acols);
+#    push(@{$self->{columns}}, map {$_->_column} @acols);
+    push(@{$self->{query}}, 'sql_select', \@acols);
+    return;
+}
+
+
+sub sql_select {
+    my $self = shift;
+    my $ref  = shift;
+    my $distinct = $self->{distinct};
+
+    my $s = 'SELECT';
+    if ($distinct) {
+        $s .= ' DISTINCT';
+        if (ref($distinct) and ref($distinct) eq 'ARRAY') {
+            $s .= ' ON (' . join(', ', @{$distinct}) . ')';
+        }
+    }
+
+    # The columns to select
+    $s .= "\n    " .  join(",\n    ", map {$_->sql_select} @{$ref});
+
+    return $s ."\n";
+}
+
+
+sub st_distinct {
+    my $self = shift;
+    $self->{distinct} = shift;
+    return;
+}
+
+
+sub st_for_update {
+    my $self = shift;
+    my $update = shift;
+    if ($update) {
+        push(@{$self->{query}}, 'sql_for_update', $update);
+    }
+    return;
+}
+
+
+sub sql_for_update {
+    my $self = shift;
+    my $update = shift;
+    return "FOR UPDATE\n" ;
+}
+
+
+sub st_from {
+    my $self = shift;
+    my $ref  = shift;
+    my @acols;
+
+    if (UNIVERSAL::isa($ref, 'ARRAY')) {
+        foreach (@{$ref}) {
+            if (UNIVERSAL::isa($_, 'SQL::DB::AColumn')) {
+                push(@acols, $_->_reference);
+            }
+            elsif (UNIVERSAL::isa($_, 'SQL::DB::ARow')) {
+                push(@acols, $_);
+            }
+            else {
+                croak "Invalid from object: $_";
+            }
+        }
+    }
+    elsif (UNIVERSAL::isa($ref, 'SQL::DB::AColumn')) {
+        push(@acols, $ref->_arow);
+    }
+    elsif (UNIVERSAL::isa($ref, 'SQL::DB::ARow')) {
+        push(@acols, $ref);
+    }
+    else {
+        croak "Invalid from object: $ref";
+    }
+
+    push(@{$self->{query}}, 'sql_from', \@acols);
+    return;
+}
+
+
+sub sql_from {
+    my $self = shift;
+    my $ref  = shift;
+
+    return "FROM\n    ". join(",\n    ",
+                     map {$_->_name. ' AS '. $_->_alias} @{$ref}) ."\n";
+}
+
+
+sub st_on {
+    my $self = shift;
+    my $val  = shift;
+    push(@{$self->{query}}, 'sql_on', $val);
+    $self->push_bind_values($val->bind_values);
+    return;
+}
+
+
+sub sql_on {
+    my $self = shift;
+    my $val  = shift;
+    return "ON\n    " . $val . "\n";
+}
+
+
+sub st_inner_join {
+    my $self = shift;
+    my $arow  = shift;
+    push(@{$self->{query}}, 'sql_inner_join', $arow);
+    return;
+}
+
+
+sub sql_inner_join {
+    my $self = shift;
+    my $arow  = shift;
+    return "INNER JOIN\n    " . $arow->_name .' AS '. $arow->_alias . "\n";
+}
+
+
+sub st_left_outer_join {st_left_join(@_)};
+sub st_left_join {
+    my $self = shift;
+    my $arow  = shift;
+    UNIVERSAL::isa($arow, 'SQL::DB::ARow') || confess "join only with ARow";
+    push(@{$self->{query}}, 'sql_left_join', $arow);
+    return;
+}
+
+
+sub sql_left_join {
+    my $self = shift;
+    my $arow  = shift;
+    return "LEFT OUTER JOIN\n    " . $arow->_name .' AS '. $arow->_alias . "\n";
+}
+
+
+sub st_right_outer_join {st_right_join(@_)};
+sub st_right_join {
+    my $self = shift;
+    my $arow  = shift;
+    push(@{$self->{query}}, 'sql_right_join', $arow);
+    return;
+}
+
+
+sub sql_right_join {
+    my $self = shift;
+    my $arow  = shift;
+    return "RIGHT OUTER JOIN\n    ". $arow->_name .' AS '. $arow->_alias ."\n";
+}
+
+
+sub st_full_outer_join {st_full_join(@_)};
+sub st_full_join {
+    my $self = shift;
+    my $arow  = shift;
+    push(@{$self->{query}}, 'sql_full_join', $arow);
+    return;
+}
+
+
+sub sql_full_join {
+    my $self = shift;
+    my $arow  = shift;
+    return "FULL OUTER JOIN\n    ". $arow->_name .' AS '. $arow->_alias ."\n";
+}
+
+
+sub st_cross_join {
+    my $self = shift;
+    my $arow  = shift;
+    push(@{$self->{query}}, 'sql_cross_join', $arow);
+    return;
+}
+
+
+sub sql_cross_join {
+    my $self = shift;
+    my $arow  = shift;
+    return "CROSS JOIN\n    ". $arow->_name .' AS '. $arow->_alias ."\n";
+}
+
+
+
+sub st_union {
+    my $self = shift;
+    my $ref  = shift;
+    unless(ref($ref) and $ref->isa('SQL::DB::Expr')) {
+        confess "Select UNION must be based on SQL::DB::Expr";
+    }
+    push(@{$self->{query}}, 'sql_union', $ref);
+    $self->push_bind_values($ref->bind_values);
+    return;
+}
+
+
+sub sql_union {
+    my $self = shift;
+    my $ref  = shift;
+    (my $sql = $ref->sql) =~ s/^/    /gm;
+    return "UNION (\n" . $sql . ")\n";
+}
+
+
+sub st_group_by {
+    my $self = shift;
+    my $ref  = shift;
+    push(@{$self->{query}}, 'sql_group_by', $ref);
+    return;
+}
+
+
+sub sql_group_by {
+    my $self = shift;
+    my $ref  = shift;
+
+    if (ref($ref) eq 'ARRAY') {
+        return "GROUP BY\n    ".
+               join(",\n    ", map {$_->sql} @{$ref}) ."\n";
+    }
+    return "GROUP BY\n    " . $ref->sql . "\n";
+}
+
+
+sub st_order_by {
+    my $self = shift;
+    my $ref  = shift;
+    push(@{$self->{query}}, 'sql_order_by', $ref);
+    return;
+}
+
+
+sub sql_order_by {
+    my $self = shift;
+    my $ref  = shift;
+
+    if (ref($ref) eq 'ARRAY') {
+        return "ORDER BY\n    ".
+               join(",\n    ", map {$_->sql} @{$ref}) ."\n";
+    }
+    return "ORDER BY\n    " . $ref->sql . "\n";
+}
+
+
+sub st_limit {
+    my $self = shift;
+    my $val  = shift;
+    push(@{$self->{query}}, 'sql_limit', $val);
+    return;
+}
+
+
+sub sql_limit {
+    my $self = shift;
+    my $val  = shift;
+    return 'LIMIT ' . $val . "\n";
+}
+
+
+sub st_offset {
+    my $self = shift;
+    my $val  = shift;
+    push(@{$self->{query}}, 'sql_offset', $val);
+    return;
+}
+
+
+sub sql_offset {
+    my $self = shift;
+    my $val  = shift;
+    return 'OFFSET ' . $val . "\n";
+}
+
+
+
+# ------------------------------------------------------------------------
+# DELETE
+# ------------------------------------------------------------------------
+
+sub st_delete {
+    my $self = shift;
+    my $arow = shift;
+    UNIVERSAL::isa($arow, 'SQL::DB::ARow') || confess "Can only delete type SQL::DB::ARow";
+    push(@{$self->{query}}, 'sql_delete', $arow);
+    return;
+}
+
+
+sub sql_delete {
+    my $self = shift;
+    my $arow = shift;
+    return "DELETE FROM\n    ". $arow->_table->name ."\n"; 
+}
+
+
+1;
+
+
+package Coalesce;
+use strict;
+use warnings;
+#use base qw(SQL::DB::Expr);
+use overload '""' => 'as_string';
+
+
+sub new {
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self  = {};
+    bless($self, $class);
+
+    shift; # get rid of 'coalesce';
+
+    $self->{cols} = shift;
+    shift;
+    $self->{name} = shift;
+    return $self;
+}
+
+
+sub _arow {
+    my $self = shift;
+    return '(none)';
+}
+
+sub _column {
+    my $self = shift;
+    return '(none)';
+}
+
+sub _name {
+    my $self = shift;
+    return $self->{name};
+}
+
+
+sub sql {
+    my $self = shift;
+    return 'COALESCE('
+            . join(', ', map {$_->sql} @{$self->{cols}})
+            . ') AS '
+            . $self->{name};
+}
+sub sql_select {sql(@_)};
+
+sub as_string {
+    my $self = shift;
+    return $self->sql;
+}
 
 1;
 __END__

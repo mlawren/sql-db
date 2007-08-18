@@ -12,7 +12,7 @@ use Data::Dumper;
 $Data::Dumper::Indent = 1;
 
 our $VERSION = '0.04';
-our $DEBUG   = undef;
+our $DEBUG   = 0;
 
 
 sub schema {
@@ -62,12 +62,6 @@ sub dbh {
 }
 
 
-sub schema {
-    my $self = shift;
-    return $self->{schema};
-}
-
-
 sub deploy {
     my $self = shift;
 
@@ -82,11 +76,8 @@ sub deploy {
             next;
         }
 
-        warn "debug: $table" if($DEBUG);
+        $self->do_query($table);
 
-        if (!$self->{dbh}->do($table->sql, undef, $table->bind_values)) {
-            die $self->{dbh}->errstr;
-        }
         foreach my $index ($table->sql_index) {
             warn "debug: $index" if($DEBUG);
             if (!$self->{dbh}->do($index)) {
@@ -103,19 +94,13 @@ sub arow {
 }
 
 
-sub do {
-    my $self = shift;
-
-    if (!@_) {
-        croak 'usage: execute($query) or execute(@query)';
-    }
-
+sub do_query {
+    my $self  = shift;
     my $query = shift;
-    my $attrs = shift;
-
     warn "debug: $query" if($DEBUG);
-    my $rv = $self->{dbh}->do($query->sql, $attrs, $query->bind_values);
-    if (!$rv) {
+
+    my $rv = $self->{dbh}->do($query->sql, $self->{attrs}, $query->bind_values);
+    if (!defined($rv)) {
         croak "DBI->do: $DBI::errstr";
     }
     return $rv;
@@ -129,17 +114,15 @@ sub execute {
         croak 'usage: execute($query) or execute(@query)';
     }
 
-    my $query = shift;
-    my $attrs = shift;
-
+    my $query = $self->{schema}->query(@_);
     warn "debug: $query" if($DEBUG);
 
     my $sth;
     eval {
         $sth = $self->{dbh}->prepare($query->sql);
     };
-    if ($@) {
-        croak $@;
+    if ($@ or !$sth) {
+        die "DBI: $DBI::errstr $@";
     }
 
     my $res;
@@ -147,7 +130,7 @@ sub execute {
         $res = $sth->execute($query->bind_values);
     };
     if (!$res or $@) {
-        croak "DBI: $DBI::errstr $@";
+        die "DBI: $DBI::errstr $@";
     }
 
     return $sth unless(wantarray);
@@ -187,29 +170,136 @@ sub sth_to_simple_objects {
     }
 }
 
+# ------------------------------------------------------------------------
+# User visible stuff
+# ------------------------------------------------------------------------
+sub do {
+    my $self = shift;
+
+    if (!@_) {
+        croak 'usage: do(update => $arow->_columns...)';
+    }
+
+    my $query = $self->{schema}->query(@_);
+    return $self->do_query($query);
+}
+
+
+sub so {
+    my $self = shift;
+    my @returns = $self->sth_to_simple_objects($self->execute(@_));;
+
+    if (wantarray) {
+        return @returns;
+    }
+    elsif (@returns > 1) {
+        die "Multiple results returned - single result required";
+    }
+    return $returns[0];
+}
+
+sub select {
+    my $self = shift;
+    my ($sth,@acols) = $self->execute(@_);
+
+    my @returns;
+
+
+    while (my $row = $sth->fetchrow_arrayref) {
+        my %objs;
+        my $i = 0;
+        my $first;
+        my @references;
+
+        foreach my $col (map {$_->_column} @acols) {
+            if (!$col or !ref($col)) {
+                confess "Missing column ". $col;
+            }
+            my $class = $col->table->class;
+            if (!$class) {
+                die "Missing class for table ". $col->table->name;
+            }
+            my $set   = 'set_' . $col->name;
+
+            if (!$objs{$class}) {
+                $objs{$class} = $class->new;
+            }
+            my $obj = $objs{$class};
+            $first ||= $obj;
+
+            $obj->$set($row->[$i++]);
+
+            if ($col->primary and defined($row->[$i-1])) {
+                $obj->_in_storage(1);
+            }
+#    warn "$set ".$row->[$i-1];
+            if (my $ref = $col->references) {
+                # FIXME need to check that refclass was part of the query.
+                # otherwise we are creating objects that were not wanted...
+                my $refclass = $ref->table->class;
+                push(@references, $col);
+            }
+        }
+        foreach my $r (@references) {
+            if (my $target = $objs{$r->references->table->class}) {
+                my $set = 'set_' . $r->name;
+                if ($target->_in_storage) {
+                    $objs{$r->table->class}->$set($target);
+                }
+                else {
+                    $objs{$r->table->class}->$set(undef); # FIXME: autoload based on key value
+                }
+            }
+        }
+        foreach my $o (values %objs) {
+            $o->{_changed} = {};
+        }
+        push(@returns, $first);
+    }
+    die $self->{dbh}->errstr if ($self->{dbh}->errstr);
+
+    if (wantarray) {
+        return @returns;
+    }
+    elsif (@returns > 1) {
+        die "Multiple results returned - single result required";
+    }
+    return $returns[0];
+}
+
 
 sub insert {
     my $self = shift;
-    return $self->do($self->{schema}->insert(@_));
+    foreach my $obj (@_) {
+        UNIVERSAL::isa($obj, 'SQL::DB::Object') || croak "Can only insert SQL::DB::Object: $obj";
+        !$obj->_in_storage || croak "Can only insert items not in storage";
+        $self->do($obj->q_insert);
+        $obj->_in_storage(1);
+    }
 }
 
 
 sub update {
     my $self = shift;
-    return $self->do($self->{schema}->update(@_));
+    foreach my $obj (@_) {
+        UNIVERSAL::isa($obj, 'SQL::DB::Object') || croak "Can only update SQL::DB::Object";
+        $obj->_in_storage || croak "Can only update items already in storage";
+        if ($self->do($obj->q_update) != 1) {
+            die 'UPDATE for '. ref($obj) . ' object failed';
+        }
+    }
 }
 
 
 sub delete {
     my $self = shift;
-    return $self->do($self->{schema}->delete(@_));
-}
-
-
-sub select {
-    my $self = shift;
-    my $query = $self->{schema}->select(@_);
-    return $self->sth_to_simple_objects($self->execute($query));
+    foreach my $obj (@_) {
+        UNIVERSAL::isa($obj, 'SQL::DB::Object') || croak "Can only delete SQL::DB::Object";
+        $obj->_in_storage || croak "Can only delete items already in storage";
+        if ($self->do($obj->q_delete) != 1) {
+            die 'DELETE for '. ref($obj) . ' object failed';
+        }
+    }
 }
 
 
