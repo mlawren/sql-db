@@ -2,20 +2,17 @@ package SQL::DB::Schema;
 use 5.008;
 use strict;
 use warnings;
-use Carp qw(carp croak);
+use Carp qw(carp croak confess);
 
 use SQL::DB::Table;
-
-use SQL::DB::Query::Insert;
-use SQL::DB::Query::Select;
-use SQL::DB::Query::Update;
-use SQL::DB::Query::Delete;
+use SQL::DB::Query;
 
 our $VERSION = '0.04';
 our $DEBUG;
 
 use Data::Dumper;
 $Data::Dumper::Indent = 1;
+
 
 sub new {
     my $proto = shift;
@@ -39,21 +36,21 @@ sub new {
 
 sub define {
     my $self = shift;
-    my $def  = shift;
 
-    unless (ref($def) and ref($def) eq 'ARRAY') {
-        croak 'usage: define($arrayref)';
+    foreach my $def (@_) {
+        unless (ref($def) and ref($def) eq 'ARRAY') {
+            croak 'usage: define($arrayref,...)';
+        }
+
+        my $table = SQL::DB::Table->new($def, $self);
+
+        if (exists($self->{table_names}->{$table->name})) {
+            croak "Table ". $table->name ." already defined";
+        }
+
+        push(@{$self->{tables}}, $table);
+        $self->{table_names}->{$table->name} = $table;
     }
-
-    my $table = SQL::DB::Table->new($def, $self);
-
-    if (exists($self->{table_names}->{$table->name})) {
-        croak "Table ". $table->name ." already defined";
-    }
-
-    push(@{$self->{tables}}, $table);
-    $self->{table_names}->{$table->name} = $table;
-
     return;
 }
 
@@ -64,11 +61,11 @@ sub table {
 
     if ($name) {
         if (!exists($self->{table_names}->{$name})) {
-            croak "Table '$name' has not been defined";
+            confess "Table '$name' has not been defined";
         }
         return $self->{table_names}->{$name};
     }
-    croak 'usage: table($name)';
+    confess 'usage: table($name)';
 }
 
 
@@ -87,33 +84,17 @@ sub arow {
         croak 'usage: arow($name)';
     }
     if (!exists($self->{table_names}->{$name})) {
-        croak "Table '$name' has not been defined";
+        confess "Table '$name' has not been defined";
     }
     
     return $self->{table_names}->{$name}->abstract_row;
 }
 
 
-sub insert {
+sub query {
     my $self = shift;
-    return SQL::DB::Query::Insert->new(@_);
+    return SQL::DB::Query->new(@_);
 }
-
-sub select {
-    my $self = shift;
-    return SQL::DB::Query::Select->new(@_);
-}
-
-sub update {
-    my $self = shift;
-    return SQL::DB::Query::Update->new(@_);
-}
-
-sub delete {
-    my $self = shift;
-    return SQL::DB::Query::Delete->new(@_);
-}
-
 
 1;
 __END__
