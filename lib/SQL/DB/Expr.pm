@@ -6,6 +6,9 @@ use Carp;
 use overload
     '""' => 'sql',
     '!' => 'expr_not',
+    'ne' => 'expr_ne',
+    '!=' => 'expr_ne',
+    'eq' => 'expr_eq',
     '==' => 'expr_eq',
     '&' => 'expr_and',
     '|' => 'expr_or',
@@ -55,6 +58,16 @@ sub expr_eq {
         return __PACKAGE__->new($expr .' = '. $val, $expr->bind_values);
     }
     return __PACKAGE__->new($expr .' = ?', $val);
+}
+
+
+sub expr_ne {
+    my $expr = shift;
+    my $val  = shift;
+    if (ref($val) and $val->isa(__PACKAGE__)) {
+        return __PACKAGE__->new($expr .' != '. $val, $expr->bind_values);
+    }
+    return __PACKAGE__->new($expr .' != ?', $val);
 }
 
 
