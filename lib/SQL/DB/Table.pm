@@ -6,6 +6,7 @@ use Carp qw(carp croak confess);
 use Scalar::Util qw(weaken);
 use SQL::DB::Column;
 use SQL::DB::ARow;
+use SQL::DB::Object;
 
 our $DEBUG;
 
@@ -73,6 +74,12 @@ sub setup_table {
 }
 
 
+sub setup_class {
+    my $self       = shift;
+    $self->{class} = shift;
+}
+
+
 sub setup_columns {
     my $self = shift;
 
@@ -92,9 +99,6 @@ sub setup_columns {
                 }
                 $col->name($val);
             }
-            elsif ($key eq 'references') {
-                $col->$key($self->text2cols(shift @{$array}));
-            }
             else {
                 $col->$key(shift @{$array});
             }
@@ -103,6 +107,18 @@ sub setup_columns {
         push(@{$self->{bind_values}}, $col->bind_values);
         $self->{column_names}->{$col->name} = $col;
     }
+
+
+    if (my $class = $self->{class}) {
+        no strict 'refs';
+        my $isa = \@{$class . '::ISA'};
+        if (defined @{$isa}) {
+            carp "redefining $class";
+        }
+        push(@{$isa}, 'SQL::DB::Object');
+        $class->mk_accessors($self->column_names);
+        ${$class .'::TABLE'} = $self;
+    }
 }
 
 
@@ -110,6 +126,12 @@ sub setup_primary {
     my $self = shift;
     my $def  = shift;
     push(@{$self->{primary}}, $self->text2cols($def));
+}
+
+
+sub add_primary {
+    my $self = shift;
+    push(@{$self->{primary}}, @_);
 }
 
 
@@ -199,7 +221,9 @@ sub text2cols {
     if ($text =~ /\s*(.*)\s*\((.*)\)/) {
         my $table;
         unless (eval {$table = $self->{schema}->table($1);1;}) {
-            croak "Table $self->{name}: Foreign table $1 not yet defined";
+            croak "Table $self->{name}: Foreign table $1 not yet defined.\n".
+                  "Known tables: " 
+                    . join(',', map {$_->name} $self->{schema}->tables);
         }
         foreach my $column_name (split(/,\s*/, $2)) {
             unless($table->column($column_name)) {
@@ -230,6 +254,11 @@ sub name {
 }
 
 
+sub class {
+    my $self = shift;
+    return $self->{class};
+}
+
 sub columns {
     my $self = shift;
     return @{$self->{columns}};
@@ -252,9 +281,10 @@ sub column {
 }
 
 
-sub primary_keys {
+sub primary_columns {
     my $self = shift;
-    return @{$self->{primary}};
+    return @{$self->{primary}} if($self->{primary});
+    return;
 }
 
 
@@ -336,7 +366,7 @@ sub sql_default_charset {
 sub sql {
     my $self = shift;
     my @vals = map {$_->sql} $self->columns;
-    push(@vals, $self->primary_sql) if ($self->{primary_keys});
+    push(@vals, $self->primary_sql) if ($self->{primary});
     push(@vals, $self->unique_sql) if ($self->{unique});
     push(@vals, $self->foreign_sql) if ($self->{foreign});
 
@@ -375,6 +405,7 @@ sub sql_index {
 
 sub bind_values {
     my $self = shift;
+    return; # FIXME placeholders don't work with CREATE TABLE?
     return @{$self->{bind_values}};
 }
 
