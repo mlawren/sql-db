@@ -4,13 +4,16 @@ use warnings;
 use base qw(Class::Accessor);
 use Carp qw(carp croak confess);
 
+
 sub mutator_name_for {'set_'.$_[1]};
+
 
 sub set {
     my $self = shift;
     $self->{_changed}->{$_[0]} = 1;
     $self->SUPER::set(@_);
 }
+
 
 sub new {
     my $proto = shift;
@@ -22,8 +25,10 @@ sub new {
     return $self;
 }
 
+
 sub _table {
     my $self = shift;
+    my $proto = ref($self) || $self;
     no strict 'refs';
     return ${ref($self) . '::TABLE'};
 }
@@ -31,9 +36,10 @@ sub _table {
 
 sub arow {
     my $proto = shift;
-    no strict 'refs';
-    return ${$proto . '::TABLE'}->abstract_row;
+    my $class = (ref($proto) || $proto) .'::Abstract';
+    return $class->_new;
 }
+
 
 sub _changed {
     my $self = shift;
@@ -58,7 +64,7 @@ sub q_insert {
         confess "Cannot insert objects already in storage";
     }
 
-    my $arow    = $self->_table->abstract_row;
+    my $arow    = $self->arow;
     my @changed = $self->_changed;
 
     if (!@changed) {
@@ -79,7 +85,7 @@ sub q_update {
         confess "Cannot update objects not already in storage";
     }
 
-    my $arow    = $self->_table->abstract_row;
+    my $arow    = $self->arow;
     my @primary = $self->_table->primary_columns;
     my @changed = $self->_changed;
 
@@ -101,6 +107,32 @@ sub q_update {
 }
 
 
+sub q_delete {
+    my $self    = shift;
+
+    if (!$self->{_in_storage}) {
+        confess "Cannot delete objects not already in storage";
+    }
+
+    my $arow    = $self->arow;
+    my @primary = $self->_table->primary_columns;
+
+    my $where;
+    foreach my $colname (map {$_->name} @primary) {
+        $where = $where ? ($where & ($arow->$colname == $self->$colname))
+                        : ($arow->$colname == $self->$colname)
+    }
+
+    return (
+        delete_from => $arow,
+        where  => $where,
+    );
+}
+
+
 1;
 __END__
+
+
+
 # vim: set tabstop=4 expandtab:
