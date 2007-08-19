@@ -2,12 +2,8 @@ package SQL::DB::Column;
 use strict;
 use warnings;
 use base qw(Class::Accessor::Fast);
-use overload '""' => 'as_string', fallback => 1;
 use Carp qw(carp croak);
 use Scalar::Util qw(weaken);
-
-        use Data::Dumper;
-        $Data::Dumper::Indent = 1;
 
 SQL::DB::Column->mk_accessors(qw(
     table
@@ -81,7 +77,7 @@ sub references {
 }
 
 
-sub default_sql {
+sub sql_default {
     my $self = shift;
     my $default = $self->default;
     if (!defined($default)) {
@@ -98,7 +94,7 @@ sub sql {
     my $self = shift;
     return sprintf('%-15s %-15s', $self->name, $self->type)
            . ($self->null ? 'NULL' : 'NOT NULL')
-           . $self->default_sql
+           . $self->sql_default
            . ($self->auto_increment ? ' AUTO_INCREMENT' : '')
            . ($self->unique ? ' UNIQUE' : '')
 #           . ($self->primary ? ' PRIMARY KEY' : '')
@@ -106,21 +102,6 @@ sub sql {
                . $self->references->table->name .'('
                . $self->references->name .')' : '')
     ;
-}
-
-
-sub bind_values {
-    my $self = shift;
-    if ($self->default) {
-        return ($self->default);
-    }
-    return;
-}
-
-
-sub as_string {
-    my $self = shift;
-    return $self->table->name .'.'. $self->name;
 }
 
 
