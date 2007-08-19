@@ -5,6 +5,8 @@ use overload '""' => 'sql';
 use Carp qw(carp croak confess);
 use Scalar::Util qw(weaken);
 use SQL::DB::Column;
+use SQL::DB::Object;
+use SQL::DB::ARow;
 
 our $DEBUG;
 
@@ -39,6 +41,27 @@ sub new {
         else {
             $self->$action($val);
         }
+    }
+
+
+    if (my $class = $self->{class}) {
+        no strict 'refs';
+        my $isa = \@{$class . '::ISA'};
+        if (defined @{$isa}) {
+            carp "redefining $class";
+        }
+        push(@{$isa}, 'SQL::DB::Object');
+        $class->mk_accessors($self->column_names);
+        ${$class .'::TABLE'} = $self;
+
+        my $aclass = $class . '::Abstract';
+        $isa = \@{$aclass . '::ISA'};
+        if (defined @{$isa}) {
+            carp "redefining $aclass";
+        }
+        push(@{$isa}, 'SQL::DB::ARow');
+        $aclass->mk_accessors($self->column_names);
+        ${$aclass .'::TABLE'} = $self;
     }
 
     return $self;
@@ -95,17 +118,6 @@ sub setup_columns {
         $self->{column_names}->{$col->name} = $col;
     }
 
-
-    if (my $class = $self->{class}) {
-        no strict 'refs';
-        my $isa = \@{$class . '::ISA'};
-        if (defined @{$isa}) {
-            carp "redefining $class";
-        }
-        push(@{$isa}, 'SQL::DB::Object');
-        $class->mk_accessors($self->column_names);
-        ${$class .'::TABLE'} = $self;
-    }
 }
 
 
