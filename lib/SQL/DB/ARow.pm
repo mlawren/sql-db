@@ -1,132 +1,56 @@
 package SQL::DB::ARow;
 use strict;
 use warnings;
+use base qw(Class::Accessor);
 use Carp qw(carp croak confess);
 use SQL::DB::AColumn;
-use Scalar::Util qw(weaken);
 
-my $ABSTRACT = 'SQL::DB::Abstract::';
+
 our $tcount = 0;
 our $DEBUG;
 
 
-sub _define {
-    shift;
-    my $table = shift;
-
-    no strict 'refs';
-
-    my $pkg = $ABSTRACT . $table->name;
-    my $isa = \@{ $pkg . '::ISA'};
-    if (defined @{$isa}) {
-        carp "redefining $pkg";
-    }
-
-    push(@{$isa}, 'SQL::DB::ARow');
-
-    warn $pkg if($SQL::DB::DEBUG && $SQL::DB::DEBUG>2);
-
-    foreach my $col ($table->columns) {
-        my $sym = $pkg .'::'. $col->name;
-        *{$sym} = sub {
-            my $self = shift;
-            return $self->{column_names}->{$col->name};
-        };
-    }
-
-    return;
-}
-
-
 sub _new {
-    shift;
-    my $table = shift;
-    my $referring_column = shift;
-
-    #
-    # The first time this is called we need to define the package
-    #
-    my $pkg   = $ABSTRACT . $table->name;
-    my $isa   = $pkg .'::ISA';
-
-    if (!defined @{$isa}) {
-        __PACKAGE__->_define($table);
-    }
-
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
     my $self = {
-        table         => $table,
-        tid           => $tcount++,
-        referenced_by => [],
-        references    => [],
+        arow_tid => $tcount++,
     };
-    bless($self, $pkg);
+    bless($self, $class);
 
-    if ($referring_column) {
-        $self->{referenced_by} = [$referring_column];
-#        weaken($self->{referenced_by});
-    }
-
-    foreach my $col ($self->{table}->columns) {
+    foreach my $col ($self->_table->columns) {
         my $acol = SQL::DB::AColumn->_new($col, $self);
 
-        push(@{$self->{columns}}, $acol);
-        $self->{column_names}->{$col->name} = $acol;
+        push(@{$self->{arow_columns}}, $acol);
+        $self->{arow_column_names}->{$col->name} = $acol;
+        $self->{$col->name} = $acol;
     }
     return $self;
 }
 
 
-sub _referenced_by {
+sub _table {
     my $self = shift;
-    if ($self->{referenced_by}) {
-        return @{$self->{referenced_by}};
-    }
-    return;
-}
-
-
-sub _references {
-    my $self = shift;
-    if (@_) {
-        my $ref = shift;
-        push(@{$self->{references}}, $ref);
-        return;
-    }
-    return @{$self->{references}};
+    no strict 'refs';
+    return ${(ref($self) || $self) . '::TABLE'};
 }
 
 
 sub _name {
     my $self = shift;
-    return $self->{table}->name;
+    return $self->_table->name;
 }
 
-
-sub _table {
-    my $self = shift;
-    return $self->{table};
-}
 
 sub _alias {
     my $self = shift;
-    return 't'. $self->{tid};
+    return 't'. $self->{arow_tid};
 }
 
 
 sub _columns {
     my $self = shift;
-    if (!@_) {
-        return @{$self->{columns}};
-    }
-
-    my @cols;
-    foreach my $name (@_) {
-        if (!exists($self->{column_names}->{$name})) {
-            croak "Column $name not in table $self->{name}";
-        }
-        push(@cols, $self->{column_names}->{$name});
-    }
-    return @cols;
+    return @{$self->{arow_columns}};
 }
 
 
