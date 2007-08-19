@@ -26,8 +26,7 @@ sub new {
         my $action = 'st_'.$key;
 
         unless($self->can($action)) {
-            carp "Unknown command: $key";
-            next;
+            confess "Unknown command: $key";
         }
 
         my $val    = shift;
@@ -140,6 +139,7 @@ sub sql_where {
 # INSERT
 # ------------------------------------------------------------------------
 
+sub st_insert_into {st_insert(@_)};
 sub st_insert {
     my $self = shift;
     my $ref  = shift;
@@ -469,8 +469,7 @@ sub st_union {
 sub sql_union {
     my $self = shift;
     my $ref  = shift;
-    (my $sql = $ref->sql) =~ s/^/    /gm;
-    return "UNION (\n" . $sql . ")\n";
+    return "UNION \n" . $ref->sql . "\n";
 }
 
 
@@ -549,10 +548,12 @@ sub sql_offset {
 # DELETE
 # ------------------------------------------------------------------------
 
+sub st_delete_from {st_delete(@_)};
 sub st_delete {
     my $self = shift;
     my $arow = shift;
-    UNIVERSAL::isa($arow, 'SQL::DB::ARow') || confess "Can only delete type SQL::DB::ARow";
+    UNIVERSAL::isa($arow, 'SQL::DB::ARow') ||
+        confess "Can only delete type SQL::DB::ARow";
     push(@{$self->{query}}, 'sql_delete', $arow);
     return;
 }
