@@ -23,7 +23,6 @@ sub new {
     };
     bless($self,$class);
 
-
     foreach (@_) {
         unless (ref($_) and ref($_) eq 'ARRAY') {
             croak 'usage: new($arrayref, $arrayref,...)'
@@ -42,7 +41,7 @@ sub define {
             croak 'usage: define($arrayref,...)';
         }
 
-        my $table = SQL::DB::Table->new($def, $self);
+        my $table = SQL::DB::Table->new(schema => $self, @{$def});
 
         if (exists($self->{table_names}->{$table->name})) {
             croak "Table ". $table->name ." already defined";
@@ -74,20 +73,6 @@ sub tables {
     my $name  = shift;
 
     return @{$self->{tables}};
-}
-
-
-sub arow {
-    my $self = shift;
-    my $name = shift;
-    if (!$name) {
-        croak 'usage: arow($name)';
-    }
-    if (!exists($self->{table_names}->{$name})) {
-        confess "Table '$name' has not been defined";
-    }
-    
-    return $self->{table_names}->{$name}->abstract_row;
 }
 
 
