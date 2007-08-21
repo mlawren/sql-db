@@ -1,19 +1,18 @@
 use strict;
 use warnings;
-use Test::More tests => 17;
+use Test::More tests => 4;
 
 BEGIN { use_ok('SQL::DB::Schema');}
-require_ok('t/testlib/Schema.pm');
+require_ok('t/Schema.pm');
 
 
-can_ok('SQL::DB::Schema', qw(new define tables table arow insert update delete select));
+can_ok('SQL::DB::Schema', qw(new define tables table query));
 
 my $sql;
-my @schema = Schema->get;
-ok(scalar @schema, 'Have schema');
 
-$sql = SQL::DB::Schema->new();
+$sql = SQL::DB::Schema->new(Schema->All);
 isa_ok($sql, 'SQL::DB::Schema', '->new empty');
+__END__
 
 my $table;
 
@@ -44,19 +43,8 @@ isa_ok($sql->table('cds'), 'SQL::DB::Table');
 eval{use warnings FATAL => 'all'; $sql->define($schema[0]);};
 like($@, qr/already defined/, 'redefine check');
 
-$sql = SQL::DB::Schema->new(Schema->get);
-
-eval {$sql->select;};
-#like($@, qr/query badly defined/, '->query badly defined');
-
-eval {$sql->select({});};
-#like($@, qr/query badly defined/, '->query badly defined with hash');
-
-isa_ok($sql->select(columns => []), 'SQL::DB::Query::Select', '->query SELECT');
-
-eval {$sql->insert(insert => []);};
-like($@, qr/unknown argument for/m, '->query INSERT usage');
-
-isa_ok($sql->insert(columns => [$sql->arow('cds')->_columns]), 'SQL::DB::Query::Insert', '->query INSERT');
+my @many = $sql->table('artists')->has_many;
+ok(@many > 0, 'Artists has many something');
+isa_ok($many[0],'SQL::DB::Column', 'Artists has many');
 
 

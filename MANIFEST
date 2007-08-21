@@ -20,11 +20,8 @@ lib/SQL/DB/AColumn.pm
 lib/SQL/DB/ARow.pm
 lib/SQL/DB/Column.pm
 lib/SQL/DB/Expr.pm
+lib/SQL/DB/Object.pm
 lib/SQL/DB/Query.pm
-lib/SQL/DB/Query/Select.pm
-lib/SQL/DB/Query/Delete.pm
-lib/SQL/DB/Query/Insert.pm
-lib/SQL/DB/Query/Update.pm
 lib/SQL/DB/Schema.pm
 lib/SQL/DB/Table.pm
 Makefile.PL
@@ -32,8 +29,8 @@ MANIFEST
 MANIFEST.SKIP
 META.yml
 README
+t/01-column.t
+t/02-table.t
 t/01-schema.t
-t/02-abstract.t
 t/live.t
-t/Column.t
-t/testlib/Schema.pm
+t/Schema.pm

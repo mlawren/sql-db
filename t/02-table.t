@@ -4,7 +4,7 @@ use Test::More tests => 16;
 BEGIN {
     use_ok('SQL::DB::Table');
 }
-require_ok('t/testlib/Schema.pm');
+require_ok('t/Schema.pm');
 
 
 can_ok('SQL::DB::Table', qw(
