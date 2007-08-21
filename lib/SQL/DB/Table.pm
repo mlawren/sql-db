@@ -50,7 +50,9 @@ sub new {
         if (defined @{$isa}) {
             carp "redefining $class";
         }
-        push(@{$isa}, 'SQL::DB::Object');
+
+        my @bases = $self->{bases} ? @{$self->{bases}} : ('SQL::DB::Object');
+        push(@{$isa}, @bases);
         $class->mk_accessors($self->column_names);
         ${$class .'::TABLE'} = $self;
 
@@ -88,6 +90,17 @@ sub setup_table {
 sub setup_class {
     my $self       = shift;
     $self->{class} = shift;
+}
+
+
+sub setup_bases {
+    my $self       = shift;
+    foreach my $class (@_) {
+        if (!eval "require $class;1;") {
+            die "Base Class $class could not be loaded: $@";
+        }
+    }
+    $self->{bases} = [@_];
 }
 
 
@@ -422,6 +435,7 @@ SQL::DB::Table - Perl representation of an SQL database table
   my $table = SQL::DB::Table->new(
       table   => 'users',
       class   => 'User',
+      bases   => [qw(SQL::DB::Object)],
       columns => [
            [name => 'id',  type => 'INT',          primary => 1],
            [name => 'name',type => 'VARCHAR(255)', unique  => 1],
@@ -460,6 +474,10 @@ $name is the SQL name of the table.
 =head2 class => $name
 
 $name is the Perl class to be created for representing table rows.
+
+=head2 bases => [$class1, $class2,...]
+
+A list of classes that the class will inherit from.
 
 =head2 columns => [ $col1, $col2, ... ]
 
