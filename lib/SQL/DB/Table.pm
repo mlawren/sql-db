@@ -300,6 +300,13 @@ sub primary_columns {
 }
 
 
+sub primary_column_names {
+    my $self = shift;
+    return map {$_->name} @{$self->{primary}} if($self->{primary});
+    return;
+}
+
+
 sub schema {
     my $self = shift;
     return $self->{schema};
@@ -557,6 +564,10 @@ Returns a list of the SQL names of the columns.
 
 Returns the list of L<SQL::DB::Column> objects which have been defined
 as primary.
+
+=head2 primary_column_names
+
+Returns the list of columns names which have been defined as primary.
 
 =head2 schema
 
