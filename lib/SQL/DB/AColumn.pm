@@ -98,6 +98,29 @@ sub func {
 }
 
 
+use UNIVERSAL;
+sub set {
+    my $self = shift;
+    if (@_) {
+        my $set = shift;
+        my $expr;
+        if (UNIVERSAL::isa($set, 'SQL::DB::Expr')) {
+            return SQL::DB::Expr->new($self->{col}->name .' = '. $set->sql,
+                                      $set->bind_values);
+        }
+        return SQL::DB::Expr->new($self->{col}->name .' = ?', $set);
+    }
+    confess "set() is write-only";
+#    return $self->{set};
+#    my $val  = shift;
+#    if (ref($val) and $val->isa('SQL::DB::Expr')) {
+#        return SQL::DB::Expr->new($self .' = '. $val, $val->bind_values);
+#    }
+#    my $newexpr =  SQL::DB::Expr->new($self .' = ?', $val);
+#    return $newexpr;
+}
+
+
 sub sql {
     my $self = shift;
     return $self->{arow}->_alias .'.'. $self->{col}->name;
