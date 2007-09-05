@@ -104,6 +104,33 @@ sub setup_bases {
 }
 
 
+sub setup_column {
+    my $self = shift;
+
+    my $col = SQL::DB::Column->new();
+    $col->table($self);
+
+    while (my $key = shift) {
+        if ($key eq 'name') {
+            my $val = shift;
+            if (grep(m/^$val$/, @reserved)) {
+                croak "Column can't be called '$val': reserved name";
+            }
+
+            if (exists($self->{column_names}->{$val})) {
+                croak "Column $val already defined for table $self->{name}";
+            }
+            $col->name($val);
+        }
+        else {
+            $col->$key(shift);
+        }
+    }
+    push(@{$self->{columns}}, $col);
+    $self->{column_names}->{$col->name} = $col;
+}
+
+
 sub setup_columns {
     my $self = shift;
 

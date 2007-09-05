@@ -4,10 +4,12 @@ sub Artist {
     [
         table => 'artists',
         class => 'Artist',
-        columns => [
-            [name => 'id',  type => 'INTEGER', primary => 1],
-            [name => 'name',type => 'VARCHAR(255)',unique => 1],
-        ],
+#        columns => [
+#            [name => 'id',  type => 'INTEGER', primary => 1],
+#            [name => 'name',type => 'VARCHAR(255)',unique => 1],
+#        ],
+        column => [name => 'id',  type => 'INTEGER', primary => 1],
+        column => [name => 'name',type => 'VARCHAR(255)',unique => 1],
         unique => 'name',
         index  => [
             columns => 'name',
