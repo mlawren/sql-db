@@ -7,7 +7,7 @@ use Carp qw(carp croak confess);
 use SQL::DB::Table;
 use SQL::DB::Query;
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 our $DEBUG;
 
 use Data::Dumper;
@@ -90,7 +90,7 @@ SQL::DB::Schema - Generate SQL using Perl logic and objects
 
 =head1 VERSION
 
-0.04. Development release.
+0.05. Development release.
 
 =head1 SYNOPSIS
 
