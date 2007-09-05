@@ -79,13 +79,13 @@ sub expr_not {
 
 sub asc {
     my $self = shift;
-    return $self->sql . ' ASC';
+    return SQL::DB::Expr->new($self->sql . ' ASC');
 }
 
 
 sub desc {
     my $self = shift;
-    return $self->sql . ' DESC';
+    return SQL::DB::Expr->new($self->sql . ' DESC');
 }
 
 
