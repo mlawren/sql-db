@@ -14,6 +14,9 @@ use overload
     '|' => 'expr_or',
     '<' => 'expr_lt',
     '>' => 'expr_gt',
+    '<=' => 'expr_lte',
+    '>=' => 'expr_gte',
+    '+' => 'expr_plus',
     fallback => 1,
 ;
 
@@ -82,6 +85,17 @@ sub expr_lt {
     return $newexpr;
 }
 
+sub expr_lte {
+    my $expr = shift;
+    my $val  = shift;
+    if (ref($val) and $val->isa(__PACKAGE__)) {
+        return __PACKAGE__->new($expr .' <= '. $val, $expr->bind_values);
+    }
+    my $newexpr =  __PACKAGE__->new($expr .' <= ?', $val);
+    $newexpr->multi(1);
+    return $newexpr;
+}
+
 
 sub expr_gt {
     my $expr = shift;
@@ -91,6 +105,30 @@ sub expr_gt {
     }
     my $newexpr =  __PACKAGE__->new($expr .' > ?', $val);
     $newexpr->multi(1);
+    return $newexpr;
+}
+
+
+sub expr_gte {
+    my $expr = shift;
+    my $val  = shift;
+    if (ref($val) and $val->isa(__PACKAGE__)) {
+        return __PACKAGE__->new($expr .' >= '. $val, $expr->bind_values);
+    }
+    my $newexpr =  __PACKAGE__->new($expr .' >= ?', $val);
+    $newexpr->multi(1);
+    return $newexpr;
+}
+
+
+sub expr_plus {
+    my $expr = shift;
+    my $val  = shift;
+#    if (ref($val) and $val->isa(__PACKAGE__)) {
+#        return __PACKAGE__->new($expr .' = '.$expr $val, $expr->bind_values);
+#    }
+    my $newexpr =  __PACKAGE__->new($expr .' + '. $val);
+#    $newexpr->multi(1);
     return $newexpr;
 }
 
