@@ -24,6 +24,7 @@ lib/SQL/DB/Object.pm
 lib/SQL/DB/Query.pm
 lib/SQL/DB/Schema.pm
 lib/SQL/DB/Table.pm
+lib/SQL/DB/Tutorial.pod
 Makefile.PL
 MANIFEST
 MANIFEST.SKIP
@@ -31,6 +32,7 @@ META.yml
 README
 t/01-column.t
 t/02-table.t
-t/01-schema.t
+t/03-schema.t
 t/live.t
+t/synopsis.t
 t/Schema.pm
