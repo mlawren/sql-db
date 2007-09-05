@@ -56,6 +56,21 @@ sub push_bind_values {
 }
 
 
+sub wantobjects {
+    my $self = shift;
+    return $self->{selecto};
+}
+
+
+sub arows {
+    my $self = shift;
+    if ($self->{arows}) {
+        return @{$self->{arows}};
+    }
+    return;
+}
+
+
 sub acolumns {
     my $self = shift;
     if ($self->{acolumns}) {
@@ -128,7 +143,7 @@ sub sql_where {
     my $self  = shift;
     my $where = shift;
     if (!$self->{acolumns}) {
-        $where =~ s/\S+\.//;
+        $where =~ s/t\d+\.//;
     }
     return "WHERE\n    " . $where . "\n";
 }
@@ -197,13 +212,12 @@ sub sql_values {
 sub st_update {
     my $self = shift;
     my $ref  = shift;
+    unless(UNIVERSAL::isa($ref, 'SQL::DB::ARow')) {
+        confess "UPDATE expects an ARow";
+    }
 
-#    if (@{$self->{arows}} > 1) {
-#        confess "Can only insert into columns of the same table";
-#    }
-
-    push(@{$self->{query}}, 'sql_update', $ref->[0]->_arow->_name);
-    $self->{update} = $ref;
+    push(@{$self->{query}}, 'sql_update', $ref->_name);
+#    $self->{update} = $ref;
 
     return;
 }
@@ -211,64 +225,79 @@ sub st_update {
 sub sql_update {
     my $self = shift;
     my $name = shift;
+
     return "UPDATE\n    " . $name . "\n";
 }
 
+use UNIVERSAL;
 
 sub st_set {
     my $self = shift;
     my $ref  = shift;
 
+    unless(ref($ref) and ref($ref) eq 'ARRAY') {
+        confess "SET expects an ARRAY ref";
+    }
 
 #    if (@{$self->{arows}} > 1) {
 #        confess "Can only insert into columns of the same table";
 #    }
 
     push(@{$self->{query}}, 'sql_set', undef);
-    $self->push_bind_values(@{$ref});
+    $self->{set} = [];
+    foreach (@{$ref}) {
+        $self->push_bind_values($_->bind_values);
+        push(@{$self->{set}}, $_->sql);
+    }
     return;
 }
 
 
+
+#           "SET\n    " 
+#           . join(", ", @set)
+#            map {isa($_,'SQL::DB::Expr') && $_->bind_values ? $_->_name .' = ?' : $_} @{$self->{update}})
+#           . "\n";
+#}
+
+
+
 sub sql_set {
     my $self = shift;
-    return "SET\n    " 
-           . join(", ", map {$_->_name .' = ?'} @{$self->{update}})
-           . "\n";
+    my $set =  join(", ", @{$self->{set}});
+    $set =~ s/t\d+\.//g;
+
+    return "SET\n    " .$set ."\n";
+#           . join(", ", map {($_ =~ s/\S+\.//g)} @{$self->{set}})
+#            map {isa($_,'SQL::DB::Expr') && $_->bind_values ? $_->_name .' = ?' : $_} @{$self->{update}})
+#           . "\n";
 }
 
 
 # ------------------------------------------------------------------------
 # SELECT
 # ------------------------------------------------------------------------
-
 sub st_columns {st_select(@_)};
 sub st_select {
     my $self = shift;
     my $ref  = shift;
 
-    my @acols;
+    my @items    = ref($ref) eq 'ARRAY' ? @{$ref} : $ref;
+    my @acolumns = map {$_->isa('SQL::DB::ARow') ? $_->_columns : $_} @items;
 
-    if (UNIVERSAL::isa($ref,'ARRAY')) {
-        foreach (@{$ref}) {
-            if (UNIVERSAL::isa($_, 'SQL::DB::ARow') ) {
-                push(@acols, $_->_columns);
-            }
-            elsif (UNIVERSAL::isa($_, 'ARRAY') and $_->[0] eq 'coalesce' ) {
-                push(@acols, Coalesce->new(@{$_}));
-            }
-            else {
-                push(@acols, $_);
-            }
-        }
-    }
-    else {
-        push(@acols, $ref);
-    }
-    push(@{$self->{acolumns}}, @acols);
-#    push(@{$self->{columns}}, map {$_->_column} @acols);
-    push(@{$self->{query}}, 'sql_select', \@acols);
+    push(@{$self->{acolumns}}, @acolumns);
+    push(@{$self->{query}}, 'sql_select', undef);
+
     return;
+}
+
+
+sub st_selecto {
+    my $self = shift;
+    my $ref  = shift;
+
+    $self->{selecto} = 1;
+    return $self->st_select($ref);
 }
 
 
@@ -286,7 +315,7 @@ sub sql_select {
     }
 
     # The columns to select
-    $s .= "\n    " .  join(",\n    ", map {$_->sql_select} @{$ref});
+    $s .= "\n    " . join(",\n    ", map {$_->sql_select} @{$self->{acolumns}});
 
     return $s ."\n";
 }
