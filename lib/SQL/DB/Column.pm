@@ -23,7 +23,7 @@ sub table {
     my $self = shift;
     if ( @_ ) {
         my $table = shift;
-        unless(ref($table) and ref($table) eq 'SQL::DB::Table') {
+        unless(CORE::ref($table) and CORE::ref($table) eq 'SQL::DB::Table') {
             croak "table must be a SQL::DB::Table";
         }
         $self->{table} = $table;
@@ -50,6 +50,7 @@ sub primary {
 # This is a delayed value function. Takes a string, but first time
 # is accessed it finds the real column and sets itself to that column.
 #
+sub ref {references(@_);};
 sub references {
     my $self = shift;
     # Set a value
@@ -64,7 +65,7 @@ sub references {
     }
 
     # Already accessed - return the reference to SQL::DB::Column
-    if (ref($self->{references})) {
+    if (CORE::ref($self->{references})) {
         return $self->{references};
     }
 
