@@ -10,6 +10,7 @@ our $tcount = 0;
 our $DEBUG;
 
 
+sub new {_new(@_);};
 sub _new {
     my $proto = shift;
     my $class = ref($proto) || $proto;
