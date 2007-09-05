@@ -187,30 +187,33 @@ sub setup_index {
 
     while (my $def = shift) {
         my $val = shift;
-        if ($def eq 'columns' and ref($val) and ref($val) eq 'ARRAY') {
-            foreach my $col (@{$val}) {
-                (my $c = $col) =~ s/\s.*//;
+        if ($val) {
+            if ($def eq 'columns' and ref($val) and ref($val) eq 'ARRAY') {
+                foreach my $col (@{$val}) {
+                    (my $c = $col) =~ s/\s.*//;
                 if (!exists($self->{column_names}->{$c})) {
-                    croak "Index column $c not in table $self->{name}";
+                        croak "Index column $c not in table $self->{name}";
+                    }
                 }
             }
-        }
-        elsif ($def eq 'columns') {
-            my @vals;
-            foreach my $col (split(m/,\s*/, $val)) {
-                (my $c = $col) =~ s/\s.*//;
-                if (!exists($self->{column_names}->{$c})) {
-                    croak "Index column $c not in table $self->{name}";
+            elsif ($def eq 'columns') {
+                my @vals;
+                foreach my $col (split(m/,\s*/, $val)) {
+                    (my $c = $col) =~ s/\s.*//;
+                    if (!exists($self->{column_names}->{$c})) {
+                        croak "Index column $c not in table $self->{name}";
+                    }
+                    push(@vals, $col);
                 }
-                push(@vals, $col);
+                $val = \@vals;
             }
-            $val = \@vals;
+            $hashref->{$def} = $val;
         }
-        $hashref->{$def} = $val;
+        else {
+            $hashref->{columns} = [$def];
+        }
     }
-
     push(@{$self->{index}}, $hashref);
-
 }
 
 
