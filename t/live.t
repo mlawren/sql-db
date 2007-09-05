@@ -7,7 +7,7 @@ BEGIN {
         plan skip_all => "DBD::SQLite not installed: $@";
     }
     else {
-        plan tests => 4;
+        plan tests => 7;
     }
 
 }
@@ -22,21 +22,26 @@ require_ok('t/Schema.pm');
 #$SQL::DB::ARow::DEBUG = 3;
 #$SQL::DB::Query::DEBUG = 1;
 
+
 our $schema;
-$schema = SQL::DB::Schema->new(Schema->All) unless($schema);
+our $db = SQL::DB->new;
+isa_ok($db, 'SQL::DB');
 
-isa_ok($schema, 'SQL::DB::Schema', 'Schema');
+$db = SQL::DB->new(Schema->All);
+isa_ok($db, 'SQL::DB');
 
-our $db = SQL::DB->connect(
+#our $schema = $db->schema(Schema->All);
+isa_ok($db->schema, 'SQL::DB::Schema');
+
+$db->connect(
     "dbi:SQLite:/tmp/sqldb$$.db",undef,undef,
 #    'dbi:Pg:dbname=test;port=5433', 'rekudos', 'rekudos',
     {PrintError => 0, RaiseError => 1},
-    $schema,
-) unless($db);
-
-isa_ok($db, 'SQL::DB', 'DB');
+);
+ok(1, 'connected');
 
 $db->deploy;
+ok(1, 'deployed');
 
 my $arow = Track->arow;
 $db->do(
@@ -71,8 +76,8 @@ my $track = Track->arow;
 my $cd = CD->arow;
 my $artist = Artist->arow;
 
-my @objs = $db->so(
-    columns   => [ $track->id,$track->title,
+my @objs = $db->fetch(
+    select   => [ $track->id,$track->title,
                   $cd->year,$artist->name ],
     from     => [$track, $cd, $artist],
     distinct => 1,
@@ -92,8 +97,8 @@ foreach my $obj (@objs) {
 
 $track = Track->arow;
 $cd = CD->arow;
-@objs = $db->so(
-    columns   => [ $track->id->func('count'),
+@objs = $db->fetch(
+    select   => [ $track->id->func('count'),
                    $cd->title,
                    $track->length->func('max'),
                    $track->length->func('sum')],
@@ -118,21 +123,22 @@ foreach my $obj (@objs) {
 
 $cd = CD->arow;
 $db->do(
-    update => [$cd->year],
-    set     => [2006],
+    update => $cd,
+    set     => [$cd->year->set(2006)],
     where    => $cd->id == 10,
 );
 
+$cd = CD->arow;
 my $track2 = Track->arow;
 my $cd2 = CD->arow;
-my $q2 =  $schema->query(
+my $q2 =  $db->schema->query(
     select   => [ $track2->title, $cd2->year ],
     distinct => 1,
     from     => [$track2, $cd2],
     where    => ( $track2->length < 248 ) & ! ($cd2->year > 1997),
 );
 
-@objs = $db->so(
+@objs = $db->fetch(
     select   => [ $track->title, $cd->year],
     from     => [$track, $cd],
     distinct => 1,
@@ -143,8 +149,8 @@ my $q2 =  $schema->query(
 
 my $fan = Fan->arow;
 my $link = ArtistFan->arow;
-my @res = $db->so(
-    columns => [$fan->name, $fan->craziness],
+my @res = $db->fetch(
+    select => [$fan->name, $fan->craziness],
     from   => [$fan, $artist, $link],
     where   => ($artist->name == 'Queen') &
                 ($link->fan == $fan->id) & ($link->artist == $artist->id)
@@ -158,8 +164,8 @@ foreach (@res) {
 
 $fan = Fan->arow;
 $link = ArtistFan->arow;
-@res = $db->so(
-    columns => [$fan->name, $fan->craziness],
+@res = $db->fetch(
+    select => [$fan->name, $fan->craziness],
     from   => $fan,
     where   => $fan->id->not_in($db->schema->query(select => [$link->fan],
                     from => [$link])),
@@ -173,8 +179,8 @@ foreach (@res) {
 
 my $a = Artist->arow;
 my $c = CD->arow;
-@res = $db->so(
-    columns => [$cd->title],
+@res = $db->fetch(
+    select => [$cd->title],
     from   => $cd,
     left_join => $a,
     on       => $cd->artist == $a->id,
@@ -187,8 +193,8 @@ foreach (@res) {
 
 $c = CD->arow;
 $a = Artist->arow;
-@res = $db->objects(
-    columns => [$c],
+@res = $db->fetch(
+    selecto => [$c->title, $c->id],
     from    => [$c],
     left_join => $a,
     on      => $a->id == $c->artist,
@@ -209,6 +215,20 @@ $db->do(
     insert_into => [$track->id, $track->cd, $track->title, $track->length],
     values      => [3, 2, 'Who wants to live forever?', 285]
 );
+
+#warn ref($track->length($track->length + 1));
+
+$track = Track->arow;
+$db->do(
+    update => $track,
+    set    => [ $track->id->set(3),
+                $track->cd->set(2),
+                $track->title->set('Who wants to live forever?'),
+                $track->length->set($track->length + 1)
+    ],
+    where => $track->id == 3,
+);
+
 
 __DATA__
 Artist,1,Queen
