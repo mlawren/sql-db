@@ -10,8 +10,23 @@ sub mutator_name_for {'set_'.$_[1]};
 
 sub set {
     my $self = shift;
-    $self->{_changed}->{$_[0]} = 1;
-    $self->SUPER::set(@_);
+    my $name = $_[0];
+    if ($self->_table->column($name)) {
+        $self->{_changed}->{$name} = 1;
+    }
+    return $self->SUPER::set(@_);
+}
+
+
+sub get {
+    my $self = shift;
+#    warn "GET $_[0] ". join(', ', keys %$self) . $self->{_in_storage};
+    if ($self->{_in_storage} &&
+        $self->_table->column($_[0]) && !exists($self->{$_[0]})) {
+        confess 'Attempt to access '.ref($self) .'.'. $_[0]
+                .' which has not been set/fetched.';
+    }
+    return $self->SUPER::get(@_);
 }
 
 
@@ -20,8 +35,8 @@ sub new {
     my $class = ref($proto) || $proto;
     my $hash  = shift || {};
     my $self  = $class->SUPER::new($hash);
-    $self->{_changed} = $hash;
     bless($self,$class);
+    map {$self->_table->column($_) ? $self->{_changed}->{$_} = 1 : undef} keys %{$hash};
     return $self;
 }
 
@@ -59,11 +74,6 @@ sub _in_storage {
 
 sub q_insert {
     my $self = shift;
-
-    if ($self->{_in_storage}) {
-        confess "Cannot insert objects already in storage";
-    }
-
     my $arow    = $self->arow;
     my @changed = $self->_changed;
 
@@ -80,11 +90,6 @@ sub q_insert {
 
 sub q_update {
     my $self    = shift;
-
-    if (!$self->{_in_storage}) {
-        confess "Cannot update objects not already in storage";
-    }
-
     my $arow    = $self->arow;
     my @primary = $self->_table->primary_columns;
     my @changed = $self->_changed;
@@ -100,8 +105,10 @@ sub q_update {
     }
 
     return (
-        update => [ map {$arow->$_} @changed ],
-        set    => [ map {$self->$_} @changed ],
+        update => $arow,
+        set    => [ map {$arow->$_->set($self->$_)} @changed],
+#        update => [ map {$arow->$_} @changed ],
+#        set    => [ map {$self->$_} @changed ],
         where  => $where,
     );
 }
@@ -109,11 +116,6 @@ sub q_update {
 
 sub q_delete {
     my $self    = shift;
-
-    if (!$self->{_in_storage}) {
-        confess "Cannot delete objects not already in storage";
-    }
-
     my $arow    = $self->arow;
     my @primary = $self->_table->primary_columns;
 
@@ -132,7 +134,6 @@ sub q_delete {
 
 1;
 __END__
-
 
 
 # vim: set tabstop=4 expandtab:
