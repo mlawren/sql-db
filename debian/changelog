@@ -2,7 +2,7 @@ libsql-db-perl (0.04-1) stable; urgency=low
 
   * New Upstream.
 
- -- Mark Lawrence <nomad@null.net>  Tue, 19 Jun 2007 18:24:19 +0200
+ -- Mark Lawrence <nomad@null.net>  Wed,  5 Sep 2007 13:45:53 +0200
 
 libsql-db-perl (0.03-1) stable; urgency=low
 
