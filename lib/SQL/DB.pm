@@ -377,7 +377,7 @@ SQL::DB - Perl interface to SQL Databases
       column => [name => 'address', type => 'INTEGER',
                                     ref  => 'addresses(id)',
                                     null => 1],
-      column => [name => 'parent',  type => 'INTEGER'
+      column => [name => 'parent',  type => 'INTEGER',
                                     ref  => 'persons(id)',
                                     null => 1],
       index  => 'name',
@@ -391,7 +391,7 @@ SQL::DB - Perl interface to SQL Databases
       column       => [name => 'city', type => 'INTEGER'],
   ]);
 
-  $db->connect('SQLite:/tmp/sqldbtest.db', 'user', 'pass', {});
+  $db->connect('dbi:SQLite:/tmp/sqldbtest.db', 'user', 'pass', {});
   $db->deploy;
 
   my $person  = Person::Abstract->new;
@@ -413,15 +413,15 @@ SQL::DB - Perl interface to SQL Databases
   );
 
 
-  my $p   = People::Abstract->new;
+  my $p   = Person::Abstract->new;
   my $add = Address::Abstract->new;
 
   my @items = $db->fetch(
-    select    => [$p->name, $add->city],
+    select    => [$p->name, $p->age, $add->city],
     from      => $p,
     left_join => $add,
     on        => $add->id == $p->address,
-    where     => $add->city == 'Springfield' & $p->age < 40,
+    where     => $add->city == 'Springfield' & $p->age > 40,
     order_by  => $p->age->desc,
     limit     => 10,
   );
