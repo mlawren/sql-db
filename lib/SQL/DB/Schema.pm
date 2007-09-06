@@ -1,5 +1,4 @@
 package SQL::DB::Schema;
-use 5.008;
 use strict;
 use warnings;
 use Carp qw(carp croak confess);
