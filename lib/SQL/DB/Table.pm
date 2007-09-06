@@ -181,6 +181,50 @@ sub setup_unique {
 }
 
 
+sub setup_unique_index {
+    my $self = shift;
+    my $hashref = {unique => 1};
+
+    while (my $def = shift) {
+        my $val = shift;
+        if ($val) {
+            if ($def eq 'columns' and ref($val) and ref($val) eq 'ARRAY') {
+                foreach my $col (@{$val}) {
+                    (my $c = $col) =~ s/\s.*//;
+                if (!exists($self->{column_names}->{$c})) {
+                        croak "Index column $c not in table $self->{name}";
+                    }
+                }
+            }
+            elsif ($def eq 'columns') {
+                my @vals;
+                foreach my $col (split(m/,\s*/, $val)) {
+                    (my $c = $col) =~ s/\s.*//;
+                    if (!exists($self->{column_names}->{$c})) {
+                        croak "Index column $c not in table $self->{name}";
+                    }
+                    push(@vals, $col);
+                }
+                $val = \@vals;
+            }
+            $hashref->{$def} = $val;
+        }
+        else {
+            my @vals;
+            foreach my $col (split(m/,\s*/, $def)) {
+                (my $c = $col) =~ s/\s.*//;
+                    if (!exists($self->{column_names}->{$c})) {
+                    croak "Index column $c not in table $self->{name}";
+                }
+                push(@vals, $col);
+            }
+            $hashref->{columns} = \@vals;
+        }
+    }
+    push(@{$self->{index}}, $hashref);
+}
+
+
 sub setup_index {
     my $self = shift;
     my $hashref = {};
@@ -210,7 +254,15 @@ sub setup_index {
             $hashref->{$def} = $val;
         }
         else {
-            $hashref->{columns} = [$def];
+            my @vals;
+            foreach my $col (split(m/,\s*/, $def)) {
+                (my $c = $col) =~ s/\s.*//;
+                    if (!exists($self->{column_names}->{$c})) {
+                    croak "Index column $c not in table $self->{name}";
+                }
+                push(@vals, $col);
+            }
+            $hashref->{columns} = \@vals;
         }
     }
     push(@{$self->{index}}, $hashref);
@@ -394,6 +446,15 @@ sub sql_foreign {
 }
 
 
+sub sql_type {
+    my $self = shift;
+    if (!$self->{type}) {
+        return '';
+    }
+    return ' ENGINE='.$self->{type};
+}
+
+
 sub sql_engine {
     my $self = shift;
     if (!$self->{engine}) {
@@ -423,6 +484,7 @@ sub sql {
            . $self->{name}
            . " (\n    " . join(",\n    ", @vals) . "\n)"
            . $self->sql_engine
+           . $self->sql_type
            . $self->sql_default_charset
     ;
 }
@@ -445,7 +507,7 @@ sub sql_index {
                 . join('_',$self->{name}, @colsflat)
                 . ' ON ' . $self->{name}
                 . ($index->{using} ? ' USING '.$index->{using} : '')
-                . ' (' . join(', ', @cols) . ')'
+                . ' (' . join(',', @cols) . ')'
         );
     }
     return @sql;
