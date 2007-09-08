@@ -161,6 +161,16 @@ foreach (@res) {
     print $_->name .' ('.$_->craziness .")\n";
 }
 
+my $res = $db->fetch1(
+    select => [$fan->name, $fan->craziness],
+    from   => [$fan, $artist, $link],
+    where   => ($artist->name == 'Queen') &
+                ($link->fan == $fan->id) & ($link->artist == $artist->id)
+);
+
+print "Only the first Queen Fan (with craziness)\n";
+print $res->name .' ('.$res->craziness .")\n";
+
 
 $fan = Fan->arow;
 $link = ArtistFan->arow;

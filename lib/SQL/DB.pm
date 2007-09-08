@@ -178,6 +178,22 @@ sub fetch {
 }
 
 
+sub fetch1 {
+    my $self = shift;
+    my $query   = $self->{schema}->query(@_);
+    my $sth     = $self->execute($query->sql, undef, $query->bind_values);
+
+    my @results;
+    if ($query->wantobjects) {
+        @results = $self->objects($query, $sth);
+    }
+    else {
+        @results = $self->simple_objects($query, $sth);
+    }
+    return $results[0];
+}
+
+
 sub simple_objects {
     my $self    = shift;
     my $query   = shift;
@@ -205,13 +221,7 @@ sub simple_objects {
 
     warn 'debug: # returns: '. scalar(@returns) if($DEBUG);
 
-    if (wantarray) {
-        return @returns;
-    }
-    elsif (@returns > 1) {
-        die "Multiple results returned - single result required";
-    }
-    return $returns[0];
+    return @returns;
 }
 
 
@@ -281,13 +291,7 @@ sub objects {
 
     warn 'debug: # returns: '. scalar(@returns) if($DEBUG);
 
-    if (wantarray) {
-        return @returns;
-    }
-    elsif (@returns > 1) {
-        die "Multiple results returned - single result required";
-    }
-    return $returns[0];
+    return @returns;
 }
 
 
@@ -498,6 +502,11 @@ columns or functions in the query.
 
 If the query used a "selecto" then returns a list of SQL::DB::Object
 -based objects.
+
+=head2 fetch1(@query)
+
+Is the same as fetch(), but only returns the first element from the
+result set.
 
 =head2 insert($sqlobject)
 
