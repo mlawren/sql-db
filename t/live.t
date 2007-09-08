@@ -7,7 +7,7 @@ BEGIN {
         plan skip_all => "DBD::SQLite not installed: $@";
     }
     else {
-        plan tests => 7;
+        plan tests => 6;
     }
 
 }
@@ -30,8 +30,6 @@ isa_ok($db, 'SQL::DB');
 $db = SQL::DB->new(Schema->All);
 isa_ok($db, 'SQL::DB');
 
-#our $schema = $db->schema(Schema->All);
-isa_ok($db->schema, 'SQL::DB::Schema');
 
 $db->connect(
     "dbi:SQLite:/tmp/sqldb$$.db",undef,undef,
@@ -131,7 +129,7 @@ $db->do(
 $cd = CD->arow;
 my $track2 = Track->arow;
 my $cd2 = CD->arow;
-my $q2 =  $db->schema->query(
+my $q2 =  $db->query(
     select   => [ $track2->title, $cd2->year ],
     distinct => 1,
     from     => [$track2, $cd2],
@@ -177,7 +175,7 @@ $link = ArtistFan->arow;
 @res = $db->fetch(
     select => [$fan->name, $fan->craziness],
     from   => $fan,
-    where   => $fan->id->not_in($db->schema->query(select => [$link->fan],
+    where   => $fan->id->not_in($db->query(select => [$link->fan],
                     from => [$link])),
 );
 

@@ -1,7 +1,7 @@
 package SQL::DB::Table;
 use strict;
 use warnings;
-use overload '""' => 'sql';
+use overload '""' => 'sql_create';
 use Carp qw(carp croak confess);
 use Scalar::Util qw(weaken);
 use SQL::DB::Column;
@@ -473,7 +473,7 @@ sub sql_default_charset {
 }
 
 
-sub sql {
+sub sql_create_table {
     my $self = shift;
     my @vals = map {$_->sql} $self->columns;
     push(@vals, $self->sql_primary) if ($self->{primary});
@@ -489,8 +489,7 @@ sub sql {
     ;
 }
 
-
-sub sql_index {
+sub sql_create_indexes {
     my $self = shift;
     my @sql = ();
 
@@ -511,6 +510,12 @@ sub sql_index {
         );
     }
     return @sql;
+}
+
+
+sub sql_create {
+    my $self = shift;
+    return ($self->sql_create_table, $self->sql_create_indexes);
 }
 
 

@@ -2,6 +2,7 @@ package SQL::DB;
 use 5.006;
 use strict;
 use warnings;
+use base qw(SQL::DB::Schema);
 use Carp qw(carp croak confess);
 use DBI;
 use Scalar::Util qw(refaddr);
@@ -19,27 +20,8 @@ our $DEBUG   = 0;
 sub new {
     my $proto = shift;
     my $class = ref($proto) || $proto;
-    my $self  = bless({}, $class);
-    $self->{schema} = SQL::DB::Schema->new(@_);
+    my $self  = bless($class->SUPER::new(@_), $class);
     return $self;
-}
-
-
-sub define {
-    my $self = shift;
-    $self->{schema}->define(@_);
-}
-
-
-sub schema {
-    my $self = shift;
-    if (@_) {
-        my $schema = shift;
-        UNIVERSAL::isa($schema, 'SQL::DB::Schema') ||
-            croak "Schema must be an SQL::DB::Schema object";
-        $self->{schema} = $schema;
-    }
-    return $self->{schema};
 }
 
 
@@ -83,7 +65,7 @@ sub dbh {
 sub deploy {
     my $self = shift;
 
-    foreach my $table ($self->{schema}->tables) {
+    foreach my $table ($self->tables) {
         my $sth = $self->{dbh}->table_info('', '', $table->name, 'TABLE');
         if (!$sth) {
             die $DBI::errstr;
@@ -94,7 +76,7 @@ sub deploy {
             next;
         }
 
-        foreach my $action ($table->sql, $table->sql_index) {
+        foreach my $action ($table->sql_create) {
             warn "debug: $action" if($DEBUG);
             if (!$self->{dbh}->do($action)) {
                 die $self->{dbh}->errstr;
@@ -110,7 +92,7 @@ sub deploy {
 
 sub do {
     my $self  = shift;
-    my $query = $self->{schema}->query(@_);
+    my $query = $self->query(@_);
     my ($sql,$attrs,@bind) = ($query->sql, undef, $query->bind_values);
 
     my $rv;
@@ -166,7 +148,7 @@ sub execute {
 
 sub fetch {
     my $self = shift;
-    my $query   = $self->{schema}->query(@_);
+    my $query   = $self->query(@_);
     my $sth     = $self->execute($query->sql, undef, $query->bind_values);
 
     if ($query->wantobjects) {
@@ -180,7 +162,7 @@ sub fetch {
 
 sub fetch1 {
     my $self = shift;
-    my $query   = $self->{schema}->query(@_);
+    my $query   = $self->query(@_);
     my $sth     = $self->execute($query->sql, undef, $query->bind_values);
 
     my @results;
@@ -370,9 +352,15 @@ SQL::DB - Perl interface to SQL Databases
 =head1 SYNOPSIS
 
   use SQL::DB;
-  my $db = SQL::DB->new();
-
-  $db->define([
+  my $db = SQL::DB->new(
+    [
+      table  => 'addresses',
+      class  => 'Address',
+      column => [name => 'id',   type => 'INTEGER', primary => 1],
+      column => [name => 'kind', type => 'INTEGER'],
+      column => [name => 'city', type => 'INTEGER'],
+    ],
+    [
       table  => 'persons',
       class  => 'Person',
       column => [name => 'id',      type => 'INTEGER', primary => 1],
@@ -385,15 +373,8 @@ SQL::DB - Perl interface to SQL Databases
                                     ref  => 'persons(id)',
                                     null => 1],
       index  => 'name',
-  ]);
-
-  $db->define([
-      table        => 'addresses',
-      class        => 'Address',
-      column       => [name => 'id',   type => 'INTEGER', primary => 1],
-      column       => [name => 'kind', type => 'INTEGER'],
-      column       => [name => 'city', type => 'INTEGER'],
-  ]);
+    ],
+  );
 
   $db->connect('dbi:SQLite:/tmp/sqldbtest.db', 'user', 'pass', {});
   $db->deploy;
@@ -425,7 +406,7 @@ SQL::DB - Perl interface to SQL Databases
     from      => $p,
     left_join => $add,
     on        => $add->id == $p->address,
-    where     => $add->city == 'Springfield' & $p->age > 40,
+    where     => ($add->city == 'Springfield') & ($p->age > 40),
     order_by  => $p->age->desc,
     limit     => 10,
   );
@@ -433,7 +414,8 @@ SQL::DB - Perl interface to SQL Databases
   foreach my $item (@items) {
       print $item->name, '(',$item->age,') lives in ', $item->city, "\n";
   }
-  # "Homer(38) lives in Springfield"
+  # "Homer(43) lives in Springfield"
+  return @items # this line for automatic test
 
 =head1 DESCRIPTION
 
@@ -453,13 +435,7 @@ according to L<SQL::DB::Schema>.
 
 =head2 define(@def)
 
-Add to the schema definition. The mandatory @def must be a list of
-ARRAY refs as required by L<SQL::DB::Schema>.
-
-=head2 schema($schema)
-
-Returns the current schema object. The optional $schema will set the
-current value. Will croak if $schema is not an L<SQL::DB::Schema> object.
+Add to the schema definition. Inherited from L<SQL::DB::Schema>.
 
 =head2 connect($dbi, $user, $pass, $attrs)
 
@@ -478,9 +454,14 @@ Returns the L<DBI> database handle we are connected with.
 
 =head2 deploy
 
-Runs the CREATE TABLE statements necessary to create the
-$schema in the database. Will warn on any tables that already exist.
-Will croak if the schema has not yet been defined.
+Runs the CREATE TABLE and CREATE INDEX statements necessary to
+create the schema in the database. Will warn on any tables that
+already exist.
+
+=head2 query(@query)
+
+Returns an L<SQL::DB::Query> built from @query. This method is useful
+when you are creating nested queries and UNION statements.
 
 =head2 do(@query)
 

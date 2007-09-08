@@ -14,7 +14,6 @@ can_ok('SQL::DB::Table', qw(
     setup_class
     setup_columns
     setup_primary
-    add_primary
     setup_unique
     setup_index
     setup_foreign
@@ -22,7 +21,6 @@ can_ok('SQL::DB::Table', qw(
     setup_engine
     setup_default_charset
     setup_tablespace
-    text2cols
     name
     class
     columns
@@ -30,13 +28,9 @@ can_ok('SQL::DB::Table', qw(
     column
     primary_columns
     schema
-    sql_primary
-    sql_unique
-    sql_foreign
-    sql_engine
-    sql_default_charset
-    sql
-    sql_index
+    sql_create_table
+    sql_create_indexes
+    sql_create
 ));
 
 my $table = SQL::DB::Table->new(@{Schema->Artist});
@@ -55,9 +49,9 @@ ok($colnames[0] eq 'name', 'First col is name?');
 isa_ok($table->column('name'), 'SQL::DB::Column');
 ok($table->column('name')->name eq 'name', 'Column name is name.');
 
-like($table->sql, qr/CREATE TABLE artists/, 'SQL');
-like($table->sql, qr/PRIMARY KEY/, 'SQL');
-like($table->sql, qr/UNIQUE/, 'SQL');
+like($table->sql_create_table, qr/CREATE TABLE artists/, 'SQL');
+like($table->sql_create_table, qr/PRIMARY KEY/, 'SQL');
+like($table->sql_create_table, qr/UNIQUE/, 'SQL');
 
 
 my $cd = SQL::DB::Table->new(@{Schema->CD});

@@ -7,7 +7,7 @@ BEGIN {
         plan skip_all => "DBD::SQLite not installed: $@";
     }
     else {
-        plan tests => 1;
+        plan tests => 2;
     }
 
 }
@@ -30,6 +30,7 @@ while (my $line = <SQL>) {
 }
 push(@lines, 'return @items;');
 
-my $res = eval @lines;
-ok($res > 0, "Homer lives in Springfield");
+my $res = eval "@lines";
+ok(!$@, 'Eval ok');
+ok($res > 0, 'Result > 0');
 
