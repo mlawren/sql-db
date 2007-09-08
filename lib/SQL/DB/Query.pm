@@ -143,7 +143,7 @@ sub sql_where {
     my $self  = shift;
     my $where = shift;
     if (!$self->{acolumns}) {
-        $where =~ s/t\d+\.//;
+        $where =~ s/t\d+\.//g;
     }
     return "WHERE\n    " . $where . "\n";
 }
