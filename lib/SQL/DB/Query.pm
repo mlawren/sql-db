@@ -2,7 +2,7 @@ package SQL::DB::Query;
 use strict;
 use warnings;
 use base qw(SQL::DB::Expr);
-use overload '""' => 'as_string';
+use overload '""' => 'as_string', fallback => 1;
 use Carp qw(carp croak confess);
 use UNIVERSAL;
 
@@ -43,7 +43,7 @@ sub push_bind_values {
     my $self = shift;
     my @values;
     foreach my $item (@_) {
-        if (UNIVERSAL::isa($item, 'SQL::DB::Object')) {
+        if (ref($item) && UNIVERSAL::isa($item, 'SQL::DB::Object')) {
             my @cols = $item->_table->primary_columns;
             my $colname = $cols[0]->name;
             push(@values, $item->$colname);
@@ -598,58 +598,5 @@ sub sql_delete {
 1;
 
 
-package Coalesce;
-use strict;
-use warnings;
-#use base qw(SQL::DB::Expr);
-use overload '""' => 'as_string';
-
-
-sub new {
-    my $proto = shift;
-    my $class = ref($proto) || $proto;
-    my $self  = {};
-    bless($self, $class);
-
-    shift; # get rid of 'coalesce';
-
-    $self->{cols} = shift;
-    shift;
-    $self->{name} = shift;
-    return $self;
-}
-
-
-sub _arow {
-    my $self = shift;
-    return '(none)';
-}
-
-sub _column {
-    my $self = shift;
-    return '(none)';
-}
-
-sub _name {
-    my $self = shift;
-    return $self->{name};
-}
-
-
-sub sql {
-    my $self = shift;
-    return 'COALESCE('
-            . join(', ', map {$_->sql} @{$self->{cols}})
-            . ') AS '
-            . $self->{name};
-}
-sub sql_select {sql(@_)};
-
-sub as_string {
-    my $self = shift;
-    return $self->sql;
-}
-
-1;
 __END__
 # vim: set tabstop=4 expandtab:

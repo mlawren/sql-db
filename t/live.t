@@ -7,7 +7,7 @@ BEGIN {
         plan skip_all => "DBD::SQLite not installed: $@";
     }
     else {
-        plan tests => 6;
+        plan tests => 10;
     }
 
 }
@@ -40,6 +40,12 @@ ok(1, 'connected');
 
 $db->deploy;
 ok(1, 'deployed');
+
+ok($db->create_seq('test'), "Sequence test created");
+my $val;
+ok($val = $db->seq('test'), "Sequence test $val");
+ok($val = $db->seq('test'), "Sequence test $val");
+ok($val = $db->seq('test'), "Sequence test $val");
 
 my $arow = Track->arow;
 $db->do(

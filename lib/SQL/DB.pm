@@ -21,44 +21,65 @@ sub new {
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self  = bless($class->SUPER::new(@_), $class);
+    $self->define([
+        table => 'sqldb',
+        class => 'SQL::DB::Sequence',
+        column => [name => 'name', type => 'VARCHAR(32)', unique => 1],
+        column => [name => 'val', type => 'INTEGER'],
+    ]);
     return $self;
-}
-
-
-sub connect_cached {
-    my $self = shift;
-    $self->{_connect} = 'connect_cached';
-    return $self->connect(@_);
 }
 
 
 sub connect {
     my $self = shift;
-    my $method = $self->{_connect} || 'connect';
 
     my ($dbi,$user,$pass,$attrs) = @_;
 
-    if (my $dbh = DBI->$method($dbi,$user,$pass,$attrs)) {
-        $self->{dbh} = $dbh;
+    if (my $dbh = DBI->connect($dbi,$user,$pass,$attrs)) {
+        $self->{sqldb_dbh} = $dbh;
     }
     else {
         croak $DBI::errstr;
     }
 
-    $self->{dbi}    = $dbi,
-    $self->{user}   = $user,
-    $self->{pass}   = $pass,
-    $self->{attrs}  = $attrs,
-    $self->{qcount} = 0,
+    $self->{sqldb_dbi}    = $dbi;
+    $self->{sqldb_user}   = $user;
+    $self->{sqldb_pass}   = $pass;
+    $self->{sqldb_attrs}  = $attrs;
+    $self->{sqldb_qcount} = 0;
 
-    warn "debug: $method to $dbi" if($DEBUG);
+    warn "debug: connected to $dbi" if($DEBUG);
+    return;
+}
+
+
+sub connect_cached {
+    my $self = shift;
+
+    my ($dbi,$user,$pass,$attrs) = @_;
+
+    if (my $dbh = DBI->connect_cached($dbi,$user,$pass,$attrs)) {
+        $self->{sqldb_dbh} = $dbh;
+    }
+    else {
+        croak $DBI::errstr;
+    }
+
+    $self->{sqldb_dbi}    = $dbi;
+    $self->{sqldb_user}   = $user;
+    $self->{sqldb_pass}   = $pass;
+    $self->{sqldb_attrs}  = $attrs;
+    $self->{sqldb_qcount} = 0;
+
+    warn "debug: connect_cached to $dbi" if($DEBUG);
     return;
 }
 
 
 sub dbh {
     my $self = shift;
-    return $self->{dbh};
+    return $self->{sqldb_dbh};
 }
 
 
@@ -66,7 +87,7 @@ sub deploy {
     my $self = shift;
 
     foreach my $table ($self->tables) {
-        my $sth = $self->{dbh}->table_info('', '', $table->name, 'TABLE');
+        my $sth = $self->{sqldb_dbh}->table_info('', '', $table->name, 'TABLE');
         if (!$sth) {
             die $DBI::errstr;
         }
@@ -78,11 +99,72 @@ sub deploy {
 
         foreach my $action ($table->sql_create) {
             warn "debug: $action" if($DEBUG);
-            if (!$self->{dbh}->do($action)) {
-                die $self->{dbh}->errstr;
+            if (!$self->{sqldb_dbh}->do($action)) {
+                die $self->{sqldb_dbh}->errstr;
             }
         }
     }
+}
+
+
+sub create_seq {
+    my $self = shift;
+    my $name = shift || croak 'usage: $db->create_seq($name)';
+
+    $self->{sqldb_dbi} || croak 'Must be connected before calling create_seq';
+
+    my $s = SQL::DB::Sequence::Abstract->new;
+
+    if (eval {
+        $self->do(
+            insert  => [$s->name, $s->val],
+            values  => [$name, 0],
+        );
+        }) {
+        return 1;
+    }
+    warn "CreateSequence: $@";
+    return;
+}
+
+
+sub seq {
+    my $self = shift;
+    my $name = shift || croak 'usage: $db->seq($name)';
+
+    $self->{sqldb_dbi} || croak 'Must be connected before calling seq';
+
+    $self->{sqldb_dbh}->begin_work;
+    my $s = SQL::DB::Sequence::Abstract->new;
+    my $r;
+
+    if (eval {
+        $r = $self->fetch1(
+            select     => [$s->val],
+            from       => $s,
+            for_update => ($self->{sqldb_dbi} !~ m/sqlite/i),
+            where      => $s->name == $name,
+        );
+
+        die "Can't find sequence $name" unless($r);
+
+        $self->do(
+            update  => $s,
+            set     => [$s->val->set($r->val + 1)],
+            where   => $s->name == $name,
+        );
+
+        1;}) {
+
+        $self->{sqldb_dbh}->commit;
+        return $r->val + 1;
+    }
+    else {
+        my $tmp = $@;
+        eval {$self->{sqldb_dbh}->rollback;};
+        croak "seq: $tmp";
+    }
+    return;
 }
 
 
@@ -97,13 +179,13 @@ sub do {
 
     my $rv;
     eval {
-        $rv = $self->{dbh}->do($sql, $attrs, @bind);
+        $rv = $self->{sqldb_dbh}->do($sql, $attrs, @bind);
     };
     if ($@ or !defined($rv)) {
         croak "DBI::do $DBI::errstr $@: Query was:\n"
               . "$sql/* ". join(', ', map {"'$_'"} @bind) . " */\n";
     }
-    $self->{qcount}++;
+    $self->{sqldb_qcount}++;
 
     carp "debug: $sql/* ".  join(', ',map {defined($_) ? "'$_'" : 'NULL'}
                                  @bind) ." */ RESULT: $rv" if($DEBUG);
@@ -117,7 +199,7 @@ sub execute {
 
     my $sth;
     eval {
-        $sth = $self->{dbh}->prepare($sql);
+        $sth = $self->{sqldb_dbh}->prepare($sql);
     };
     if ($@ or !$sth) {
         croak "DBI::prepare $DBI::errstr $@: Query was:\n"
@@ -135,7 +217,7 @@ sub execute {
 
     carp "debug: $sql/* ". join(', ',map {defined($_) ? "'$_'" : 'NULL'}
                                 @bind) ." */ RESULT: $res" if($DEBUG);
-    $self->{qcount}++;
+    $self->{sqldb_qcount}++;
     return $sth;
 }
 
@@ -199,7 +281,7 @@ sub simple_objects {
         map {$hash->{$_} = $row->[$i++]} @names;
         push(@returns, $class->new($hash));
     }
-    die $self->{dbh}->errstr if ($self->{dbh}->errstr);
+    die $self->{sqldb_dbh}->errstr if ($self->{sqldb_dbh}->errstr);
 
     warn 'debug: # returns: '. scalar(@returns) if($DEBUG);
 
@@ -269,7 +351,7 @@ sub objects {
         }
         push(@returns, $first);
     }
-    die $self->{dbh}->errstr if ($self->{dbh}->errstr);
+    die $self->{sqldb_dbh}->errstr if ($self->{sqldb_dbh}->errstr);
 
     warn 'debug: # returns: '. scalar(@returns) if($DEBUG);
 
@@ -317,15 +399,15 @@ sub delete {
 
 sub qcount {
     my $self = shift;
-    return $self->{qcount};
+    return $self->{sqldb_qcount};
 }
 
 
 sub disconnect {
     my $self = shift;
-    if ($self->{dbh}) {
+    if ($self->{sqldb_dbh}) {
         warn 'debug: Disconnecting from DBI' if($DEBUG);
-        $self->{dbh}->disconnect;
+        $self->{sqldb_dbh}->disconnect;
     }
     return;
 }
