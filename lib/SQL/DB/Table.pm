@@ -25,7 +25,7 @@ my @reserved = qw(
 sub new {
     my $proto = shift;
     my $class = ref($proto) || $proto;
-    my $self  = {};
+    my $self  = {columns => []};
     bless($self, $class);
 
     while (my ($key,$val) = splice(@_, 0, 2)) {
@@ -126,6 +126,7 @@ sub setup_column {
             $col->$key(shift);
         }
     }
+    $col->name || confess 'Column in table '.$self.' missing name';
     push(@{$self->{columns}}, $col);
     $self->{column_names}->{$col->name} = $col;
 }
@@ -135,29 +136,8 @@ sub setup_columns {
     my $self = shift;
 
     foreach my $array (@_) {
-        my $col = SQL::DB::Column->new();
-        $col->table($self);
-
-        while (my $key = shift @{$array}) {
-            if ($key eq 'name') {
-                my $val = shift @{$array};
-                if (grep(m/^$val$/, @reserved)) {
-                    croak "Column can't be called '$val': reserved name";
-                }
-
-                if (exists($self->{column_names}->{$val})) {
-                    croak "Column $val already defined for table $self->{name}";
-                }
-                $col->name($val);
-            }
-            else {
-                $col->$key(shift @{$array});
-            }
-        }
-        push(@{$self->{columns}}, $col);
-        $self->{column_names}->{$col->name} = $col;
+        $self->setup_column(@$array);
     }
-
 }
 
 
