@@ -2,21 +2,22 @@ package SQL::DB::Expr;
 use strict;
 use warnings;
 use Carp;
-
+use UNIVERSAL qw(isa);
 use overload
-    '""' => 'sql',
-    '!' => 'expr_not',
-    'ne' => 'expr_ne',
-    '!=' => 'expr_ne',
-    'eq' => 'expr_eq',
-    '==' => 'expr_eq',
-    '&' => 'expr_and',
-    '|' => 'expr_or',
-    '<' => 'expr_lt',
-    '>' => 'expr_gt',
-    '<=' => 'expr_lte',
-    '>=' => 'expr_gte',
-    '+' => 'expr_plus',
+    'eq'     => 'expr_eq',
+    '=='     => 'expr_eq',
+    '!='     => 'expr_ne',
+    'ne'     => 'expr_ne',
+    '&'      => 'expr_and',
+    '!'      => 'expr_not',
+    '|'      => 'expr_or',
+    '<'      => 'expr_lt',
+    '>'      => 'expr_gt',
+    '<='     => 'expr_lte',
+    '>='     => 'expr_gte',
+    '+'      => 'expr_plus',
+    '-'      => 'expr_minus',
+    '""'     => 'sql',
     fallback => 1,
 ;
 
@@ -26,19 +27,163 @@ sub new {
     my $class = ref($proto) || $proto;
     my $self = {
         expr_val         => shift,
+        expr_op          => '',
         expr_multi       => 0,
         expr_bind_values => \@_,
     };
-
     bless($self, $class);
+
+    # This is due to some wierdness in Perl - seems to call new() twice.
+    if (isa($self->{expr_val}, __PACKAGE__)) {
+        return $self->{expr_val};
+    }
+
     return $self;
 }
 
 
-sub multi {
+sub op {
     my $self = shift;
-    $self->{expr_multi} = shift if(@_);
-    return $self->{expr_multi};
+    $self->{expr_op} = shift if(@_);
+    return $self->{expr_op};
+}
+
+
+
+sub expr_binary {
+    my ($e1,$op,$e2) = @_;
+    my @bind = ();
+
+    if (isa($e1, __PACKAGE__)) {
+        push(@bind, $e1->bind_values);
+        if ( ($op eq 'OR' and $e1->op =~ m/(OR)|(AND)/) or
+             ($op eq 'AND' and $e1->op =~ m/OR/)) {
+            # always return a new expression, because if we set multi
+            # on the current object we screw it up when it is used in
+            # other queries.
+            $e1 = $e1->new("$e1", $e1->bind_values);
+            $e1->multi(1);
+        }
+    }
+    else {
+        push(@bind, $e1);
+        $e1 = '?';
+    }
+
+    if (isa($e2, __PACKAGE__)) {
+        push(@bind, $e2->bind_values);
+        if ( ($op eq 'OR' and $e2->op =~ m/(OR)|(AND)/) or
+             ($op eq 'AND' and $e2->op =~ m/OR/)) {
+            # same as above
+            $e2 = $e2->new("$e2", $e2->bind_values);
+            $e2->multi(1);
+        }
+    }
+    else {
+        push(@bind, $e2);
+        $e2 = '?';
+    }
+
+    my $expr = __PACKAGE__->new($e1.' '.$op.' '.$e2, @bind);
+    $expr->op($op);
+    return $expr;
+}
+
+sub expr_eq {
+    return expr_binary($_[0],'=',$_[1]);
+}
+
+sub expr_ne {
+    return expr_binary($_[0],'!=',$_[1]);
+}
+
+sub expr_and {
+    return expr_binary($_[0],'AND',$_[1]);
+}
+
+sub expr_or {
+    return expr_binary($_[0],'OR',$_[1]);
+}
+
+sub expr_lt {
+    return expr_binary($_[0],'<',$_[1]);
+}
+
+sub expr_lte {
+    return expr_binary($_[0],'<=',$_[1]);
+}
+
+sub expr_gt {
+    return expr_binary($_[0],'>',$_[1]);
+}
+
+sub expr_gte {
+    return expr_binary($_[0],'>=',$_[1]);
+}
+
+sub expr_plus {
+    return expr_binary($_[0],'+',$_[1]);
+}
+
+sub expr_minus {
+    return expr_binary($_[0],'-',$_[1]);
+}
+
+
+sub expr_not {
+    my $e1 = shift;
+    my $expr = __PACKAGE__->new('NOT ('.$e1.')', $e1->bind_values);
+    $expr->op('NOT');
+    return $expr;
+}
+
+
+sub in {
+    my $expr1 = shift;
+    my @bind = $expr1->bind_values;
+    my @exprs;
+
+    foreach my $e (@_) {
+        if (isa($e, __PACKAGE__)) {
+            push(@exprs, $e);
+            push(@bind, $e->bind_values);
+        }
+        else {
+            push(@exprs, '?');
+            push(@bind, $e);
+        }
+    }
+
+    return __PACKAGE__->new($expr1 .' IN ('.join(', ',@exprs).')', @bind);
+}
+
+
+sub not_in {
+    my $expr1 = shift;
+    my @bind = $expr1->bind_values;
+    my @exprs;
+
+    foreach my $e (@_) {
+        if (isa($e, __PACKAGE__)) {
+            push(@exprs, $e);
+            push(@bind, $e->bind_values);
+        }
+        else {
+            push(@exprs, '?');
+            push(@bind, $e);
+        }
+    }
+
+    return __PACKAGE__->new($expr1 .' NOT IN ('.join(', ',@exprs).')', @bind);
+}
+
+
+sub sql {
+    my $self = shift;
+    if ($self->{expr_multi}) {
+        return '(' . $self->{expr_val} .')';
+    }
+    return $self->{expr_val};
 }
 
 
@@ -54,179 +199,10 @@ sub bind_values {
 }
 
 
-sub expr_eq {
-    my $expr = shift;
-    my $val  = shift;
-    if (ref($val) and $val->isa(__PACKAGE__)) {
-        return __PACKAGE__->new($expr .' = '. $val, $expr->bind_values);
-    }
-    return __PACKAGE__->new($expr .' = ?', $val);
-}
-
-
-sub expr_ne {
-    my $expr = shift;
-    my $val  = shift;
-    if (ref($val) and $val->isa(__PACKAGE__)) {
-        return __PACKAGE__->new($expr .' != '. $val, $expr->bind_values);
-    }
-    return __PACKAGE__->new($expr .' != ?', $val);
-}
-
-
-sub expr_lt {
-    my $expr = shift;
-    my $val  = shift;
-    if (ref($val) and $val->isa(__PACKAGE__)) {
-        return __PACKAGE__->new($expr .' < '. $val, $expr->bind_values);
-    }
-    my $newexpr =  __PACKAGE__->new($expr .' < ?', $val);
-    $newexpr->multi(1);
-    return $newexpr;
-}
-
-sub expr_lte {
-    my $expr = shift;
-    my $val  = shift;
-    if (ref($val) and $val->isa(__PACKAGE__)) {
-        return __PACKAGE__->new($expr .' <= '. $val, $expr->bind_values);
-    }
-    my $newexpr =  __PACKAGE__->new($expr .' <= ?', $val);
-    $newexpr->multi(1);
-    return $newexpr;
-}
-
-
-sub expr_gt {
-    my $expr = shift;
-    my $val  = shift;
-    if (ref($val) and $val->isa(__PACKAGE__)) {
-        return __PACKAGE__->new($expr .' > '. $val, $expr->bind_values);
-    }
-    my $newexpr =  __PACKAGE__->new($expr .' > ?', $val);
-    $newexpr->multi(1);
-    return $newexpr;
-}
-
-
-sub expr_gte {
-    my $expr = shift;
-    my $val  = shift;
-    if (ref($val) and $val->isa(__PACKAGE__)) {
-        return __PACKAGE__->new($expr .' >= '. $val, $expr->bind_values);
-    }
-    my $newexpr =  __PACKAGE__->new($expr .' >= ?', $val);
-    $newexpr->multi(1);
-    return $newexpr;
-}
-
-
-sub expr_plus {
-    my $expr = shift;
-    my $val  = shift;
-#    if (ref($val) and $val->isa(__PACKAGE__)) {
-#        return __PACKAGE__->new($expr .' = '.$expr $val, $expr->bind_values);
-#    }
-    my $newexpr =  __PACKAGE__->new($expr .' + '. $val);
-#    $newexpr->multi(1);
-    return $newexpr;
-}
-
-
-sub expr_not {
-    my $expr = shift;
-    if (ref($expr) and $expr->isa(__PACKAGE__)) {
-        return __PACKAGE__->new('NOT '. $expr, $expr->bind_values);
-    }
-    return __PACKAGE__->new('NOT '. $expr);
-}
-
-
-sub expr_and {
-    my $expr1 = shift;
-    my $expr2 = shift;
-
-    my @values = $expr1->bind_values;
-    if (ref($expr2) and $expr2->isa(__PACKAGE__)) {
-        push(@values, $expr2->bind_values);
-    }
-
-    my $newexpr = __PACKAGE__->new($expr1 .' AND '. $expr2, @values);
-    $newexpr->multi(1);
-    return $newexpr;
-}
-
-
-sub expr_or {
-    my $expr1 = shift;
-    my $expr2 = shift;
-
-    my @values = $expr1->bind_values;
-    if (ref($expr2) and $expr2->isa(__PACKAGE__)) {
-        push(@values, $expr2->bind_values);
-    }
-
-    my $newexpr = __PACKAGE__->new($expr1 .' OR '. $expr2, @values);
-    $newexpr->multi(1);
-    return $newexpr;
-}
-
-
-sub in {
-    my $expr1 = shift;
-
-    my @values = $expr1->bind_values;
-    my @exprs;
-
-    foreach my $e (@_) {
-        if (ref($e) and $e->isa(__PACKAGE__)) {
-            if ($e->isa('SQL::DB')) {
-                $e->nobind(1);
-            }
-            push(@exprs, $e);
-            push(@values, $e->bind_values);
-        }
-        else {
-            push(@exprs, '?');
-            push(@values, $e);
-        }
-    }
-
-    return __PACKAGE__->new($expr1 .' IN ('.join(', ',@exprs).')', @values);
-}
-
-
-sub not_in {
-    my $expr1 = shift;
-
-    my @values = $expr1->bind_values;
-    my @exprs;
-
-    foreach my $e (@_) {
-        if (ref($e) and $e->isa(__PACKAGE__)) {
-            if ($e->isa('SQL::DB')) {
-                $e->nobind(1);
-            }
-            push(@exprs, $e);
-            push(@values, $e->bind_values);
-        }
-        else {
-            push(@exprs, '?');
-            push(@values, $e);
-        }
-    }
-
-    return __PACKAGE__->new($expr1 .' NOT IN ('.join(', ',@exprs).')', @values);
-}
-
-
-
-sub sql {
+sub multi {
     my $self = shift;
-    if ($self->multi) {
-        return '(' . $self->{expr_val} .')';
-    }
-    return $self->{expr_val};
+    $self->{expr_multi} = shift if(@_);
+    return $self->{expr_multi};
 }
 
 
