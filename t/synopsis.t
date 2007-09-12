@@ -31,6 +31,9 @@ while (my $line = <SQL>) {
 push(@lines, 'return @items;');
 
 my $res = eval "@lines";
+if ($@) {
+    die $@;
+}
 ok(!$@, 'Eval ok');
 ok($res > 0, 'Result > 0');
 

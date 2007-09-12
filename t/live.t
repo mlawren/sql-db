@@ -18,6 +18,10 @@ END {
 use_ok('SQL::DB');
 require_ok('t/Schema.pm');
 
+SQL::DB->import(qw/
+    max min count coalesce sum
+/);
+
 #$SQL::DB::DEBUG = 3;
 #$SQL::DB::ARow::DEBUG = 3;
 #$SQL::DB::Query::DEBUG = 1;
@@ -102,10 +106,10 @@ foreach my $obj (@objs) {
 $track = Track->arow;
 $cd = CD->arow;
 @objs = $db->fetch(
-    select   => [ $track->id->func('count'),
+    select   => [ count($track->id)->as('count_id'),
                    $cd->title,
-                   $track->length->func('max'),
-                   $track->length->func('sum')],
+                   max($track->length)->as('max_length'),
+                   sum($track->length)->as('sum_length')],
     from       => [$track],
     inner_join => $cd,
     on         => $track->cd == $cd->id,

@@ -1,13 +1,21 @@
 package SQL::DB::Schema;
 use strict;
 use warnings;
+use base qw(Exporter);
 use Carp qw(carp croak confess);
 
 use SQL::DB::Table;
 use SQL::DB::Query;
+use SQL::DB::Function;
 
 our $VERSION = '0.05';
 our $DEBUG;
+our @EXPORT_OK = @SQL::DB::Function::EXPORT_OK;
+
+foreach (@EXPORT_OK) {
+    no strict 'refs';
+    *{$_} = *{'SQL::DB::Function::'.$_};
+}
 
 use Data::Dumper;
 $Data::Dumper::Indent = 1;

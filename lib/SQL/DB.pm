@@ -5,9 +5,9 @@ use warnings;
 use base qw(SQL::DB::Schema);
 use Carp qw(carp croak confess);
 use DBI;
-use Scalar::Util qw(refaddr);
-use UNIVERSAL;
+use UNIVERSAL qw(isa);
 use SQL::DB::Schema;
+use SQL::DB::Function;
 use Class::Accessor::Fast;
 
 use Data::Dumper;
@@ -15,6 +15,12 @@ $Data::Dumper::Indent = 1;
 
 our $VERSION = '0.05';
 our $DEBUG   = 0;
+our @EXPORT_OK = @SQL::DB::Function::EXPORT_OK;
+
+foreach (@EXPORT_OK) {
+    no strict 'refs';
+    *{$_} = *{'SQL::DB::Function::'.$_};
+}
 
 
 sub new {
@@ -362,7 +368,7 @@ sub objects {
 sub insert {
     my $self = shift;
     foreach my $obj (@_) {
-        UNIVERSAL::isa($obj, 'SQL::DB::Object') ||
+        isa($obj, 'SQL::DB::Object') ||
             croak "Can only insert SQL::DB::Object: $obj";
         !$obj->_in_storage || carp "Inserting item already in a storage";
         $self->do($obj->q_insert);
@@ -374,7 +380,7 @@ sub insert {
 sub update {
     my $self = shift;
     foreach my $obj (@_) {
-        UNIVERSAL::isa($obj, 'SQL::DB::Object') ||
+        isa($obj, 'SQL::DB::Object') ||
             croak "Can only update SQL::DB::Object";
 #        $obj->_in_storage || croak "Can only update items already in storage";
         if ($self->do($obj->q_update) != 1) {
@@ -387,7 +393,7 @@ sub update {
 sub delete {
     my $self = shift;
     foreach my $obj (@_) {
-        UNIVERSAL::isa($obj, 'SQL::DB::Object') ||
+        isa($obj, 'SQL::DB::Object') ||
             croak "Can only delete SQL::DB::Object";
         $obj->_in_storage || croak "Can only delete items already in storage";
         if ($self->do($obj->q_delete) != 1) {
@@ -433,7 +439,7 @@ SQL::DB - Perl interface to SQL Databases
 
 =head1 SYNOPSIS
 
-  use SQL::DB;
+  use SQL::DB qw(max min coalesce count);
   my $db = SQL::DB->new(
     [
       table  => 'addresses',
@@ -483,6 +489,17 @@ SQL::DB - Perl interface to SQL Databases
   my $p   = Person::Abstract->new;
   my $add = Address::Abstract->new;
 
+  my $ans = $db->fetch1(
+    select    => [count($p->name)->as('count_name'),
+                  max($p->age)->as('max_age')],
+    from      => $p,
+    where     => $p->age > 40,
+  );
+
+  print 'Head count: '. $ans->count_name .' Max age:'.$ans->max_age."\n";
+  # "Head count: 1 Max age:43"
+
+
   my @items = $db->fetch(
     select    => [$p->name, $p->age, $add->city],
     from      => $p,
@@ -506,7 +523,7 @@ objects and logic operators. It is not quite an Object Mapping Layer
 (such as L<Class::DBI>) and is also not quite an an abstraction
 (like L<SQL::Abstract>). It falls somewhere inbetween.
 
-For a more complete introduction see L<SQL::DB::Tutorial>.
+For a more complete introduction see L<SQL::DB::Intro>.
 
 =head1 METHODS
 
@@ -569,7 +586,9 @@ If the query used a "selecto" then returns a list of SQL::DB::Object
 =head2 fetch1(@query)
 
 Is the same as fetch(), but only returns the first element from the
-result set.
+result set. Either you know you will only get one result, or you
+should be using some kind of LIMIT statement so that extra rows
+are not retrieved by the database.
 
 =head2 insert($sqlobject)
 

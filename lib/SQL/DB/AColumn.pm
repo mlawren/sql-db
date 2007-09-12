@@ -89,7 +89,7 @@ sub desc {
 }
 
 
-sub func {
+sub afunc {
     my $self = shift;
     my $new  = $self->clone;
     $new->{_func} = shift;

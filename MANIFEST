@@ -20,7 +20,7 @@ lib/SQL/DB/AColumn.pm
 lib/SQL/DB/ARow.pm
 lib/SQL/DB/Column.pm
 lib/SQL/DB/Expr.pm
-lib/SQL/DB/Functions.pm
+lib/SQL/DB/Function.pm
 lib/SQL/DB/Object.pm
 lib/SQL/DB/Query.pm
 lib/SQL/DB/Schema.pm
@@ -34,6 +34,7 @@ README
 t/01-column.t
 t/02-table.t
 t/03-schema.t
+t/expr.t
 t/functions.t
 t/live.t
 t/synopsis.t
