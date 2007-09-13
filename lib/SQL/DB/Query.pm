@@ -2,9 +2,8 @@ package SQL::DB::Query;
 use strict;
 use warnings;
 use base qw(SQL::DB::Expr);
-use overload '""' => 'as_string', fallback => 1;
 use Carp qw(carp croak confess);
-use UNIVERSAL;
+use UNIVERSAL qw(isa);
 
 
 #
@@ -15,6 +14,8 @@ sub new {
     my $class = ref($proto) || $proto;
     my $self = $proto->SUPER::new; # Get an Expr-based object
     bless($self, $class);
+
+    $self->{is_select} = $_[0] =~ m/^select/i;
 
     unless (@_) {
         confess "usage: ". __PACKAGE__ ."->new(\@statements)";
@@ -35,6 +36,9 @@ sub new {
 
     $self->multi(1);
 
+    if (wantarray()) {
+        return ("$self", $self->bind_values);
+    }
     return $self;
 }
 
@@ -91,11 +95,11 @@ sub column_names {
 
 sub exists {
     my $self = shift;
-    return SQL::DB::Expr->new('EXISTS ('. $self->sql .')', $self->bind_values);
+    return SQL::DB::Expr->new('EXISTS ('. $self .')', $self->bind_values);
 }
 
 
-sub sql {
+sub as_string {
     my $self = shift;
     my @statements = @{$self->{query}};
 
@@ -103,25 +107,10 @@ sub sql {
     while (my ($stm,$val) = splice(@statements,0,2)) {
         $s .= $self->$stm($val);    
     }
-    return $s;
-}
-
-
-sub bind_values_sql {
-    my $self = shift;
-    if ($self->bind_values) {
-        return '/* ('
-           . join(", ", map {defined $_ ? "'$_'" : 'NULL'} $self->bind_values) 
-           . ') */';
+    unless ($self->{is_select}) {
+        $s =~ s/t\d+\.//g;
     }
-    return '';
-}
-
-
-sub as_string {
-    my $self = shift;
-    my @values = $self->bind_values;
-    return $self->sql . $self->bind_values_sql . "\n";
+    return $s;
 }
 
 
@@ -172,7 +161,7 @@ sub sql_insert {
     my $self = shift;
     my $ref  = shift;
 
-    return "INSERT INTO\n    ". $ref->[0]->_arow->_name
+    return "INSERT INTO\n    ". $ref->[0]->_arow->_table_name
            . ' ('
            . join(', ', map {$_->_name} @{$ref})
            . ")\n";
@@ -212,12 +201,16 @@ sub sql_values {
 sub st_update {
     my $self = shift;
     my $ref  = shift;
-    unless(UNIVERSAL::isa($ref, 'SQL::DB::ARow')) {
-        confess "UPDATE expects an ARow";
+
+    my @items = (UNIVERSAL::isa($ref,'ARRAY') ? @$ref : $ref);
+    foreach (@items) {
+        if (UNIVERSAL::isa($_, 'SQL::DB::Expr')) {
+            $self->push_bind_values($_->bind_values);
+        }
     }
 
-    push(@{$self->{query}}, 'sql_update', $ref->_name);
-#    $self->{update} = $ref;
+    push(@{$self->{query}}, 'sql_update', $items[0]->_arow->_table_name);
+    push(@{$self->{query}}, 'sql_set', \@items);
 
     return;
 }
@@ -229,49 +222,13 @@ sub sql_update {
     return "UPDATE\n    " . $name . "\n";
 }
 
-use UNIVERSAL;
-
-sub st_set {
+sub sql_set {
     my $self = shift;
     my $ref  = shift;
 
-    unless(ref($ref) and ref($ref) eq 'ARRAY') {
-        confess "SET expects an ARRAY ref";
-    }
-
-#    if (@{$self->{arows}} > 1) {
-#        confess "Can only insert into columns of the same table";
-#    }
-
-    push(@{$self->{query}}, 'sql_set', undef);
-    $self->{set} = [];
-    foreach (@{$ref}) {
-        $self->push_bind_values($_->bind_values);
-        push(@{$self->{set}}, $_->sql);
-    }
-    return;
+    return "SET\n    " . join(', ',@$ref) . "\n";
 }
 
-
-
-#           "SET\n    " 
-#           . join(", ", @set)
-#            map {isa($_,'SQL::DB::Expr') && $_->bind_values ? $_->_name .' = ?' : $_} @{$self->{update}})
-#           . "\n";
-#}
-
-
-
-sub sql_set {
-    my $self = shift;
-    my $set =  join(", ", @{$self->{set}});
-    $set =~ s/t\d+\.//g;
-
-    return "SET\n    " .$set ."\n";
-#           . join(", ", map {($_ =~ s/\S+\.//g)} @{$self->{set}})
-#            map {isa($_,'SQL::DB::Expr') && $_->bind_values ? $_->_name .' = ?' : $_} @{$self->{update}})
-#           . "\n";
-}
 
 
 # ------------------------------------------------------------------------
@@ -283,7 +240,7 @@ sub st_select {
     my $ref  = shift;
 
     my @items    = ref($ref) eq 'ARRAY' ? @{$ref} : $ref;
-    my @acolumns = map {$_->isa('SQL::DB::ARow') ? $_->_columns : $_} @items;
+    my @acolumns = map {UNIVERSAL::isa($_, 'SQL::DB::ARow') ? $_->_columns : $_} @items;
 
     push(@{$self->{acolumns}}, @acolumns);
     push(@{$self->{query}}, 'sql_select', undef);
@@ -315,7 +272,7 @@ sub sql_select {
     }
 
     # The columns to select
-    $s .= "\n    " . join(",\n    ", map {$_->sql_select} @{$self->{acolumns}});
+    $s .= "\n    " .join(",\n    ", @{$self->{acolumns}});
 
     return $s ."\n";
 }
@@ -383,7 +340,7 @@ sub sql_from {
     my $ref  = shift;
 
     return "FROM\n    ". join(",\n    ",
-                     map {$_->_name. ' AS '. $_->_alias} @{$ref}) ."\n";
+                     map {$_->_table_name. ' AS '. $_->_alias} @{$ref}) ."\n";
 }
 
 
@@ -414,7 +371,7 @@ sub st_inner_join {
 sub sql_inner_join {
     my $self = shift;
     my $arow  = shift;
-    return "INNER JOIN\n    " . $arow->_name .' AS '. $arow->_alias . "\n";
+    return "INNER JOIN\n    " . $arow->_table_name .' AS '. $arow->_alias . "\n";
 }
 
 
@@ -431,7 +388,7 @@ sub st_left_join {
 sub sql_left_join {
     my $self = shift;
     my $arow  = shift;
-    return "LEFT OUTER JOIN\n    " . $arow->_name .' AS '. $arow->_alias . "\n";
+    return "LEFT OUTER JOIN\n    " . $arow->_table_name .' AS '. $arow->_alias . "\n";
 }
 
 
@@ -447,7 +404,7 @@ sub st_right_join {
 sub sql_right_join {
     my $self = shift;
     my $arow  = shift;
-    return "RIGHT OUTER JOIN\n    ". $arow->_name .' AS '. $arow->_alias ."\n";
+    return "RIGHT OUTER JOIN\n    ". $arow->_table_name .' AS '. $arow->_alias ."\n";
 }
 
 
@@ -463,7 +420,7 @@ sub st_full_join {
 sub sql_full_join {
     my $self = shift;
     my $arow  = shift;
-    return "FULL OUTER JOIN\n    ". $arow->_name .' AS '. $arow->_alias ."\n";
+    return "FULL OUTER JOIN\n    ". $arow->_table_name .' AS '. $arow->_alias ."\n";
 }
 
 
@@ -478,7 +435,7 @@ sub st_cross_join {
 sub sql_cross_join {
     my $self = shift;
     my $arow  = shift;
-    return "CROSS JOIN\n    ". $arow->_name .' AS '. $arow->_alias ."\n";
+    return "CROSS JOIN\n    ". $arow->_table_name .' AS '. $arow->_alias ."\n";
 }
 
 
@@ -486,7 +443,7 @@ sub sql_cross_join {
 sub st_union {
     my $self = shift;
     my $ref  = shift;
-    unless(ref($ref) and $ref->isa('SQL::DB::Expr')) {
+    unless(UNIVERSAL::isa($ref, 'SQL::DB::Expr')) {
         confess "Select UNION must be based on SQL::DB::Expr";
     }
     push(@{$self->{query}}, 'sql_union', $ref);
@@ -498,7 +455,7 @@ sub st_union {
 sub sql_union {
     my $self = shift;
     my $ref  = shift;
-    return "UNION \n" . $ref->sql . "\n";
+    return "UNION \n" . $ref . "\n";
 }
 
 
@@ -516,9 +473,9 @@ sub sql_group_by {
 
     if (ref($ref) eq 'ARRAY') {
         return "GROUP BY\n    ".
-               join(",\n    ", map {$_->sql} @{$ref}) ."\n";
+               join(",\n    ", map {$_} @{$ref}) ."\n";
     }
-    return "GROUP BY\n    " . $ref->sql . "\n";
+    return "GROUP BY\n    " . $ref . "\n";
 }
 
 
@@ -536,9 +493,9 @@ sub sql_order_by {
 
     if (ref($ref) eq 'ARRAY') {
         return "ORDER BY\n    ".
-               join(",\n    ", map {$_->sql} @{$ref}) ."\n";
+               join(",\n    ", @{$ref}) ."\n";
     }
-    return "ORDER BY\n    " . $ref->sql . "\n";
+    return "ORDER BY\n    " . $ref . "\n";
 }
 
 

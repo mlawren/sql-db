@@ -17,7 +17,7 @@ use overload
     '>='     => 'expr_gte',
     '+'      => 'expr_plus',
     '-'      => 'expr_minus',
-    '""'     => 'sql',
+    '""'     => 'as_string',
     fallback => 1,
 ;
 
@@ -178,12 +178,10 @@ sub not_in {
 }
 
 
-sub sql {
+sub multi {
     my $self = shift;
-    if ($self->{expr_multi}) {
-        return '(' . $self->{expr_val} .')';
-    }
-    return $self->{expr_val};
+    $self->{expr_multi} = shift if(@_);
+    return $self->{expr_multi};
 }
 
 
@@ -193,16 +191,36 @@ sub push_bind_values {
 }
 
 
+sub as_string {
+    my $self = shift;
+    if ($self->{expr_multi}) {
+        return '(' . $self->{expr_val} .')';
+    }
+    return $self->{expr_val};
+}
+
+
 sub bind_values {
     my $self = shift;
     return @{$self->{expr_bind_values}};
 }
 
 
-sub multi {
+sub bind_values_sql {
     my $self = shift;
-    $self->{expr_multi} = shift if(@_);
-    return $self->{expr_multi};
+    if ($self->bind_values) {
+        return '/* ('
+           . join(", ", map {defined $_ ? "'$_'" : 'NULL'} $self->bind_values)
+           . ') */';
+    }
+    return '';
+}
+
+
+sub _as_string {
+    my $self = shift;
+    my @values = $self->bind_values;
+    return $self->as_string . $self->bind_values_sql . "\n";
 }
 
 

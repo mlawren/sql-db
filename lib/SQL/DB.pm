@@ -155,8 +155,7 @@ sub seq {
         die "Can't find sequence $name" unless($r);
 
         $self->do(
-            update  => $s,
-            set     => [$s->val->set($r->val + 1)],
+            update  => [$s->val->set($r->val + 1)],
             where   => $s->name == $name,
         );
 
@@ -179,22 +178,21 @@ sub seq {
 # ------------------------------------------------------------------------
 
 sub do {
-    my $self  = shift;
-    my $query = $self->query(@_);
-    my ($sql,$attrs,@bind) = ($query->sql, undef, $query->bind_values);
+    my $self        = shift;
+    my $query       = $self->query(@_);
 
     my $rv;
     eval {
-        $rv = $self->{sqldb_dbh}->do($sql, $attrs, @bind);
+        $rv = $self->{sqldb_dbh}->do("$query", undef, $query->bind_values);
     };
+
     if ($@ or !defined($rv)) {
-        croak "DBI::do $DBI::errstr $@: Query was:\n"
-              . "$sql/* ". join(', ', map {"'$_'"} @bind) . " */\n";
+        croak "DBI::do $DBI::errstr $@: Query was:\n". $query->_as_string;
     }
+
     $self->{sqldb_qcount}++;
 
-    carp "debug: $sql/* ".  join(', ',map {defined($_) ? "'$_'" : 'NULL'}
-                                 @bind) ." */ RESULT: $rv" if($DEBUG);
+    carp 'debug: '. $query->_as_string if($DEBUG);
     return $rv;
 }
 
@@ -237,7 +235,7 @@ sub execute {
 sub fetch {
     my $self = shift;
     my $query   = $self->query(@_);
-    my $sth     = $self->execute($query->sql, undef, $query->bind_values);
+    my $sth     = $self->execute("$query", undef, $query->bind_values);
 
     if ($query->wantobjects) {
         return $self->objects($query, $sth);
@@ -251,7 +249,7 @@ sub fetch {
 sub fetch1 {
     my $self = shift;
     my $query   = $self->query(@_);
-    my $sth     = $self->execute($query->sql, undef, $query->bind_values);
+    my $sth     = $self->execute($query, undef, $query->bind_values);
 
     my @results;
     if ($query->wantobjects) {
@@ -270,6 +268,9 @@ sub simple_objects {
     my $sth     = shift;
 
     my @names = map {$_->_name} $query->acolumns;
+    for my $i (0..$#names) {
+        $names[$i] =~ s/t\d+\.//;
+    }
     my $class = '_' . join('_', @names);
 
     {
@@ -480,8 +481,7 @@ SQL::DB - Perl interface to SQL Databases
   );
 
   $db->do(
-    update => $person,
-    set    => [$person->address->set(2)],
+    update => [$person->address->set(2)],
     where  => $person->name == 'Homer',
   );
 

@@ -37,7 +37,7 @@ sub _table {
 }
 
 
-sub _name {
+sub _table_name {
     my $self = shift;
     return $self->_table->name;
 }
@@ -52,6 +52,12 @@ sub _alias {
 sub _columns {
     my $self = shift;
     return @{$self->{arow_columns}};
+}
+
+
+sub _column_names {
+    my $self = shift;
+    return $self->_table->column_names_ordered;
 }
 
 

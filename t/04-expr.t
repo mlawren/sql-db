@@ -6,7 +6,6 @@ use_ok('SQL::DB::Expr');
 
 can_ok('SQL::DB::Expr', qw/
     new
-    sql
     bind_values
     multi
 /);

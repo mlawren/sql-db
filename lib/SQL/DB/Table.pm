@@ -53,7 +53,7 @@ sub new {
 
         my @bases = $self->{bases} ? @{$self->{bases}} : ('SQL::DB::Object');
         push(@{$isa}, @bases);
-        $class->mk_accessors($self->column_names);
+        $class->mk_accessors($self->column_names_ordered);
         ${$class .'::TABLE'} = $self;
 
         my $aclass = $class . '::Abstract';
@@ -62,8 +62,15 @@ sub new {
             carp "redefining $aclass";
         }
         push(@{$isa}, 'SQL::DB::ARow');
-        $aclass->mk_accessors($self->column_names);
+        $aclass->mk_accessors($self->column_names_ordered);
         ${$aclass .'::TABLE'} = $self;
+
+        foreach my $colname ($self->column_names_ordered) {
+            *{$aclass .'::set_'. $colname} = sub {
+                my $self = shift;
+                return $self->$colname->set(@_);
+            };
+        }
     }
 
     return $self;
@@ -129,6 +136,7 @@ sub setup_column {
     $col->name || confess 'Column in table '.$self.' missing name';
     push(@{$self->{columns}}, $col);
     $self->{column_names}->{$col->name} = $col;
+    push(@{$self->{column_names_ordered}},$col->name);
 }
 
 
@@ -333,6 +341,7 @@ sub class {
     return $self->{class};
 }
 
+
 sub columns {
     my $self = shift;
     return @{$self->{columns}};
@@ -341,7 +350,13 @@ sub columns {
 
 sub column_names {
     my $self = shift;
-    return keys %{$self->{column_names}};
+    return sort keys %{$self->{column_names}};
+}
+
+
+sub column_names_ordered {
+    my $self = shift;
+    return @{$self->{column_names_ordered}};
 }
 
 

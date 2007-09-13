@@ -4,6 +4,7 @@ use warnings;
 use base qw(SQL::DB::Expr);
 use Carp qw(carp croak confess);
 use Scalar::Util qw(weaken);
+use UNIVERSAL qw(isa);
 
 
 sub _new {
@@ -15,6 +16,8 @@ sub _new {
     my $arow  = shift;
     $self->{col}  = $col;  # column definition SQL::DB::AColumn
     $self->{arow} = $arow; # abstract representation of a table row
+    $self->{sql}  = $arow->_alias .'.'. $col->name;
+    $self->{as}   = $self->{sql};
 
 #    weaken($self->{arow}); FIXME or cleanup and remove all weak stuff.
 
@@ -23,22 +26,26 @@ sub _new {
 }
 
 
-sub clone {
+sub _clone {
+    my $self  = shift;
+    my $class = ref($self) || croak 'can only _clone blessed objects';
+    my $new   = $self->SUPER::new();
+    map {$new->{$_} = $self->{$_}} keys %$self;
+    $new->{expr_bind_values} = []; # FIXME this is a hack
+    bless($new, $class);
+    return $new;
+}
+
+
+sub _name {
     my $self = shift;
-    my $new  = $self->_new($self->{col}, $self->{arow});
+    return $self->{as};
 }
 
 
 sub _column {
     my $self = shift;
     return $self->{col};
-}
-
-
-sub _name {
-    my $self = shift;
-    return $self->{_as} if($self->{_as});
-    return $self->{col}->name;
 }
 
 
@@ -49,97 +56,74 @@ sub _arow {
 
 
 sub as {
-    my $self = shift;
-    $self->{_as} = shift if(@_);
+    my $self     = shift;
+    $self        = $self->_clone();
+    $self->{as}  = shift || croak 'as() requires an argument';
+    $self->{sql} = $self->{arow}->_alias .'.'. $self->{col}->name
+                   .' AS '. $self->{as};
     return $self;
 }
 
 
 sub is_null {
-    my $self = shift;
-    return $self->sql .' IS NULL';
+    my $self     = shift;
+    $self        = $self->_clone();
+    $self->{sql} = $self->{arow}->_alias .'.'. $self->{col}->name
+                   .' IS NULL';
+    return $self;
 }
+sub expr_not {is_null(@_);}
 
 
 sub like {
-    my $self = shift;
-    my $val  = shift;
-    if (ref($val) and $val->isa('SQL::DB::Expr')) {
-        return SQL::DB::Expr->new($self .' LIKE '. $val, $val->bind_values);
-    }
-    my $newexpr =  SQL::DB::Expr->new($self .' LIKE ?', $val);
-    return $newexpr;
-}
-
-sub expr_not {
-    my $self = shift;
-    return $self->sql .' NOT NULL';
+    my $self     = shift;
+    my $like     = shift || croak 'like() requires an argument';
+    $self        = $self->_clone();
+    $self->{sql} = $self->{arow}->_alias .'.'. $self->{col}->name
+                   .' LIKE ?';
+    $self->push_bind_values($like);
+    return $self;
 }
 
 
 sub asc {
-    my $self = shift;
-    return SQL::DB::Expr->new($self->sql . ' ASC');
+    my $self     = shift;
+    $self        = $self->_clone();
+    $self->{sql} = $self->{arow}->_alias .'.'. $self->{col}->name
+                   .' ASC';
+    return $self;
 }
 
 
 sub desc {
-    my $self = shift;
-    return SQL::DB::Expr->new($self->sql . ' DESC');
+    my $self     = shift;
+    $self        = $self->_clone();
+    $self->{sql} = $self->{arow}->_alias .'.'. $self->{col}->name
+                   .' DESC';
+    return $self;
 }
 
 
-sub afunc {
-    my $self = shift;
-    my $new  = $self->clone;
-    $new->{_func} = shift;
-    $new->{_as} = $new->{_func} .'_'. $new->_name;
-    return $new;
-}
-
-
-use UNIVERSAL;
 sub set {
-    my $self = shift;
-    if (@_) {
-        my $set = shift;
-        my $expr;
-        if (UNIVERSAL::isa($set, 'SQL::DB::Expr')) {
-            return SQL::DB::Expr->new($self->{col}->name .' = '. $set->sql,
-                                      $set->bind_values);
-        }
-        return SQL::DB::Expr->new($self->{col}->name .' = ?', $set);
+    my $self     = shift;
+    my $val      = shift || croak 'set() requires an argument';
+    $self        = $self->_clone();
+    if (UNIVERSAL::isa($val, 'SQL::DB::Expr')) {
+        $self->{sql} = $self->{col}->name .' = '. $val;
+        $self->push_bind_values($val->bind_values);
     }
-    confess "set() is write-only";
-#    return $self->{set};
-#    my $val  = shift;
-#    if (ref($val) and $val->isa('SQL::DB::Expr')) {
-#        return SQL::DB::Expr->new($self .' = '. $val, $val->bind_values);
-#    }
-#    my $newexpr =  SQL::DB::Expr->new($self .' = ?', $val);
-#    return $newexpr;
+    else {
+        $self->{sql} = $self->{col}->name .' = ?';
+        $self->push_bind_values($val);
+    }
+    return $self;
 }
 
 
-sub sql {
+sub as_string {
     my $self = shift;
-    return $self->{arow}->_alias .'.'. $self->{col}->name;
+    return $self->{sql};
 }
-
-
-sub sql_select {
-    my $self = shift;
-    if ($self->{_func}) {
-        return uc($self->{_func}) .'('. $self->{arow}->_alias 
-               .'.'. $self->{col}->name .')'
-               .' AS '. $self->{_as};
-    }
-    if ($self->{_as}) {
-        return $self->{arow}->_alias .'.'. $self->{col}->name
-               .' AS '. $self->{_as};
-    }
-    return $self->{arow}->_alias .'.'. $self->{col}->name;
-} 
 
 
 DESTROY {

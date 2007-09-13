@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 16;
+use Test::More tests => 17;
 BEGIN {
     use_ok('SQL::DB::Table');
 }
@@ -25,6 +25,7 @@ can_ok('SQL::DB::Table', qw(
     class
     columns
     column_names
+    column_names_ordered
     column
     primary_columns
     schema
@@ -44,7 +45,9 @@ isa_ok($cols[0], 'SQL::DB::Column');
 
 my @colnames = $table->column_names;
 ok(@colnames == 2, '2 column names');
-ok($colnames[0] eq 'name', 'First col is name?');
+@colnames = $table->column_names_ordered;
+ok(@colnames == 2, '2 column names');
+ok($colnames[0] eq 'id', 'First col is id');
 
 isa_ok($table->column('name'), 'SQL::DB::Column');
 ok($table->column('name')->name eq 'name', 'Column name is name.');

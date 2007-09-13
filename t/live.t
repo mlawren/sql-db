@@ -7,7 +7,7 @@ BEGIN {
         plan skip_all => "DBD::SQLite not installed: $@";
     }
     else {
-        plan tests => 10;
+        plan tests => 9;
     }
 
 }
@@ -31,9 +31,7 @@ our $schema;
 our $db = SQL::DB->new;
 isa_ok($db, 'SQL::DB');
 
-$db = SQL::DB->new(Schema->All);
-isa_ok($db, 'SQL::DB');
-
+$db->define(Schema->All);
 
 $db->connect(
     "dbi:SQLite:/tmp/sqldb$$.db",undef,undef,
@@ -131,8 +129,7 @@ foreach my $obj (@objs) {
 
 $cd = CD->arow;
 $db->do(
-    update => $cd,
-    set     => [$cd->year->set(2006)],
+    update => $cd->set_year(2006),
     where    => $cd->id == 10,
 );
 
@@ -238,11 +235,10 @@ $db->do(
 
 $track = Track->arow;
 $db->do(
-    update => $track,
-    set    => [ $track->id->set(3),
-                $track->cd->set(2),
-                $track->title->set('Who wants to live forever?'),
-                $track->length->set($track->length + 1)
+    update => [ $track->set_id(3),
+                $track->set_cd(2),
+                $track->set_title('Who wants to live forever?'),
+                $track->set_length($track->length + 1)
     ],
     where => $track->id == 3,
 );
