@@ -7,6 +7,32 @@ use_ok('SQL::DB::Schema');
 use_ok('SQL::DB::Query');
 can_ok('SQL::DB::Query', qw/
     new
+    st_where
+    st_insert_into
+    st_insert
+    st_values
+    st_update
+    st_select
+    st_selecto
+    st_distinct
+    st_for_update
+    st_from
+    st_on
+    st_inner_join
+    st_left_outer_join
+    st_left_join
+    st_right_outer_join
+    st_right_join
+    st_full_join
+    st_full_outer_join
+    st_cross_join
+    st_union
+    st_group_by
+    st_order_by
+    st_limit
+    st_offset
+    st_delete
+    st_delete_from
 /);
 
 my $s = SQL::DB::Schema->new(Schema->All);

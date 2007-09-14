@@ -369,7 +369,7 @@ sub objects {
 sub insert {
     my $self = shift;
     foreach my $obj (@_) {
-        isa($obj, 'SQL::DB::Object') ||
+        UNIVERSAL::isa($obj, 'SQL::DB::Object') ||
             croak "Can only insert SQL::DB::Object: $obj";
         !$obj->_in_storage || carp "Inserting item already in a storage";
         $self->do($obj->q_insert);
@@ -381,7 +381,7 @@ sub insert {
 sub update {
     my $self = shift;
     foreach my $obj (@_) {
-        isa($obj, 'SQL::DB::Object') ||
+        UNIVERSAL::isa($obj, 'SQL::DB::Object') ||
             croak "Can only update SQL::DB::Object";
 #        $obj->_in_storage || croak "Can only update items already in storage";
         if ($self->do($obj->q_update) != 1) {
@@ -394,7 +394,7 @@ sub update {
 sub delete {
     my $self = shift;
     foreach my $obj (@_) {
-        isa($obj, 'SQL::DB::Object') ||
+        UNIVERSAL::isa($obj, 'SQL::DB::Object') ||
             croak "Can only delete SQL::DB::Object";
         $obj->_in_storage || croak "Can only delete items already in storage";
         if ($self->do($obj->q_delete) != 1) {

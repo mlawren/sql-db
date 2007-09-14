@@ -105,10 +105,7 @@ sub q_update {
     }
 
     return (
-        update => $arow,
-        set    => [ map {$arow->$_->set($self->$_)} @changed],
-#        update => [ map {$arow->$_} @changed ],
-#        set    => [ map {$self->$_} @changed ],
+        update => [ map {$arow->$_->set($self->$_)} @changed],
         where  => $where,
     );
 }

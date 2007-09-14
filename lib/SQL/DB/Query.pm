@@ -234,7 +234,6 @@ sub sql_set {
 # ------------------------------------------------------------------------
 # SELECT
 # ------------------------------------------------------------------------
-sub st_columns {st_select(@_)};
 sub st_select {
     my $self = shift;
     my $ref  = shift;
@@ -408,13 +407,13 @@ sub sql_right_join {
 }
 
 
-sub st_full_outer_join {st_full_join(@_)};
 sub st_full_join {
     my $self = shift;
     my $arow  = shift;
     push(@{$self->{query}}, 'sql_full_join', $arow);
     return;
 }
+sub st_full_outer_join {st_full_join(@_)};
 
 
 sub sql_full_join {
@@ -534,7 +533,6 @@ sub sql_offset {
 # DELETE
 # ------------------------------------------------------------------------
 
-sub st_delete_from {st_delete(@_)};
 sub st_delete {
     my $self = shift;
     my $arow = shift;
@@ -543,6 +541,7 @@ sub st_delete {
     push(@{$self->{query}}, 'sql_delete', $arow);
     return;
 }
+sub st_delete_from {st_delete(@_)};
 
 
 sub sql_delete {
