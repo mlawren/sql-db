@@ -49,13 +49,6 @@ sub _table {
 }
 
 
-sub arow {
-    my $proto = shift;
-    my $class = (ref($proto) || $proto) .'::Abstract';
-    return $class->_new;
-}
-
-
 sub _changed {
     my $self = shift;
     if (@_) {

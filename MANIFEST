@@ -23,6 +23,7 @@ lib/SQL/DB/Expr.pm
 lib/SQL/DB/Function.pm
 lib/SQL/DB/Object.pm
 lib/SQL/DB/Query.pm
+lib/SQL/DB/Row.pm
 lib/SQL/DB/Schema.pm
 lib/SQL/DB/Table.pm
 lib/SQL/DB/Tutorial.pod
@@ -38,6 +39,7 @@ t/04-expr.t
 t/05-functions.t
 t/06-acol.t
 t/07-query.t
+t/08-row.t
 t/10-synopsis.t
 t/live.t
 t/Schema.pm

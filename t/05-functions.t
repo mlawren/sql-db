@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 21;
+use Test::More tests => 31;
 require 't/Schema.pm';
 
 use_ok('SQL::DB::Function');
@@ -12,6 +12,9 @@ can_ok('SQL::DB::Function', qw/
     max
     min
     sum
+    nextval
+    currval
+    setval
 /);
 
 SQL::DB::Function->import(qw/
@@ -20,6 +23,9 @@ SQL::DB::Function->import(qw/
     max
     min
     sum
+    nextval
+    currval
+    setval
 /);
 
 
@@ -45,6 +51,16 @@ foreach my $t (
         'SUM(length)'],
     [sum('length')->as('sum_length'),
         'SUM(length) AS sum_length'],
+    [nextval('length'),
+        "nextval('length')"],
+    [currval('length'),
+        "currval('length')"],
+    [setval('length', 1),
+        "setval('length', 1)"],
+    [setval('length', 1, 1 ),
+        "setval('length', 1, true)"],
+    [setval('length', 1, 0 ),
+        "setval('length', 1, false)"],
 
     ){
 

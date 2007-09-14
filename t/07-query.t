@@ -37,7 +37,7 @@ can_ok('SQL::DB::Query', qw/
 
 my $s = SQL::DB::Schema->new(Schema->All);
 
-my $artist = Artist::Abstract->new();
+my $artist = $s->arow('artists');
 
 my $q;
 

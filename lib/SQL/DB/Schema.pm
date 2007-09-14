@@ -8,7 +8,7 @@ use SQL::DB::Table;
 use SQL::DB::Query;
 use SQL::DB::Function;
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 our $DEBUG;
 our @EXPORT_OK = @SQL::DB::Function::EXPORT_OK;
 
@@ -83,6 +83,14 @@ sub tables {
 }
 
 
+sub arow {
+    my $self   = shift;
+    my $table  = shift || croak 'usage: arow($table)';
+    my $class  = 'SQL::DB::ARow::' . $self->table($table)->name;
+    return $class->_new;
+}
+
+
 sub query {
     my $self = shift;
     return SQL::DB::Query->new(@_);
@@ -97,7 +105,7 @@ SQL::DB::Schema - Generate SQL using Perl logic and objects
 
 =head1 VERSION
 
-0.05. Development release.
+0.06. Development release.
 
 =head1 SYNOPSIS
 

@@ -43,9 +43,25 @@ sub new {
         }
     }
 
+    # Abstract class setup
+    no strict 'refs';
+    my $aclass = 'SQL::DB::ARow::'. $self->{name};
+    my $isa = \@{$aclass . '::ISA'};
+    if (defined @{$isa}) {
+        carp "redefining $aclass";
+    }
+    push(@{$isa}, 'SQL::DB::ARow');
+    $aclass->mk_accessors($self->column_names_ordered);
+    ${$aclass .'::TABLE'} = $self;
+
+    foreach my $colname ($self->column_names_ordered) {
+        *{$aclass .'::set_'. $colname} = sub {
+            my $self = shift;
+            return $self->$colname->set(@_);
+        };
+    }
 
     if (my $class = $self->{class}) {
-        no strict 'refs';
         my $isa = \@{$class . '::ISA'};
         if (defined @{$isa}) {
             carp "redefining $class";
@@ -56,21 +72,6 @@ sub new {
         $class->mk_accessors($self->column_names_ordered);
         ${$class .'::TABLE'} = $self;
 
-        my $aclass = $class . '::Abstract';
-        $isa = \@{$aclass . '::ISA'};
-        if (defined @{$isa}) {
-            carp "redefining $aclass";
-        }
-        push(@{$isa}, 'SQL::DB::ARow');
-        $aclass->mk_accessors($self->column_names_ordered);
-        ${$aclass .'::TABLE'} = $self;
-
-        foreach my $colname ($self->column_names_ordered) {
-            *{$aclass .'::set_'. $colname} = sub {
-                my $self = shift;
-                return $self->$colname->set(@_);
-            };
-        }
     }
 
     return $self;
@@ -88,9 +89,10 @@ sub setup_schema {
 sub setup_table {
     my $self      = shift;
     $self->{name} = shift;
-    if ($self->{name} =~ m/[A-Z]/) {
+    if ($self->{name} !~ m/[a-z_]/) {
         warn "Table '$self->{name}' is not all lowercase";
     }
+
 }
 
 

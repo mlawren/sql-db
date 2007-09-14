@@ -86,8 +86,8 @@ sub acolumns {
 
 sub column_names {
     my $self = shift;
-    if ($self->{columns}) {
-        return map {$_->name} @{$self->{columns}};
+    if ($self->{names}) {
+        return @{$self->{names}};
     }
     return;
 }
@@ -242,6 +242,10 @@ sub st_select {
     my @acolumns = map {UNIVERSAL::isa($_, 'SQL::DB::ARow') ? $_->_columns : $_} @items;
 
     push(@{$self->{acolumns}}, @acolumns);
+    foreach (@acolumns) {
+        (my $t = $_->_name) =~ s/t\d+\.//o;
+        push(@{$self->{names}}, $t);
+    }
     push(@{$self->{query}}, 'sql_select', undef);
 
     return;

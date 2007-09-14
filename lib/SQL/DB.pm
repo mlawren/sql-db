@@ -8,12 +8,13 @@ use DBI;
 use UNIVERSAL qw(isa);
 use SQL::DB::Schema;
 use SQL::DB::Function;
+use SQL::DB::Row;
 use Class::Accessor::Fast;
 
 use Data::Dumper;
 $Data::Dumper::Indent = 1;
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 our $DEBUG   = 0;
 our @EXPORT_OK = @SQL::DB::Function::EXPORT_OK;
 
@@ -119,7 +120,7 @@ sub create_seq {
 
     $self->{sqldb_dbi} || croak 'Must be connected before calling create_seq';
 
-    my $s = SQL::DB::Sequence::Abstract->new;
+    my $s = SQL::DB::ARow::sqldb->new;
 
     if (eval {
         $self->do(
@@ -141,7 +142,7 @@ sub seq {
     $self->{sqldb_dbi} || croak 'Must be connected before calling seq';
 
     $self->{sqldb_dbh}->begin_work;
-    my $s = SQL::DB::Sequence::Abstract->new;
+    my $s = SQL::DB::ARow::sqldb->new;
     my $r;
 
     if (eval {
@@ -233,31 +234,46 @@ sub execute {
 
 
 sub fetch {
-    my $self = shift;
-    my $query   = $self->query(@_);
-    my $sth     = $self->execute("$query", undef, $query->bind_values);
+    my $self  = shift;
+    my $query = $self->query(@_);
+    my $class = SQL::DB::Row->make_class_from($query->column_names);
 
-    if ($query->wantobjects) {
-        return $self->objects($query, $sth);
+    if (wantarray) {
+        my $arrayref = $self->{sqldb_dbh}->selectall_arrayref(
+                        "$query", undef, $query->bind_values);
+        return map {bless($_, $class)} @{$arrayref};
     }
-    else {
-        return $self->simple_objects($query, $sth);
-    }
+
+    croak 'sorry, cursor support not yet implemented';
 }
 
 
 sub fetch1 {
+    my $self  = shift;
+    my $query = $self->query(@_);
+    my $class = SQL::DB::Row->make_class_from($query->column_names);
+#    warn 'class is '.$class . ' from '. join(',',$query->column_names);
+    return bless([$self->{sqldb_dbh}->selectrow_array("$query", undef,
+                    $query->bind_values)], $class);
+}
+
+
+sub fetcho {
+    my $self = shift;
+    my $query   = $self->query(@_);
+    my $sth     = $self->execute("$query", undef, $query->bind_values);
+
+    return $self->objects($query, $sth);
+}
+
+
+sub fetcho1 {
     my $self = shift;
     my $query   = $self->query(@_);
     my $sth     = $self->execute($query, undef, $query->bind_values);
 
     my @results;
-    if ($query->wantobjects) {
-        @results = $self->objects($query, $sth);
-    }
-    else {
-        @results = $self->simple_objects($query, $sth);
-    }
+    @results = $self->objects($query, $sth);
     return $results[0];
 }
 
@@ -436,20 +452,23 @@ SQL::DB - Perl interface to SQL Databases
 
 =head1 VERSION
 
-0.05. Development release.
+0.06. Development release.
 
 =head1 SYNOPSIS
 
-  use SQL::DB qw(max min coalesce count);
-  my $db = SQL::DB->new(
-    [
+  use SQL::DB qw(max min coalesce count nextval currval setval);
+  my $db = SQL::DB->new();
+
+  $db->define([
       table  => 'addresses',
       class  => 'Address',
       column => [name => 'id',   type => 'INTEGER', primary => 1],
       column => [name => 'kind', type => 'INTEGER'],
       column => [name => 'city', type => 'INTEGER'],
-    ],
-    [
+#      seq    => [name => 'name', start => 1, increment => 2],
+  ]);
+
+  $db->define([
       table  => 'persons',
       class  => 'Person',
       column => [name => 'id',      type => 'INTEGER', primary => 1],
@@ -462,38 +481,38 @@ SQL::DB - Perl interface to SQL Databases
                                     ref  => 'persons(id)',
                                     null => 1],
       index  => 'name',
-    ],
-  );
+  ]);
 
   $db->connect('dbi:SQLite:/tmp/sqldbtest.db', 'user', 'pass', {});
   $db->deploy;
 
-  my $person  = Person::Abstract->new;
+
+  my $person  = $db->arow('persons');
+  my $address = $db->arow('addresses');
+
   $db->do(
     insert => [$person->id, $person->name, $person->age],
-    values => [1, 'Homer', 43],
+    values => [1, 'Homer', 43], # Postgres: [nextval('id'), 'Homer', 43]
   );
 
-  my $address  = Address::Abstract->new;
+  # Postgres "nextval('id') and Oracle-style "$seq.nextval" also supported 
+
   $db->do(
     insert => [$address->id, $address->kind, $address->city],
     values => [2, 'residential', 'Springfield'],
   );
 
   $db->do(
-    update => [$person->address->set(2)],
+    update => [$person->set_address(2)],
     where  => $person->name == 'Homer',
   );
 
 
-  my $p   = Person::Abstract->new;
-  my $add = Address::Abstract->new;
-
   my $ans = $db->fetch1(
-    select    => [count($p->name)->as('count_name'),
-                  max($p->age)->as('max_age')],
-    from      => $p,
-    where     => $p->age > 40,
+    select => [count($person->name)->as('count_name'),
+                  max($person->age)->as('max_age')],
+    from   => $person,
+    where  => $person->age > 40,
   );
 
   print 'Head count: '. $ans->count_name .' Max age:'.$ans->max_age."\n";
@@ -501,12 +520,12 @@ SQL::DB - Perl interface to SQL Databases
 
 
   my @items = $db->fetch(
-    select    => [$p->name, $p->age, $add->city],
-    from      => $p,
-    left_join => $add,
-    on        => $add->id == $p->address,
-    where     => ($add->city == 'Springfield') & ($p->age > 40),
-    order_by  => $p->age->desc,
+    select    => [$person->name, $person->age, $address->city],
+    from      => $person,
+    left_join => $address,
+    on        => $address->id == $person->address,
+    where     => ($address->city == 'Springfield') & ($person->age > 40),
+    order_by  => $person->age->desc,
     limit     => 10,
   );
 
@@ -518,23 +537,25 @@ SQL::DB - Perl interface to SQL Databases
 
 =head1 DESCRIPTION
 
-B<SQL::DB> provides a low-level interface to SQL databases using Perl
-objects and logic operators. It is not quite an Object Mapping Layer
-(such as L<Class::DBI>) and is also not quite an an abstraction
-(like L<SQL::Abstract>). It falls somewhere inbetween.
+B<SQL::DB> provides a very natural, low-level interface to SQL
+databases using Perl objects and logic operators. It is NOT an Object
+Relational Mapping (ORM) (eg L<Class::DBI>), and is also not
+an abstraction (a la L<SQL::Abstract>). It falls somewhere inbetween.
 
 For a more complete introduction see L<SQL::DB::Intro>.
 
 =head1 METHODS
 
-=head2 new(@def)
+=head2 new()
 
-Create a new SQL::DB object. @def is an optional schema definition
-according to L<SQL::DB::Schema>.
+Create a new B<SQL::DB> object. The B<SQL::DB> object can represent
+both the structure of a database and a connection to it.
 
 =head2 define(@def)
 
-Add to the schema definition. Inherited from L<SQL::DB::Schema>.
+Define the structure of the tables and indexes in the database. @def
+is a list of ARRAY references as defined by L<SQL::DB::Table>. This
+method is inherited from L<SQL::DB::Schema>.
 
 =head2 connect($dbi, $user, $pass, $attrs)
 
@@ -559,36 +580,38 @@ already exist.
 
 =head2 query(@query)
 
-Returns an L<SQL::DB::Query> built from @query. This method is useful
-when you are creating nested queries and UNION statements.
+Return an L<SQL::DB::Query> object as defined by @query. This method
+is useful when creating nested SELECTs, UNIONs, or if you just want
+to see what the SQL looks like.
 
 =head2 do(@query)
 
-Constructs an SQL::DB::Query object using @query, and runs that query
-against the connected database. Croaks if an error occurs. This is the
-method to use for any statement that doesn't retrieve values (eg INSERT,
-UPDATE and DELETE). Returns whatever value the underlying L<DBI>->do
-call returns.
+Constructs an L<SQL::DB::Query> object as defined by @query and runs
+that query against the connected database.  Croaks if an error occurs.
+This is the method to use for any statement that doesn't retrieve
+values (eg INSERT, UPDATE and DELETE). Returns whatever value the
+underlying L<DBI>->do call returns.
 
 =head2 fetch(@query)
 
-Constructs an SQL::DB::Query object using @query, and runs that query
-against the connected database. Croaks if an error occurs. This 
-method can be used for any SELECT-type statement that retrieves rows.
+Constructs an L<SQL::DB::Query> object as defined by @query and runs
+that query against the connected database.  Croaks if an error occurs.
+This method should be used for SELECT-type statements that retrieve
+rows.
 
-If the query used a simple "select" then returns a list of simple
-Class::Accessor-based objects whose method names correspond to the
-columns or functions in the query.
+When called in array context returns a list of objects. The objects
+have accessors for each column in the query. Be aware that this can
+consume large amounts of memory if there are lots of rows retrieved.
 
-If the query used a "selecto" then returns a list of SQL::DB::Object
--based objects.
+When called in scalar context returns a query cursor (L<SQL::DB::Cursor>)
+(with "next", "all" and "reset" methods) to retrieve dynamically
+constructed objects one at a time.
 
 =head2 fetch1(@query)
 
-Is the same as fetch(), but only returns the first element from the
-result set. Either you know you will only get one result, or you
-should be using some kind of LIMIT statement so that extra rows
-are not retrieved by the database.
+Similar to fetch() but always returns only the first object from
+the result set. All other rows (if any) can not be retrieved.
+You should only use this method if you know/expect one result.
 
 =head2 insert($sqlobject)
 

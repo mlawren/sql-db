@@ -49,19 +49,20 @@ ok($val = $db->seq('test'), "Sequence test $val");
 ok($val = $db->seq('test'), "Sequence test $val");
 ok($val = $db->seq('test'), "Sequence test $val");
 
-my $arow = Track->arow;
+my $track   = $db->arow('tracks');
+my $cd     = $db->arow('cds');
+my $artist = $db->arow('artists');
+
 $db->do(
-    delete_from => $arow,
+    delete_from => $track,
 );
 
-$arow = CD->arow;
 $db->do(
-    delete_from => $arow,
+    delete_from => $cd,
 );
 
-$arow = Artist->arow;
 $db->do(
-    delete_from => $arow,
+    delete_from => $artist,
 #        where => $arow->id == 4,
 );
 
@@ -70,7 +71,7 @@ while (my $str = <DATA>) {
     my @values = split(',',$str);
 
     my $class = shift @values;
-    my $rem = $class->arow;
+    my $rem = $db->arow($class);
 
     my $q = $db->do(
             insert_into => [$rem->_columns],
@@ -78,9 +79,6 @@ while (my $str = <DATA>) {
     );
 }
 
-my $track = Track->arow;
-my $cd = CD->arow;
-my $artist = Artist->arow;
 
 my @objs = $db->fetch(
     select   => [ $track->id,$track->title,
@@ -101,8 +99,7 @@ foreach my $obj (@objs) {
 }
 
 
-$track = Track->arow;
-$cd = CD->arow;
+
 @objs = $db->fetch(
     select   => [ count($track->id)->as('count_id'),
                    $cd->title,
@@ -120,22 +117,21 @@ $cd = CD->arow;
 
 foreach my $obj (@objs) {
     print 'Title: '. $obj->title ."\n";
-    print '# Tracks: '. $obj->count_id ."\n";
-    print 'Longest Track: ' . $obj->max_length ."\n";
+    print '# trackss: '. $obj->count_id ."\n";
+    print 'Longest tracks: ' . $obj->max_length ."\n";
     print 'CD Length: ' . $obj->sum_length ."\n\n";
 }
 
 
 
-$cd = CD->arow;
 $db->do(
     update => $cd->set_year(2006),
     where    => $cd->id == 10,
 );
 
-$cd = CD->arow;
-my $track2 = Track->arow;
-my $cd2 = CD->arow;
+my $track2 = $db->arow('tracks');
+my $cd2 = $db->arow('cds');
+
 my $q2 =  $db->query(
     select   => [ $track2->title, $cd2->year ],
     distinct => 1,
@@ -152,8 +148,9 @@ my $q2 =  $db->query(
 );
 
 
-my $fan = Fan->arow;
-my $link = ArtistFan->arow;
+my $fan = $db->arow('fans');
+my $link = $db->arow('artists_fans');
+
 my @res = $db->fetch(
     select => [$fan->name, $fan->craziness],
     from   => [$fan, $artist, $link],
@@ -161,7 +158,7 @@ my @res = $db->fetch(
                 ($link->fan == $fan->id) & ($link->artist == $artist->id)
 );
 
-print "Queen Fans (with craziness)\n";
+print "Queen fanss (with craziness)\n";
 foreach (@res) {
     print $_->name .' ('.$_->craziness .")\n";
 }
@@ -173,12 +170,10 @@ my $res = $db->fetch1(
                 ($link->fan == $fan->id) & ($link->artist == $artist->id)
 );
 
-print "Only the first Queen Fan (with craziness)\n";
+print "Only the first Queen fans (with craziness)\n";
 print $res->name .' ('.$res->craziness .")\n";
 
 
-$fan = Fan->arow;
-$link = ArtistFan->arow;
 @res = $db->fetch(
     select => [$fan->name, $fan->craziness],
     from   => $fan,
@@ -186,41 +181,36 @@ $link = ArtistFan->arow;
                     from => [$link])),
 );
 
-print "Un-Fans\n";
+print "Un-fanss\n";
 foreach (@res) {
     print $_->name .' ('.$_->craziness .")\n";
 }
 
 
-my $a = Artist->arow;
-my $c = CD->arow;
 @res = $db->fetch(
     select => [$cd->title],
     from   => $cd,
-    left_join => $a,
-    on       => $cd->artist == $a->id,
-    where   => $a->name == 'Queen',
+    left_join => $artist,
+    on       => $cd->artist == $artist->id,
+    where   => $artist->name == 'Queen',
 );
 
 foreach (@res) {
     print "Queen Album: ". $_->title ."\n";
 }
 
-$c = CD->arow;
-$a = Artist->arow;
 @res = $db->fetch(
-    selecto => [$c->title, $c->id],
-    from    => [$c],
-    left_join => $a,
-    on      => $a->id == $c->artist,
-    where   => $a->name->like('Queen'),
+    selecto => [$cd->title, $cd->id],
+    from    => [$cd],
+    left_join => $artist,
+    on      => $artist->id == $cd->artist,
+    where   => $artist->name->like('Queen'),
 );
 
 foreach (@res) {
     print "Queen Album: ". $_->title ."\n";
 }
 
-$track = Track->arow;
 $db->do(
     delete_from => $track,
     where       => $track->id == 3,
@@ -233,7 +223,6 @@ $db->do(
 
 #warn ref($track->length($track->length + 1));
 
-$track = Track->arow;
 $db->do(
     update => [ $track->set_id(3),
                 $track->set_cd(2),
@@ -245,47 +234,47 @@ $db->do(
 
 
 __DATA__
-Artist,1,Queen
-Artist,2,INXS
-CD,1,A Kind of Magic,1986,1
-CD,2,A Night at the Opera,1978,2
-Track,1,2,Death on Two Legs (Dedicated to.......),223
-Track,2,2,Lazing On A Sunday Afternoon,67
-Track,3,2,I'm in Love with My Car,187
-Track,4,2,You're My Best Friend,170
-Track,5,2,39,211
-Track,6,2,Sweet Lady,243
-Track,7,2,Seaside Rendezvous,135
-Track,8,2,The Prophet's Song,501
-Track,9,2,Love of My Life,219
-Track,10,2,Good Company,203
-Track,11,2,Bohemian Rhapsody,355
-Track,12,2,God Save the Queen,138
-Track,13,2,I'm in Love with My Car,208
-Track,14,2,You're My Best Friend,172
-Track,15,2,One Vision,310
-Track,16,1,A Kind of Magic,264
-Track,17,1,One Year of Love,266
-Track,18,1,Pain Is So Close to Pleasure,261
-Track,19,1,Friends Will Be Friends,247
-Track,20,1,Who Wants to Live Forever,305
-Track,21,1,Gimme the Prize,274
-Track,22,1,Don't Lose Your Head,278
-Track,23,1,Princes of the Universe,212
-Fan,1,Fan1,100
-Fan,2,Fan2,83
-Fan,3,Fan3,3
-Fan,4,Faker,4
-Fan,5,Fan5,52
-Fan,6,Fan6,88
-Fan,7,Fan7,36
-Fan,8,Not a Fan,0
-ArtistFan,1,1
-ArtistFan,1,2
-ArtistFan,1,3
-ArtistFan,1,6
-ArtistFan,1,7
-ArtistFan,2,1
-ArtistFan,2,3
-ArtistFan,2,5
-ArtistFan,2,6
+artists,1,Queen
+artists,2,INXS
+cds,1,A Kind of Magic,1986,1
+cds,2,A Night at the Opera,1978,2
+tracks,1,2,Death on Two Legs (Dedicated to.......),223
+tracks,2,2,Lazing On A Sunday Afternoon,67
+tracks,3,2,I'm in Love with My Car,187
+tracks,4,2,You're My Best Friend,170
+tracks,5,2,39,211
+tracks,6,2,Sweet Lady,243
+tracks,7,2,Seaside Rendezvous,135
+tracks,8,2,The Prophet's Song,501
+tracks,9,2,Love of My Life,219
+tracks,10,2,Good Company,203
+tracks,11,2,Bohemian Rhapsody,355
+tracks,12,2,God Save the Queen,138
+tracks,13,2,I'm in Love with My Car,208
+tracks,14,2,You're My Best Friend,172
+tracks,15,2,One Vision,310
+tracks,16,1,A Kind of Magic,264
+tracks,17,1,One Year of Love,266
+tracks,18,1,Pain Is So Close to Pleasure,261
+tracks,19,1,Friends Will Be Friends,247
+tracks,20,1,Who Wants to Live Forever,305
+tracks,21,1,Gimme the Prize,274
+tracks,22,1,Don't Lose Your Head,278
+tracks,23,1,Princes of the Universe,212
+fans,1,fans1,100
+fans,2,fans2,83
+fans,3,fans3,3
+fans,4,Faker,4
+fans,5,fans5,52
+fans,6,fans6,88
+fans,7,fans7,36
+fans,8,Not a fans,0
+artists_fans,1,1
+artists_fans,1,2
+artists_fans,1,3
+artists_fans,1,6
+artists_fans,1,7
+artists_fans,2,1
+artists_fans,2,3
+artists_fans,2,5
+artists_fans,2,6
