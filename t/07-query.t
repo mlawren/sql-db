@@ -13,7 +13,6 @@ can_ok('SQL::DB::Query', qw/
     st_values
     st_update
     st_select
-    st_selecto
     st_distinct
     st_for_update
     st_from

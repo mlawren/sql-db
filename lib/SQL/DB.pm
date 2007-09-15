@@ -241,6 +241,7 @@ sub fetch {
     if (wantarray) {
         my $arrayref = $self->{sqldb_dbh}->selectall_arrayref(
                         "$query", undef, $query->bind_values);
+        $self->{sqldb_qcount}++;
         return map {bless($_, $class)} @{$arrayref};
     }
 
@@ -252,7 +253,8 @@ sub fetch1 {
     my $self  = shift;
     my $query = $self->query(@_);
     my $class = SQL::DB::Row->make_class_from($query->column_names);
-#    warn 'class is '.$class . ' from '. join(',',$query->column_names);
+
+    $self->{sqldb_qcount}++;
     return bless([$self->{sqldb_dbh}->selectrow_array("$query", undef,
                     $query->bind_values)], $class);
 }
@@ -275,40 +277,6 @@ sub fetcho1 {
     my @results;
     @results = $self->objects($query, $sth);
     return $results[0];
-}
-
-
-sub simple_objects {
-    my $self    = shift;
-    my $query   = shift;
-    my $sth     = shift;
-
-    my @names = map {$_->_name} $query->acolumns;
-    for my $i (0..$#names) {
-        $names[$i] =~ s/t\d+\.//;
-    }
-    my $class = '_' . join('_', @names);
-
-    {
-        no strict 'refs';
-        if (!@{$class .'::ISA'}) {
-            push(@{$class.'::ISA'}, 'Class::Accessor::Fast');
-            $class->mk_accessors(@names);
-        };
-    }
-
-    my @returns;
-    while (my $row = $sth->fetchrow_arrayref) {
-        my $hash = {};
-        my $i = 0;
-        map {$hash->{$_} = $row->[$i++]} @names;
-        push(@returns, $class->new($hash));
-    }
-    die $self->{sqldb_dbh}->errstr if ($self->{sqldb_dbh}->errstr);
-
-    warn 'debug: # returns: '. scalar(@returns) if($DEBUG);
-
-    return @returns;
 }
 
 
@@ -492,14 +460,12 @@ SQL::DB - Perl interface to SQL Databases
 
   $db->do(
     insert => [$person->id, $person->name, $person->age],
-    values => [1, 'Homer', 43], # Postgres: [nextval('id'), 'Homer', 43]
+    values => [1, 'Homer', 43],
   );
-
-  # Postgres "nextval('id') and Oracle-style "$seq.nextval" also supported 
 
   $db->do(
     insert => [$address->id, $address->kind, $address->city],
-    values => [2, 'residential', 'Springfield'],
+    values => [2, 'residential', 'Springfield'],  # Pg: [nextval('id')...
   );
 
   $db->do(
@@ -539,8 +505,8 @@ SQL::DB - Perl interface to SQL Databases
 
 B<SQL::DB> provides a very natural, low-level interface to SQL
 databases using Perl objects and logic operators. It is NOT an Object
-Relational Mapping (ORM) (eg L<Class::DBI>), and is also not
-an abstraction (a la L<SQL::Abstract>). It falls somewhere inbetween.
+Relational Mapper (ORM) like L<Class::DBI>, and is also not
+an abstraction a la L<SQL::Abstract>. It falls somewhere inbetween.
 
 For a more complete introduction see L<SQL::DB::Intro>.
 
@@ -548,8 +514,7 @@ For a more complete introduction see L<SQL::DB::Intro>.
 
 =head2 new()
 
-Create a new B<SQL::DB> object. The B<SQL::DB> object can represent
-both the structure of a database and a connection to it.
+Create a new B<SQL::DB> object.
 
 =head2 define(@def)
 
@@ -581,8 +546,8 @@ already exist.
 =head2 query(@query)
 
 Return an L<SQL::DB::Query> object as defined by @query. This method
-is useful when creating nested SELECTs, UNIONs, or if you just want
-to see what the SQL looks like.
+is useful when creating nested SELECTs, UNIONs, or you can print the
+returned object if you just want to see what the SQL looks like.
 
 =head2 do(@query)
 

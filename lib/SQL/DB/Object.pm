@@ -67,7 +67,7 @@ sub _in_storage {
 
 sub q_insert {
     my $self = shift;
-    my $arow    = $self->arow;
+    my $arow    = $self->_table->schema->arow($self->_table->name);
     my @changed = $self->_changed;
 
     if (!@changed) {
@@ -83,7 +83,7 @@ sub q_insert {
 
 sub q_update {
     my $self    = shift;
-    my $arow    = $self->arow;
+    my $arow    = $self->_table->schema->arow($self->_table->name);
     my @primary = $self->_table->primary_columns;
     my @changed = $self->_changed;
 
@@ -106,7 +106,7 @@ sub q_update {
 
 sub q_delete {
     my $self    = shift;
-    my $arow    = $self->arow;
+    my $arow    = $self->_table->schema->arow($self->_table->name);
     my @primary = $self->_table->primary_columns;
 
     my $where;

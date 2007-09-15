@@ -60,12 +60,6 @@ sub push_bind_values {
 }
 
 
-sub wantobjects {
-    my $self = shift;
-    return $self->{selecto};
-}
-
-
 sub arows {
     my $self = shift;
     if ($self->{arows}) {
@@ -249,15 +243,6 @@ sub st_select {
     push(@{$self->{query}}, 'sql_select', undef);
 
     return;
-}
-
-
-sub st_selecto {
-    my $self = shift;
-    my $ref  = shift;
-
-    $self->{selecto} = 1;
-    return $self->st_select($ref);
 }
 
 
