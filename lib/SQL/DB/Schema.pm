@@ -85,9 +85,8 @@ sub tables {
 
 sub arow {
     my $self   = shift;
-    my $table  = shift || croak 'usage: arow($table)';
-    my $class  = 'SQL::DB::ARow::' . $self->table($table)->name;
-    return $class->_new;
+    my $tablename  = shift || croak 'usage: arow($tablename)';
+    return $self->table($tablename)->arow;
 }
 
 

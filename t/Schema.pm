@@ -63,7 +63,8 @@ sub Fan {
         columns => [
             [name => 'id', type => 'INTEGER', primary => 1],
             [name => 'name', type => 'VARCHAR(255)'],
-            [name => 'craziness', type => 'INTEGER'],
+            [name => 'craziness', type => 'INTEGER', default => 1],
+            [name => 'subcraziness', type => 'INTEGER', default => sub {2;}],
         ],
         unique => 'name',
     ];

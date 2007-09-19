@@ -55,7 +55,7 @@ __END__
 my $col = FakeCol->new;
 my $arow = 'Abstract Row';
 
-my $acol = SQL::DB::AColumn->_new($col, $arow);
+my $acol = SQL::DB::AColumn->new($col, $arow);
 isa_ok($acol, 'SQL::DB::AColumn');
 
 foreach my $t (

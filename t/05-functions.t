@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 31;
+use Test::More tests => 37;
 require 't/Schema.pm';
 
 use_ok('SQL::DB::Function');
@@ -12,6 +12,8 @@ can_ok('SQL::DB::Function', qw/
     max
     min
     sum
+    cast
+    now
     nextval
     currval
     setval
@@ -23,14 +25,16 @@ SQL::DB::Function->import(qw/
     max
     min
     sum
+    cast
+    now
     nextval
     currval
     setval
 /);
 
 
-#my $sql = SQL::DB::Schema->new(Schema->All);
-#my $artist = Artist->arow;
+my $s = SQL::DB::Schema->new(Schema->Artist);
+my $artist = $s->table('artists')->arow;
 
 foreach my $t (
     [coalesce('col1', 'col2')->as('col'),
@@ -51,6 +55,12 @@ foreach my $t (
         'SUM(length)'],
     [sum('length')->as('sum_length'),
         'SUM(length) AS sum_length'],
+    [cast($artist->name->as('something')),
+        'CAST(t0.name AS something)'],
+    [now(),
+        'NOW()'],
+    [now()->as('now'),
+        'NOW() AS now'],
     [nextval('length'),
         "nextval('length')"],
     [currval('length'),
@@ -64,7 +74,7 @@ foreach my $t (
 
     ){
 
-    isa_ok($t->[0], 'SQL::DB::Function');
+    isa_ok($t->[0], 'SQL::DB::Expr');
     is($t->[0], $t->[1], $t->[1]);
 }
 

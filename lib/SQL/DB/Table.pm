@@ -386,6 +386,13 @@ sub primary_column_names {
 }
 
 
+sub arow {
+    my $self   = shift;
+    my $class  = 'SQL::DB::ARow::' . $self->name;
+    return $class->new;
+}
+
+
 sub schema {
     my $self = shift;
     return $self->{schema};

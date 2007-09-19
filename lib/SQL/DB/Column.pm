@@ -78,10 +78,39 @@ sub references {
 }
 
 
+sub inflate {
+    my $self = shift;
+
+    if (@_) {
+        my $sub  = shift || croak 'inflate requires a CODEREF argument';
+        (CORE::ref($sub) && CORE::ref($sub) eq 'CODE') ||
+            croak 'inflate requires a CODEREF argument';
+        $self->{inflate} = $sub;
+    }
+    return $self->{inflate};
+}
+
+
+sub deflate {
+    my $self = shift;
+
+    if (@_) {
+        my $sub  = shift || croak 'deflate requires a CODEREF argument';
+        (CORE::ref($sub) && CORE::ref($sub) eq 'CODE') ||
+            croak 'deflate requires a CODEREF argument';
+        $self->{deflate} = $sub;
+    }
+    return $self->{deflate};
+}
+
+
 sub sql_default {
     my $self = shift;
     my $default = $self->default;
     if (!defined($default)) {
+        return '';
+    }
+    if (CORE::ref($default) and CORE::ref($default) eq 'CODE') {
         return '';
     }
 

@@ -106,8 +106,10 @@ sub deploy {
 
         foreach my $action ($table->sql_create) {
             warn "debug: $action" if($DEBUG);
-            if (!$self->{sqldb_dbh}->do($action)) {
-                die $self->{sqldb_dbh}->errstr;
+            my $res;
+            eval {$res = $self->{sqldb_dbh}->do($action);};
+            if (!$res or $@) {
+                die $self->{sqldb_dbh}->errstr . ' query: '. $action;
             }
         }
     }
@@ -149,11 +151,19 @@ sub seq {
         $r = $self->fetch1(
             select     => [$s->val],
             from       => $s,
-            for_update => ($self->{sqldb_dbi} !~ m/sqlite/i),
             where      => $s->name == $name,
+            for_update => ($self->{sqldb_dbi} !~ m/sqlite/i),
         );
 
-        die "Can't find sequence $name" unless($r);
+        if (!$r) {
+            my $q = $self->query(
+                select     => [$s->val],
+                from       => $s,
+                where      => $s->name == $name,
+                for_update => ($self->{sqldb_dbi} !~ m/sqlite/i),
+            );
+            croak "Can't find sequence $name. Query was ". $q->_as_string unless($r);
+        }
 
         $self->do(
             update  => [$s->val->set($r->val + 1)],
@@ -236,13 +246,23 @@ sub execute {
 sub fetch {
     my $self  = shift;
     my $query = $self->query(@_);
-    my $class = SQL::DB::Row->make_class_from($query->column_names);
+    my $class = SQL::DB::Row->make_class_from($query->acolumns);
 
     if (wantarray) {
-        my $arrayref = $self->{sqldb_dbh}->selectall_arrayref(
+        my $arrayref;
+        eval {
+            $arrayref = $self->{sqldb_dbh}->selectall_arrayref(
                         "$query", undef, $query->bind_values);
+        };
+        if (!$arrayref or $@) {
+            croak "DBI::selectall_arrayref: $DBI::errstr $@: Query was:\n"
+                . $query->_as_string;
+        }
+
         $self->{sqldb_qcount}++;
-        return map {bless($_, $class)} @{$arrayref};
+        carp 'debug: (Rows: '. scalar @$arrayref .') '.
+              $query->_as_string if($DEBUG);
+        return map {$class->new($_)->_inflate} @{$arrayref};
     }
 
     croak 'sorry, cursor support not yet implemented';
@@ -252,11 +272,17 @@ sub fetch {
 sub fetch1 {
     my $self  = shift;
     my $query = $self->query(@_);
-    my $class = SQL::DB::Row->make_class_from($query->column_names);
+    my $class = SQL::DB::Row->make_class_from($query->acolumns);
 
+    my @list = $self->{sqldb_dbh}->selectrow_array("$query", undef,
+                                                     $query->bind_values);
     $self->{sqldb_qcount}++;
-    return bless([$self->{sqldb_dbh}->selectrow_array("$query", undef,
-                    $query->bind_values)], $class);
+    carp 'debug: '. $query->_as_string if($DEBUG);
+
+    if (@list) {
+        return $class->new(\@list)->_inflate;
+    }
+    return;
 }
 
 
@@ -353,11 +379,15 @@ sub objects {
 sub insert {
     my $self = shift;
     foreach my $obj (@_) {
-        UNIVERSAL::isa($obj, 'SQL::DB::Object') ||
-            croak "Can only insert SQL::DB::Object: $obj";
-        !$obj->_in_storage || carp "Inserting item already in a storage";
-        $self->do($obj->q_insert);
-        $obj->_in_storage(1);
+        unless(ref($obj) and $obj->can('q_update')) {
+            croak "Not an insertable object: $obj";
+        }
+        foreach ($obj->q_insert) {
+            if (!$self->do(@$_)) {
+                croak 'INSERT for '. ref($obj) . ' object failed';
+            }
+        }
+#        $obj->_in_storage(1);
     }
 }
 
@@ -365,11 +395,13 @@ sub insert {
 sub update {
     my $self = shift;
     foreach my $obj (@_) {
-        UNIVERSAL::isa($obj, 'SQL::DB::Object') ||
-            croak "Can only update SQL::DB::Object";
-#        $obj->_in_storage || croak "Can only update items already in storage";
-        if ($self->do($obj->q_update) != 1) {
-            die 'UPDATE for '. ref($obj) . ' object failed';
+        unless(ref($obj) and $obj->can('q_update')) {
+            croak "Not an updatable object: $obj";
+        }
+        foreach ($obj->q_update) {
+            if ($self->do(@$_) != 1) {
+                croak 'UPDATE for '. ref($obj) . ' object failed';
+            }
         }
     }
 }
@@ -378,11 +410,14 @@ sub update {
 sub delete {
     my $self = shift;
     foreach my $obj (@_) {
-        UNIVERSAL::isa($obj, 'SQL::DB::Object') ||
-            croak "Can only delete SQL::DB::Object";
+        unless(ref($obj) and $obj->can('q_update')) {
+            croak "Not a deletable object: $obj";
+        }
         $obj->_in_storage || croak "Can only delete items already in storage";
-        if ($self->do($obj->q_delete) != 1) {
-            die 'DELETE for '. ref($obj) . ' object failed';
+        foreach ($obj->q_delete) {
+            if ($self->do(@$_) != 1) {
+                croak 'DELETE for '. ref($obj) . ' object failed';
+            }
         }
     }
 }
@@ -455,30 +490,30 @@ SQL::DB - Perl interface to SQL Databases
   $db->deploy;
 
 
-  my $person  = $db->arow('persons');
-  my $address = $db->arow('addresses');
+  my $persons  = $db->arow('persons');
+  my $addresses = $db->arow('addresses');
 
   $db->do(
-    insert => [$person->id, $person->name, $person->age],
+    insert => [$persons->id, $persons->name, $persons->age],
     values => [1, 'Homer', 43],
   );
 
   $db->do(
-    insert => [$address->id, $address->kind, $address->city],
+    insert => [$addresses->id, $addresses->kind, $addresses->city],
     values => [2, 'residential', 'Springfield'],  # Pg: [nextval('id')...
   );
 
   $db->do(
-    update => [$person->set_address(2)],
-    where  => $person->name == 'Homer',
+    update => [$persons->set_address(2)],
+    where  => $persons->name == 'Homer',
   );
 
 
   my $ans = $db->fetch1(
-    select => [count($person->name)->as('count_name'),
-                  max($person->age)->as('max_age')],
-    from   => $person,
-    where  => $person->age > 40,
+    select => [count($persons->name)->as('count_name'),
+                  max($persons->age)->as('max_age')],
+    from   => $persons,
+    where  => $persons->age > 40,
   );
 
   print 'Head count: '. $ans->count_name .' Max age:'.$ans->max_age."\n";
@@ -486,12 +521,12 @@ SQL::DB - Perl interface to SQL Databases
 
 
   my @items = $db->fetch(
-    select    => [$person->name, $person->age, $address->city],
-    from      => $person,
-    left_join => $address,
-    on        => $address->id == $person->address,
-    where     => ($address->city == 'Springfield') & ($person->age > 40),
-    order_by  => $person->age->desc,
+    select    => [$persons->name, $persons->age, $addresses->city],
+    from      => $persons,
+    left_join => $addresses,
+    on        => $addresses->id == $persons->address,
+    where     => ($addresses->city == 'Springfield') & ($persons->age > 40),
+    order_by  => $persons->age->desc,
     limit     => 10,
   );
 
@@ -503,24 +538,53 @@ SQL::DB - Perl interface to SQL Databases
 
 =head1 DESCRIPTION
 
-B<SQL::DB> provides a very natural, low-level interface to SQL
-databases using Perl objects and logic operators. It is NOT an Object
-Relational Mapper (ORM) like L<Class::DBI>, and is also not
-an abstraction a la L<SQL::Abstract>. It falls somewhere inbetween.
+B<SQL::DB> provides a low-level interface to SQL databases, using
+Perl objects and logic operators. It is NOT an Object
+Relational Mapper like L<Class::DBI> and neither is it an abstraction
+such as L<SQL::Abstract>. It falls somewhere inbetween.
+
+The typical workflow is as follows. After creating an B<SQL::DB>
+object you can:
+
+* define() the desired or existing schema (tables and columns)
+
+* connect() to the database
+
+* deploy() the schema (CREATE TABLEs etc)
+
+* Create one or more "abstract row" objects using arow().
+
+* do() insert, update or delete queries defined using the abstract
+row objects.
+
+* fetch() (select) data with queries defined using the abstract row
+objects.
+
+* Repeat the above three steps as needed. Further queries (with a
+higher level of automation) are possible with the objects returned by
+fetch().
+
+* disconnect() from the database.
+
+B<SQL::DB> is capable of generating just about any kind of query,
+including, but not limited to, JOINs, nested SELECTs, UNIONs, 
+database-side operator invocations, function calls, aggregate
+expressions, etc. However this package is still quite new, and nowhere
+near complete. Feedback, testing, and (even better) patches are all
+welcome.
 
 For a more complete introduction see L<SQL::DB::Intro>.
 
 =head1 METHODS
 
-=head2 new()
+=head2 new
 
 Create a new B<SQL::DB> object.
 
 =head2 define(@def)
 
 Define the structure of the tables and indexes in the database. @def
-is a list of ARRAY references as defined by L<SQL::DB::Table>. This
-method is inherited from L<SQL::DB::Schema>.
+is a list of ARRAY references as required by L<SQL::DB::Table>.
 
 =head2 connect($dbi, $user, $pass, $attrs)
 
@@ -551,7 +615,7 @@ returned object if you just want to see what the SQL looks like.
 
 =head2 do(@query)
 
-Constructs an L<SQL::DB::Query> object as defined by @query and runs
+Constructs a L<SQL::DB::Query> object as defined by @query and runs
 that query against the connected database.  Croaks if an error occurs.
 This is the method to use for any statement that doesn't retrieve
 values (eg INSERT, UPDATE and DELETE). Returns whatever value the
@@ -564,9 +628,10 @@ that query against the connected database.  Croaks if an error occurs.
 This method should be used for SELECT-type statements that retrieve
 rows.
 
-When called in array context returns a list of objects. The objects
-have accessors for each column in the query. Be aware that this can
-consume large amounts of memory if there are lots of rows retrieved.
+When called in array context returns a list of objects based on
+L<SQL::DB::Row>. The objects have accessors for each column in the
+query. Be aware that this can consume large amounts of memory if there
+are lots of rows retrieved.
 
 When called in scalar context returns a query cursor (L<SQL::DB::Cursor>)
 (with "next", "all" and "reset" methods) to retrieve dynamically
@@ -578,24 +643,25 @@ Similar to fetch() but always returns only the first object from
 the result set. All other rows (if any) can not be retrieved.
 You should only use this method if you know/expect one result.
 
-=head2 insert($sqlobject)
-
-This is a shortcut for $db->do($sqlobject->q_insert). See
-L<SQL::DB::Object> for what the q_insert() method does.
-
-=head2 update($sqlobject)
-
-This is a shortcut for $db->do($sqlobject->q_update). See
-L<SQL::DB::Object> for what the q_update() method does.
-
-=head2 delete($sqlobject)
-
-This is a shortcut for $db->do($sqlobject->q_delete). See
-L<SQL::DB::Object> for what the q_delete() method does.
-
 =head2 qcount
 
 Returns the number of successful queries that have been run.
+
+The following methods are part of the _very thin_ object layer that is
+part of B<SQL::DB>. The objects returned by fetch() and fetch1() can
+typically be used here. See L<SQL::DB::Row> for more details.
+
+=head2 insert($sqlobject)
+
+A shortcut for $db->do($sqlobject->q_insert).
+
+=head2 update($sqlobject)
+
+A shortcut for $db->do($sqlobject->q_update).
+
+=head2 delete($sqlobject)
+
+A shortcut for $db->do($sqlobject->q_delete).
 
 =head1 DEBUGGING
 
@@ -604,7 +670,10 @@ queries and other important actions are 'warn'ed to STDERR
 
 =head1 SEE ALSO
 
-L<SQL::Abstract>, L<SQL::Builder>, L<Class::DBI>, L<Tangram>
+L<SQL::Abstract>, L<DBIx::Class>, L<Class::DBI>, L<Tangram>
+
+You can see B<SQL::DB> in action in the L<MySpam> application
+(disclaimer: I am also the author)
 
 =head1 AUTHOR
 

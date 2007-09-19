@@ -78,15 +78,6 @@ sub acolumns {
 }
 
 
-sub column_names {
-    my $self = shift;
-    if ($self->{names}) {
-        return @{$self->{names}};
-    }
-    return;
-}
-
-
 sub exists {
     my $self = shift;
     return SQL::DB::Expr->new('EXISTS ('. $self .')', $self->bind_values);
@@ -157,7 +148,7 @@ sub sql_insert {
 
     return "INSERT INTO\n    ". $ref->[0]->_arow->_table_name
            . ' ('
-           . join(', ', map {$_->_name} @{$ref})
+           . join(', ', map {$_->_column->name} @{$ref})
            . ")\n";
 }
 
@@ -194,9 +185,11 @@ sub sql_values {
 
 sub st_update {
     my $self = shift;
-    my $ref  = shift;
+    my $ref  = shift || croak 'update requires values';
 
     my @items = (UNIVERSAL::isa($ref,'ARRAY') ? @$ref : $ref);
+    @items || croak 'update requires values';
+
     foreach (@items) {
         if (UNIVERSAL::isa($_, 'SQL::DB::Expr')) {
             $self->push_bind_values($_->bind_values);
@@ -209,12 +202,14 @@ sub st_update {
     return;
 }
 
+
 sub sql_update {
     my $self = shift;
     my $name = shift;
 
     return "UPDATE\n    " . $name . "\n";
 }
+
 
 sub sql_set {
     my $self = shift;
@@ -235,11 +230,9 @@ sub st_select {
     my @items    = ref($ref) eq 'ARRAY' ? @{$ref} : $ref;
     my @acolumns = map {UNIVERSAL::isa($_, 'SQL::DB::ARow') ? $_->_columns : $_} @items;
 
+    $self->push_bind_values(map {UNIVERSAL::isa($_, 'SQL::DB::Expr') ? $_->bind_values : ()} @acolumns);
+
     push(@{$self->{acolumns}}, @acolumns);
-    foreach (@acolumns) {
-        (my $t = $_->_name) =~ s/t\d+\.//o;
-        push(@{$self->{names}}, $t);
-    }
     push(@{$self->{query}}, 'sql_select', undef);
 
     return;

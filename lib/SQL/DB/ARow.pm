@@ -10,8 +10,7 @@ our $tcount = 0;
 our $DEBUG;
 
 
-sub new {_new(@_);};
-sub _new {
+sub new {
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = {
@@ -20,7 +19,7 @@ sub _new {
     bless($self, $class);
 
     foreach my $col ($self->_table->columns) {
-        my $acol = SQL::DB::AColumn->_new($col, $self);
+        my $acol = SQL::DB::AColumn->new($col, $self);
 
         push(@{$self->{arow_columns}}, $acol);
         $self->{arow_column_names}->{$col->name} = $acol;

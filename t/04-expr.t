@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 51;
+use Test::More tests => 52;
 
 use_ok('SQL::DB::Expr');
 
@@ -53,6 +53,7 @@ foreach (
     [$e1 - $e2,  'e1 - e2'],
     [$e1->in($e1,$e2),  'e1 IN (e1, e2)'],
     [$e1->not_in($e1,$e2),  'e1 NOT IN (e1, e2)'],
+    [$e1->between($e1,$e2),  '(e1 BETWEEN e1 AND e2)'],
     [($e1 == $e2) & ($e1 == $e2), 'e1 = e2 AND e1 = e2'],
     [($e1 == $e2) | ($e1 == $e2), 'e1 = e2 OR e1 = e2'],
     [($e1 == $e2) & !($e1 == $e2), 'e1 = e2 AND NOT (e1 = e2)'],

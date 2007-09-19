@@ -42,10 +42,110 @@ sub new {
 }
 
 
+sub _clone {
+    my $self  = shift;
+    my $class = ref($self) || croak 'can only _clone blessed objects';
+    my $new   = {};
+    map {$new->{$_} = $self->{$_}} keys %$self;
+    bless($new, $class);
+    $new->reset_bind_values();
+    return $new;
+}
+
+
+sub as {
+    my $self        = shift;
+    my $new         = $self->_clone();
+    $new->{expr_as} = shift || croak 'as() requires an argument';
+    $new->push_bind_values($self->bind_values);
+    if ($self->op) {
+        $new->set_val('('.$self->val .') AS '. $new->{expr_as});
+    }
+    else {
+        $new->set_val($self->val .' AS '. $new->{expr_as});
+    }
+    return $new;
+}
+
+
+sub _as {
+    my $self = shift;
+    return $self->{expr_as};
+}
+
+
+sub val {
+    my $self = shift;
+    return $self->{expr_val};
+}
+
+
+sub set_val {
+    my $self = shift;
+    if (@_) {
+        $self->{expr_val} = shift;
+        return;
+    }
+    croak 'set_val requires an argument';
+}
+
+
+sub reset_bind_values {
+    my $self = shift;
+    $self->{expr_bind_values} = [];
+}
+
+
+sub push_bind_values {
+    my $self = shift;
+    push(@{$self->{expr_bind_values}}, @_);
+}
+
+
+sub bind_values {
+    my $self = shift;
+    return @{$self->{expr_bind_values}};
+}
+
+
+sub multi {
+    my $self = shift;
+    $self->{expr_multi} = shift if(@_);
+    return $self->{expr_multi};
+}
+
+
 sub op {
     my $self = shift;
     $self->{expr_op} = shift if(@_);
     return $self->{expr_op};
+}
+
+
+sub as_string {
+    my $self = shift;
+    if ($self->{expr_multi}) {
+        return '(' . $self->{expr_val} .')';
+    }
+    return $self->{expr_val};
+}
+
+
+sub bind_values_sql {
+    my $self = shift;
+    if (my @vals = $self->bind_values) {
+        return '/* ('
+           . join(", ", map {defined $_ ? "'$_'" : 'NULL'} @vals)
+           . ') */';
+    }
+    return '';
+}
+
+
+sub _as_string {
+    my $self = shift;
+    my @values = $self->bind_values;
+    return $self->as_string . $self->bind_values_sql . "\n";
 }
 
 
@@ -178,49 +278,26 @@ sub not_in {
 }
 
 
-sub multi {
-    my $self = shift;
-    $self->{expr_multi} = shift if(@_);
-    return $self->{expr_multi};
-}
+sub between {
+    my $expr1 = shift;
+    my @bind = $expr1->bind_values;
+    my @exprs;
 
-
-sub push_bind_values {
-    my $self = shift;
-    push(@{$self->{expr_bind_values}}, @_);
-}
-
-
-sub as_string {
-    my $self = shift;
-    if ($self->{expr_multi}) {
-        return '(' . $self->{expr_val} .')';
+    foreach my $e (@_) {
+        if (isa($e, __PACKAGE__)) {
+            push(@exprs, $e);
+            push(@bind, $e->bind_values);
+        }
+        else {
+            push(@exprs, '?');
+            push(@bind, $e);
+        }
     }
-    return $self->{expr_val};
-}
 
-
-sub bind_values {
-    my $self = shift;
-    return @{$self->{expr_bind_values}};
-}
-
-
-sub bind_values_sql {
-    my $self = shift;
-    if ($self->bind_values) {
-        return '/* ('
-           . join(", ", map {defined $_ ? "'$_'" : 'NULL'} $self->bind_values)
-           . ') */';
-    }
-    return '';
-}
-
-
-sub _as_string {
-    my $self = shift;
-    my @values = $self->bind_values;
-    return $self->as_string . $self->bind_values_sql . "\n";
+    my $new =  __PACKAGE__->new($expr1 .' BETWEEN '.
+                                 join(' AND ', @exprs), @bind);
+    $new->multi(1);
+    return $new;
 }
 
 

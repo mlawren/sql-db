@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 17;
+use Test::More tests => 18;
 BEGIN {
     use_ok('SQL::DB::Table');
 }
@@ -29,6 +29,7 @@ can_ok('SQL::DB::Table', qw(
     column
     primary_columns
     schema
+    arow
     sql_create_table
     sql_create_indexes
     sql_create
@@ -36,6 +37,7 @@ can_ok('SQL::DB::Table', qw(
 
 my $table = SQL::DB::Table->new(@{Schema->Artist});
 isa_ok($table, 'SQL::DB::Table');
+isa_ok($table->arow, 'SQL::DB::ARow::artists');
 like($table->name, qr/artists/, 'name');
 ok($table->columns, 'columns');
 

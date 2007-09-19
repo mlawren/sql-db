@@ -7,7 +7,7 @@ BEGIN {
         plan skip_all => "DBD::SQLite not installed: $@";
     }
     else {
-        plan tests => 9;
+        plan tests => 11;
     }
 
 }
@@ -65,6 +65,11 @@ $db->do(
     delete_from => $artist,
 #        where => $arow->id == 4,
 );
+
+my $f = Fan->new;
+is($f->craziness, 1, 'Default scalar');
+is($f->subcraziness, 2, 'Default scalar');
+
 
 while (my $str = <DATA>) {
     chomp($str);
@@ -261,14 +266,14 @@ tracks,20,1,Who Wants to Live Forever,305
 tracks,21,1,Gimme the Prize,274
 tracks,22,1,Don't Lose Your Head,278
 tracks,23,1,Princes of the Universe,212
-fans,1,fans1,100
-fans,2,fans2,83
-fans,3,fans3,3
-fans,4,Faker,4
-fans,5,fans5,52
-fans,6,fans6,88
-fans,7,fans7,36
-fans,8,Not a fans,0
+fans,1,fans1,100,1
+fans,2,fans2,83,1
+fans,3,fans3,3,1
+fans,4,Faker,4,1
+fans,5,fans5,52,1
+fans,6,fans6,88,1
+fans,7,fans7,36,1
+fans,8,Not a fans,0,1
 artists_fans,1,1
 artists_fans,1,2
 artists_fans,1,3

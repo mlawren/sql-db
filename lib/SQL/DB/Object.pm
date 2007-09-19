@@ -37,6 +37,18 @@ sub new {
     my $self  = $class->SUPER::new($hash);
     bless($self,$class);
     map {$self->_table->column($_) ? $self->{_changed}->{$_} = 1 : undef} keys %{$hash};
+
+    foreach ($self->_table->columns) {
+        if (!exists $self->{_changed}->{$_->name} and my $def = $_->default) {
+            if (ref($def) and ref($def) eq 'CODE') {
+                my $set = 'set_'.$_->name;
+                $self->$set(&$def);
+            }
+            else {
+                $self->{$_->name} = $def;
+            }
+        }
+    }
     return $self;
 }
 
@@ -74,10 +86,10 @@ sub q_insert {
         carp "$self has no values to insert";
     }
 
-    return (
+    return ([
         insert => [ map {$arow->$_} @changed ],
         values => [ map {$self->$_} @changed ],
-    );
+    ]);
 }
 
 
@@ -97,10 +109,10 @@ sub q_update {
                         : ($arow->$colname == $self->$colname)
     }
 
-    return (
+    return ([
         update => [ map {$arow->$_->set($self->$_)} @changed],
         where  => $where,
-    );
+    ]);
 }
 
 
@@ -115,10 +127,10 @@ sub q_delete {
                         : ($arow->$colname == $self->$colname)
     }
 
-    return (
+    return ([
         delete_from => $arow,
         where  => $where,
-    );
+    ]);
 }
 
 

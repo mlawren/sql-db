@@ -4,7 +4,7 @@ use Test::More tests => 33;
 
 use_ok('SQL::DB::AColumn');
 can_ok('SQL::DB::AColumn', qw/
-    _new
+    new
     as
     is_null
     like
@@ -39,7 +39,7 @@ package main;
 my $col = FakeCol->new;
 my $arow = FakeARow->new;
 
-my $acol = SQL::DB::AColumn->_new($col, $arow);
+my $acol = SQL::DB::AColumn->new($col, $arow);
 isa_ok($acol, 'SQL::DB::AColumn');
 
 foreach my $t (

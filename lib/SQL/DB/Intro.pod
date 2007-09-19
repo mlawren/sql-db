@@ -4,9 +4,34 @@ SQL::DB::Tutorial - How to use SQL::DB
 
 =head1 INTRODUCTION
 
+***** Incomplete and Inaccurate - just random notes at this stage *****
+
 This tutorial assumes you already have some familiarity with the
 Perl L<DBI> module and the Structured Query Language (SQL), as SQL::DB
 is a rather thin interface between the two.
+
+The typical object mapper system (such as DBIx::Class, Rose::DB,
+Class::DBI, Tangram, etc) goes through great pains to hide the details
+of the database. The B<SQL::DB> philosophy is very much the opposite.
+As a very thin interface to SQL the goal is to allow the Perl programmer
+access to whatever functionality the database allows.
+
+The ORMs are naturally object-based, so they by necessity hide the
+details. SQL::DB is a low-level system, which exposes the lower details.
+
+
+B<SQL::DB> is not an SQL abstraction, because I don't believe it makes
+sense to try. There range of different syntax and functionality offered
+by the various SQL implementations that an abstraction wishing to
+cover all of them has to limit itself to the subset of common
+functionality. Or it creates an entirely new API and does lots of
+programming in the background to implement the missing features, and often
+much less efficient in the native case.
+
+If a programmer wants to be able to deploy their application across
+13 different database backends then they should limit their SQL to the
+common subset.
+
 
 =head1 DEFINING A SCHEMA
 
@@ -136,7 +161,7 @@ to see the SQL generated for creating the tables you can simply
 The order in which the tables are defined is important, just as
 if you were creating the tables in SQL. Tables with foreign
 key definitions should come _after_ the table definitions they refer
-to. This restriction may not be necessary in future versions.
+to.
 
 =head2 Database Connection
 

@@ -3,6 +3,8 @@ use strict;
 use warnings;
 use overload '""' => 'as_string', fallback => 1;
 use Carp qw(croak confess);
+use UNIVERSAL;
+use SQL::DB::Expr;
 use Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(
@@ -11,181 +13,126 @@ our @EXPORT_OK = qw(
     max
     min
     sum
+    cast
+    now
     nextval
     currval
     setval
 );
 
 
-# Class subroutines
 
-sub coalesce {
-    my $obj = {
-        cols => \@_,
-        sql  => sub {
-            my $self = shift;
-            die "missing AS for Coalesce" unless($self->{as});
+sub do_function {
+    my $name = shift;
 
-            return 'COALESCE('
-                . join(', ', @{$self->{cols}})
-                . ') AS '
-                . $self->{as};
+    my @vals;
+    my @bind;
+
+    foreach (@_) {
+        if (UNIVERSAL::isa($_, 'SQL::DB::Expr')) {
+            push(@vals, $_);
+            push(@bind, $_->bind_values);
         }
-    };
+        else {
+            push(@vals, $_);
+        }
+    }
+    return SQL::DB::Expr->new($name .'('. join(', ',@vals) .')', @bind);
 
-    bless($obj, __PACKAGE__);
-    return $obj;
+}
+
+
+# FIXME set a flag somewhere so that SQL::DB::Row doesn't create a
+# modifier method
+sub coalesce {
+    scalar @_ >= 2 || croak 'coalesce() requires at least two argument';
+
+    my $new;
+    if (UNIVERSAL::isa($_[0], 'SQL::DB::Expr')) {
+        $new = $_[0]->_clone();
+    }
+    else {
+        $new = SQL::DB::Expr->new;
+    }
+    $new->set_val('COALESCE('. join(', ', @_) .')');
+    return $new;
 }
 
 
 sub count {
-    my $obj = {
-        expr => shift, 
-        sql  => sub {
-            my $self = shift;
-            return 'COUNT('. $self->{expr} .')'
-                . ($self->{as} ? ' AS '. $self->{as} : '');
-        }
-    };
-
-    bless($obj, __PACKAGE__);
-    return $obj;
-}
-
-
-sub max {
-    my $obj = {
-        expr => shift, 
-        sql  => sub {
-            my $self = shift;
-            return 'MAX('. $self->{expr} .')'
-                . ($self->{as} ? ' AS '. $self->{as} : '');
-        }
-    };
-
-    bless($obj, __PACKAGE__);
-    return $obj;
+    return do_function('COUNT', @_);
 }
 
 
 sub min {
-    my $obj = {
-        expr => shift, 
-        sql  => sub {
-            my $self = shift;
-            return 'MIN('. $self->{expr} .')'
-                . ($self->{as} ? ' AS '. $self->{as} : '');
-        }
-    };
+    return do_function('MIN', @_);
+}
 
-    bless($obj, __PACKAGE__);
-    return $obj;
+
+sub max {
+    return do_function('MAX', @_);
 }
 
 
 sub sum {
-    my $obj = {
-        expr => shift, 
-        sql  => sub {
-            my $self = shift;
-            return 'SUM('. $self->{expr} .')'
-                . ($self->{as} ? ' AS '. $self->{as} : '');
-        }
-    };
+    return do_function('SUM', @_);
+}
 
-    bless($obj, __PACKAGE__);
-    return $obj;
+
+sub cast {
+    return do_function('CAST', @_);
+}
+
+
+sub now {
+    return do_function('NOW');
+}
+
+
+sub do_function_quoted {
+    my $name = shift;
+
+    my @vals;
+    my @bind;
+
+    foreach (@_) {
+        if (UNIVERSAL::isa($_, 'SQL::DB::Expr')) {
+            push(@vals, "'$_'");
+            push(@bind, $_->bind_values);
+        }
+        else {
+            push(@vals, "'$_'");
+        }
+    }
+    return SQL::DB::Expr->new($name .'('. join(', ',@vals) .')', @bind);
+
 }
 
 
 sub nextval {
-    my $obj = {
-        expr => shift, 
-        sql  => sub {
-            my $self = shift;
-            return 'nextval(\''. $self->{expr} .'\')';
-        }
-    };
-
-    bless($obj, __PACKAGE__);
-    return $obj;
+    return do_function_quoted('nextval', @_);
 }
 
 
 sub currval {
-    my $obj = {
-        expr => shift, 
-        sql  => sub {
-            my $self = shift;
-            return 'currval(\''. $self->{expr} .'\')';
-        }
-    };
-
-    bless($obj, __PACKAGE__);
-    return $obj;
+    return do_function_quoted('currval', @_);
 }
 
 
 sub setval {
-    my $obj = {
-        expr => [@_], 
-        sql  => sub {
-            my $self = shift;
-            if (@{$self->{expr}} == 2) {
-                return 'setval(\''. $self->{expr}->[0] .'\', '.
-                                    $self->{expr}->[1] .')';
-            }
-            elsif (@{$self->{expr}} == 3) {
-                return 'setval(\''. $self->{expr}->[0] .'\', '.
-                                    $self->{expr}->[1] .', '.
-                                   ($self->{expr}->[2] ? 'true' : 'false') .')';
-            }
-            else {
-                confess 'setval() takes 2 or 3 arguments';
-            }
-        }
-    };
-
-    bless($obj, __PACKAGE__);
-    return $obj;
-}
-
-
-
-# Object methods
-
-sub as {
-    my $self = shift;
-    $self->{as} = shift;
-    return $self;
-}
-
-
-sub _arow {
-    my $self = shift;
-    return '(none)';
-}
-
-sub _column {
-    my $self = shift;
-    return '(none)';
-}
-
-sub _name {
-    my $self = shift;
-    return $self->{as};
-}
-
-
-sub as_string {
-    my $self = shift;
-    my $sub = $self->{sql};
-    if (ref($sub) and ref($sub) eq 'CODE') {
-        return &$sub($self);
+    my $expr = SQL::DB::Expr->new;
+    if (@_ == 2) {
+        $expr->set_val('setval(\''. $_[0] .'\', '.  $_[1] .')');
+    }
+    elsif (@_ == 3) {
+        $expr->set_val('setval(\''. $_[0] .'\', '.  $_[1] .', '.
+                           ($_[2] ? 'true' : 'false') .')');
     }
     else {
-        croak "self->{sql} not a CODEREF";
+        confess 'setval() takes 2 or 3 arguments';
     }
+
+    return $expr;
 }
 
 
