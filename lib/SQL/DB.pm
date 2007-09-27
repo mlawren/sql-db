@@ -113,6 +113,7 @@ sub deploy {
             }
         }
     }
+    return 1;
 }
 
 
@@ -144,43 +145,43 @@ sub seq {
     $self->{sqldb_dbi} || croak 'Must be connected before calling seq';
 
     $self->{sqldb_dbh}->begin_work;
-    my $s = SQL::DB::ARow::sqldb->new;
-    my $r;
+    my $sqldb = SQL::DB::ARow::sqldb->new;
+    my $seq;
+    my $no_updates;
 
-    if (eval {
-        $r = $self->fetch1(
-            select     => [$s->val],
-            from       => $s,
-            where      => $s->name == $name,
+    eval {
+        $seq = $self->fetch1(
+            select     => [$sqldb->val],
+            from       => $sqldb,
+            where      => $sqldb->name == $name,
             for_update => ($self->{sqldb_dbi} !~ m/sqlite/i),
         );
 
-        if (!$r) {
+        if (!$seq) {
             my $q = $self->query(
-                select     => [$s->val],
-                from       => $s,
-                where      => $s->name == $name,
+                select     => [$sqldb->val],
+                from       => $sqldb,
+                where      => $sqldb->name == $name,
                 for_update => ($self->{sqldb_dbi} !~ m/sqlite/i),
             );
-            croak "Can't find sequence $name. Query was ". $q->_as_string unless($r);
+            croak "Can't find sequence $name. Query was ". $q->_as_string unless($seq);
         }
 
-        $self->do(
-            update  => [$s->val->set($r->val + 1)],
-            where   => $s->name == $name,
+        $no_updates = $self->do(
+            update  => [$sqldb->val->set($seq->val + 1)],
+            where   => $sqldb->name == $name,
         );
 
-        1;}) {
+    };
 
-        $self->{sqldb_dbh}->commit;
-        return $r->val + 1;
-    }
-    else {
+    if ($@ or !$no_updates) {
         my $tmp = $@;
         eval {$self->{sqldb_dbh}->rollback;};
         croak "seq: $tmp";
     }
-    return;
+
+    $self->{sqldb_dbh}->commit;
+    return $seq->val + 1;
 }
 
 
@@ -203,7 +204,7 @@ sub do {
 
     $self->{sqldb_qcount}++;
 
-    carp 'debug: '. $query->_as_string if($DEBUG);
+    carp 'debug: '. $query->_as_string .'Result: '.$rv if($DEBUG);
     return $rv;
 }
 

@@ -440,6 +440,25 @@ sub sql_union {
 }
 
 
+sub st_intersect {
+    my $self = shift;
+    my $ref  = shift;
+    unless(UNIVERSAL::isa($ref, 'SQL::DB::Expr')) {
+        confess "Select INTERSECT must be based on SQL::DB::Expr";
+    }
+    push(@{$self->{query}}, 'sql_intersect', $ref);
+    $self->push_bind_values($ref->bind_values);
+    return;
+}
+
+
+sub sql_intersect {
+    my $self = shift;
+    my $ref  = shift;
+    return "INTERSECT \n" . $ref . "\n";
+}
+
+
 sub st_group_by {
     my $self = shift;
     my $ref  = shift;
