@@ -28,10 +28,6 @@ functionality. Or it creates an entirely new API and does lots of
 programming in the background to implement the missing features, and often
 much less efficient in the native case.
 
-If a programmer wants to be able to deploy their application across
-13 different database backends then they should limit their SQL to the
-common subset.
-
 
 =head1 DEFINING A SCHEMA
 
