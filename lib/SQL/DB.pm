@@ -150,6 +150,11 @@ sub seq {
     my $no_updates;
 
     eval {
+        # Aparent MySQL bug - no locking with FOR UPDATE
+        if ($self->{sqldb_dbi} =~ m/mysql/i) {
+            $self->{sqldb_dbh}->do('LOCK TABLES sqldb WRITE');
+        }
+
         $seq = $self->fetch1(
             select     => [$sqldb->val],
             from       => $sqldb,
