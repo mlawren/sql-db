@@ -199,12 +199,14 @@ sub do {
     };
 
     if ($@ or !defined($rv)) {
-        croak "DBI::do $DBI::errstr $@: Query was:\n". $query->_as_string;
+        croak "DBI::do $DBI::errstr $@: Query was:\n"
+               . $self->query_as_string("$query", $query->bind_values);
     }
 
     $self->{sqldb_qcount}++;
 
-    carp 'debug: '. $query->_as_string .'Result: '.$rv if($DEBUG);
+    carp 'debug: '. $self->query_as_string("$query", $query->bind_values)
+         ." /* Result: $rv */" if($DEBUG);
     return $rv;
 }
 
@@ -219,7 +221,7 @@ sub execute {
     };
     if ($@ or !$sth) {
         croak "DBI::prepare $DBI::errstr $@: Query was:\n"
-              . "$sql/* ". join(', ', map {"'$_'"} @bind) . " */\n";
+              . $self->query_as_string($sql, @bind);
     }
 
     my $res;
@@ -228,11 +230,11 @@ sub execute {
     };
     if (!$res or $@) {
         croak "DBI::execute $DBI::errstr $@: Query was:\n"
-              . "$sql/* ". join(', ', map {"'$_'"} @bind) . " */\n";
+              . $self->query_as_string($sql, @bind);
     }
 
-    carp "debug: $sql/* ". join(', ',map {defined($_) ? "'$_'" : 'NULL'}
-                                @bind) ." */ RESULT: $res" if($DEBUG);
+    carp 'debug:'. $self->query_as_string($sql, @bind) 
+         ." /* RESULT: $res */" if($DEBUG);
     $self->{sqldb_qcount}++;
     return $sth;
 }
@@ -262,7 +264,7 @@ sub fetch {
 
         $self->{sqldb_qcount}++;
         carp 'debug: (Rows: '. scalar @$arrayref .') '.
-              $query->_as_string if($DEBUG);
+              $self->query_as_string("$query", $query->bind_values) if($DEBUG);
         return map {$class->new($_)->_inflate} @{$arrayref};
     }
 
@@ -278,7 +280,7 @@ sub fetch1 {
     my @list = $self->{sqldb_dbh}->selectrow_array("$query", undef,
                                                      $query->bind_values);
     $self->{sqldb_qcount}++;
-    carp 'debug: '. $query->_as_string if($DEBUG);
+    carp 'debug: '. $self->query_as_string("$query", $query->bind_values) if($DEBUG);
 
     if (@list) {
         return $class->new(\@list)->_inflate;
@@ -427,6 +429,18 @@ sub delete {
 sub qcount {
     my $self = shift;
     return $self->{sqldb_qcount};
+}
+
+
+sub query_as_string {
+    my $self = shift;
+    my $sql  = shift || croak 'query_as_string requires an argument';
+    
+    foreach (@_) {
+        my $quote = $self->{sqldb_dbh}->quote($_);
+        $sql =~ s/\?/$quote/;
+    }
+    return $sql;
 }
 
 

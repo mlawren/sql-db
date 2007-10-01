@@ -144,6 +144,7 @@ my $q2 =  $db->query(
     where    => ( $track2->length < 248 ) & ! ($cd2->year > 1997),
 );
 
+
 @objs = $db->fetch(
     select   => [ $track->title, $cd->year],
     from     => [$track, $cd],
