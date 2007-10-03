@@ -397,6 +397,7 @@ sub insert {
         }
 #        $obj->_in_storage(1);
     }
+    return 1;
 }
 
 
@@ -412,6 +413,7 @@ sub update {
             }
         }
     }
+    return 1;
 }
 
 
@@ -428,6 +430,7 @@ sub delete {
             }
         }
     }
+    return 1;
 }
 
 

@@ -26,7 +26,7 @@ lib/SQL/DB/Query.pm
 lib/SQL/DB/Row.pm
 lib/SQL/DB/Schema.pm
 lib/SQL/DB/Table.pm
-lib/SQL/DB/Intro.pod
+lib/SQL/DB/Tutorial.pod
 Makefile.PL
 MANIFEST
 MANIFEST.SKIP
