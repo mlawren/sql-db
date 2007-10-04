@@ -93,15 +93,17 @@ sub dbh {
 sub deploy {
     my $self = shift;
 
-    foreach my $table ($self->tables) {
+    TABLES: foreach my $table ($self->tables) {
         my $sth = $self->{sqldb_dbh}->table_info('', '', $table->name, 'TABLE');
         if (!$sth) {
             die $DBI::errstr;
         }
 
-        if ($sth->fetch) {
-            carp 'Table '. $table->name .' already exists - not deploying';
-            next;
+        while (my $x = $sth->fetch) {
+            if ($x->[2] eq $table->name) {
+                carp 'Table '. $table->name .' already exists - not deploying';
+                next TABLES;
+            }
         }
 
         foreach my $action ($table->sql_create) {
@@ -152,7 +154,8 @@ sub seq {
     eval {
         # Aparent MySQL bug - no locking with FOR UPDATE
         if ($self->{sqldb_dbi} =~ m/mysql/i) {
-            $self->{sqldb_dbh}->do('LOCK TABLES sqldb WRITE');
+            $self->{sqldb_dbh}->do('LOCK TABLES sqldb WRITE, sqldb AS '.
+                                    $sqldb->_alias .' WRITE');
         }
 
         $seq = $self->fetch1(
@@ -177,13 +180,23 @@ sub seq {
             where   => $sqldb->name == $name,
         );
 
+        if ($self->{sqldb_dbi} =~ m/mysql/i) {
+            $self->{sqldb_dbh}->do('UNLOCK TABLES');
+        }
+
     };
 
     if ($@ or !$no_updates) {
         my $tmp = $@;
         eval {$self->{sqldb_dbh}->rollback;};
+
+        if ($self->{sqldb_dbi} =~ m/mysql/i) {
+            $self->{sqldb_dbh}->do('UNLOCK TABLES');
+        }
+
         croak "seq: $tmp";
     }
+
 
     $self->{sqldb_dbh}->commit;
     return $seq->val + 1;
