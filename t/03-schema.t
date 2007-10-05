@@ -37,7 +37,7 @@ like($@, qr/usage: new/, '->new requires arrayref');
 @schema = Schema->get;
 $sql = SQL::DB::Schema->new(@schema);
 isa_ok($sql, 'SQL::DB::Schema', '->new with array');
-isa_ok($sql->table('cds'), 'SQL::DB::Table');
+isa_ok($sql->table('cds'), 'SQL::DB::Schema::Table');
 
 @schema = Schema->get;
 eval{use warnings FATAL => 'all'; $sql->define($schema[0]);};
@@ -45,6 +45,6 @@ like($@, qr/already defined/, 'redefine check');
 
 my @many = $sql->table('artists')->has_many;
 ok(@many > 0, 'Artists has many something');
-isa_ok($many[0],'SQL::DB::Column', 'Artists has many');
+isa_ok($many[0],'SQL::DB::Schema::Column', 'Artists has many');
 
 

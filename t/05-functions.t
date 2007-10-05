@@ -3,10 +3,10 @@ use warnings;
 use Test::More tests => 37;
 require 't/Schema.pm';
 
-use_ok('SQL::DB::Function');
+use_ok('SQL::DB::Schema::Function');
 use_ok('SQL::DB::Schema');
 
-can_ok('SQL::DB::Function', qw/
+can_ok('SQL::DB::Schema::Function', qw/
     coalesce
     count
     max
@@ -19,7 +19,7 @@ can_ok('SQL::DB::Function', qw/
     setval
 /);
 
-SQL::DB::Function->import(qw/
+SQL::DB::Schema::Function->import(qw/
     coalesce
     count
     max
@@ -74,7 +74,7 @@ foreach my $t (
 
     ){
 
-    isa_ok($t->[0], 'SQL::DB::Expr');
+    isa_ok($t->[0], 'SQL::DB::Schema::Expr');
     is($t->[0], $t->[1], $t->[1]);
 }
 

@@ -34,7 +34,7 @@ is($new->name, 'Homer', 'name');
 
 foreach my $update ($new->q_update) {
     my $q = $schema->query(@{$update});
-    isa_ok($q, 'SQL::DB::Query', $q->_as_string);
+    isa_ok($q, 'SQL::DB::Schema::Query', $q->_as_string);
 }
 
 
@@ -77,7 +77,7 @@ $Data::Dumper::Maxdepth = 3;
 #warn Dumper($new->q_update);
 foreach my $update ($new->q_update) {
     my $q = $schema->query(@{$update});
-    isa_ok($q, 'SQL::DB::Query', $q->_as_string);
+    isa_ok($q, 'SQL::DB::Schema::Query', $q->_as_string);
 }
 
 

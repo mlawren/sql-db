@@ -23,8 +23,8 @@ SQL::DB->import(qw/
 /);
 
 #$SQL::DB::DEBUG = 3;
-#$SQL::DB::ARow::DEBUG = 3;
-#$SQL::DB::Query::DEBUG = 1;
+#$SQL::DB::Schema::ARow::DEBUG = 3;
+#$SQL::DB::Schema::Query::DEBUG = 1;
 
 
 our $schema;

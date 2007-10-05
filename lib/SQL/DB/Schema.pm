@@ -4,17 +4,17 @@ use warnings;
 use base qw(Exporter);
 use Carp qw(carp croak confess);
 
-use SQL::DB::Table;
-use SQL::DB::Query;
-use SQL::DB::Function;
+use SQL::DB::Schema::Table;
+use SQL::DB::Schema::Query;
+use SQL::DB::Schema::Function;
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 our $DEBUG;
-our @EXPORT_OK = @SQL::DB::Function::EXPORT_OK;
+our @EXPORT_OK = @SQL::DB::Schema::Function::EXPORT_OK;
 
 foreach (@EXPORT_OK) {
     no strict 'refs';
-    *{$_} = *{'SQL::DB::Function::'.$_};
+    *{$_} = *{'SQL::DB::Schema::Function::'.$_};
 }
 
 use Data::Dumper;
@@ -48,7 +48,7 @@ sub define {
             croak 'usage: define($arrayref,...)';
         }
 
-        my $table = SQL::DB::Table->new(schema => $self, @{$def});
+        my $table = SQL::DB::Schema::Table->new(schema => $self, @{$def});
 
         if (exists($self->{sqldbs_table_names}->{$table->name})) {
             croak "Table ". $table->name ." already defined";
@@ -92,7 +92,7 @@ sub arow {
 
 sub query {
     my $self = shift;
-    return SQL::DB::Query->new(@_);
+    return SQL::DB::Schema::Query->new(@_);
 }
 
 1;
@@ -310,13 +310,13 @@ So a typical database installation might go like this:
     }
 
 The returned objects can also be queried for details about the names
-of the columns but is otherwise not very useful. See L<SQL::DB::Table>
+of the columns but is otherwise not very useful. See L<SQL::DB::Schema::Table>
 for more details.
 
 =head2 table('Table')
 
 Returns an object representing the database table 'Table'. Also see
-L<SQL::DB::Table> for more details.
+L<SQL::DB::Schema::Table> for more details.
 
 =head2 arow('Table')
 
@@ -348,7 +348,7 @@ do the following:
         where  => $dvd->director->name == 'Spielberg'
     );
 
-See L<SQL::DB::ARow> for more details.
+See L<SQL::DB::Schema::ARow> for more details.
 
 =head2 query(key => value, key => value, key => value, ...)
 
@@ -389,7 +389,7 @@ key/value pairs as follows.
 Note: 'from' is not needed because the table information is already
 associated with the columns.
 
-See L<SQL::DB::Query>, L<SQL::DB::Query::Insert>, L<SQL::DB::Query::Select>,...
+See L<SQL::DB::Schema::Query>, L<SQL::DB::Schema::Query::Insert>, L<SQL::DB::Schema::Query::Select>,...
 
 =head1 EXPRESSIONS
 
@@ -398,7 +398,7 @@ $expression is constructed.  Abstract columns and queries are derived
 from an expression class. Using Perl's overload feature they can be
 combined and nested any way to directly map Perl logic to SQL logic.
 
-See L<SQL::DB::Query> for more details.
+See L<SQL::DB::Schema::Query> for more details.
 
 =head1 INTERNAL METHODS
 
@@ -434,3 +434,4 @@ the Free Software Foundation; either version 2 of the License, or
 =cut
 
 # vim: set tabstop=4 expandtab:
+

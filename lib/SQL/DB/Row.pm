@@ -55,7 +55,7 @@ sub make_class_from {
         ${$class.'::_index_'.$def->[0]} = $i;
         push(@{$class.'::_columns'}, $def->[2]);
 
-        if (UNIVERSAL::isa($def->[2], 'SQL::DB::Column')) {
+        if (UNIVERSAL::isa($def->[2], 'SQL::DB::Schema::Column')) {
             if ($def->[2]->inflate) {
                 push(@{$class.'::_inflate'}, $i);
                 *{$class.'::_inflate'.$i} = $def->[2]->inflate;
@@ -190,3 +190,59 @@ sub _deflate {
 
 1;
 __END__
+
+
+=head1 NAME
+
+SQL::DB::Row - description
+
+=head1 SYNOPSIS
+
+  use SQL::DB::Row;
+
+=head1 DESCRIPTION
+
+B<SQL::DB::Row> is ...
+
+=head1 METHODS
+
+=head2 make_class_from
+
+
+
+=head2 new
+
+
+
+=head2 _inflate
+
+
+
+=head2 _deflate
+
+
+
+=head1 FILES
+
+
+
+=head1 SEE ALSO
+
+L<Other>
+
+=head1 AUTHOR
+
+Mark Lawrence E<lt>nomad@null.netE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2007 Mark Lawrence <nomad@null.net>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+=cut
+
+# vim: set tabstop=4 expandtab:

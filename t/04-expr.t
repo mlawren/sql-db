@@ -2,9 +2,9 @@ use strict;
 use warnings;
 use Test::More tests => 52;
 
-use_ok('SQL::DB::Expr');
+use_ok('SQL::DB::Schema::Expr');
 
-can_ok('SQL::DB::Expr', qw/
+can_ok('SQL::DB::Schema::Expr', qw/
     new
     bind_values
     multi
@@ -13,10 +13,10 @@ can_ok('SQL::DB::Expr', qw/
 
 # Of course one should never do this, because Expr is kind of
 # an abstract class. But for testing...
-my $e1 = SQL::DB::Expr->new('e1');
-my $e2 = SQL::DB::Expr->new('e2');
-my $ce1 = SQL::DB::Expr->new($e1 & $e2);
-my $ce2 = SQL::DB::Expr->new($e1 | $e2);
+my $e1 = SQL::DB::Schema::Expr->new('e1');
+my $e2 = SQL::DB::Schema::Expr->new('e2');
+my $ce1 = SQL::DB::Schema::Expr->new($e1 & $e2);
+my $ce2 = SQL::DB::Schema::Expr->new($e1 | $e2);
 my $ce3 = $ce1 & $ce2;
 
 

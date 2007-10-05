@@ -1,11 +1,11 @@
-package SQL::DB::Column;
+package SQL::DB::Schema::Column;
 use strict;
 use warnings;
 use base qw(Class::Accessor::Fast);
 use Carp qw(carp croak);
 use Scalar::Util qw(weaken);
 
-SQL::DB::Column->mk_accessors(qw(
+SQL::DB::Schema::Column->mk_accessors(qw(
     table
     name
     type
@@ -23,8 +23,8 @@ sub table {
     my $self = shift;
     if ( @_ ) {
         my $table = shift;
-        unless(CORE::ref($table) and CORE::ref($table) eq 'SQL::DB::Table') {
-            croak "table must be a SQL::DB::Table";
+        unless(CORE::ref($table) and CORE::ref($table) eq 'SQL::DB::Schema::Table') {
+            croak "table must be a SQL::DB::Schema::Table";
         }
         $self->{table} = $table;
         weaken($self->{table});
@@ -64,12 +64,12 @@ sub references {
         return;
     }
 
-    # Already accessed - return the reference to SQL::DB::Column
+    # Already accessed - return the reference to SQL::DB::Schema::Column
     if (CORE::ref($self->{references})) {
         return $self->{references};
     }
 
-    # Not yet accessed - find the reference to SQL::DB::Column
+    # Not yet accessed - find the reference to SQL::DB::Schema::Column
     my @cols = $self->table->text2cols($self->{references});
     $self->{references} = $cols[0];
     weaken($self->{references});
@@ -142,4 +142,76 @@ DESTROY {
 
 1;
 __END__
+# vim: set tabstop=4 expandtab:
+
+
+=head1 NAME
+
+SQL::DB::Schema::Column - description
+
+=head1 SYNOPSIS
+
+  use SQL::DB::Schema::Column;
+
+=head1 DESCRIPTION
+
+B<SQL::DB::Schema::Column> is ...
+
+=head1 METHODS
+
+=head2 table
+
+
+
+=head2 primary
+
+
+
+=head2 ref
+
+
+
+=head2 references
+
+
+
+=head2 inflate
+
+
+
+=head2 deflate
+
+
+
+=head2 sql_default
+
+
+
+=head2 sql
+
+
+
+=head1 FILES
+
+
+
+=head1 SEE ALSO
+
+L<Other>
+
+=head1 AUTHOR
+
+Mark Lawrence E<lt>nomad@null.netE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2007 Mark Lawrence <nomad@null.net>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+=cut
+
 # vim: set tabstop=4 expandtab:

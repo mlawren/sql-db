@@ -1,12 +1,12 @@
-package SQL::DB::Table;
+package SQL::DB::Schema::Table;
 use strict;
 use warnings;
 use overload '""' => 'sql_create';
 use Carp qw(carp croak confess);
 use Scalar::Util qw(weaken);
-use SQL::DB::Column;
+use SQL::DB::Schema::Column;
 use SQL::DB::Object;
-use SQL::DB::ARow;
+use SQL::DB::Schema::ARow;
 
 our $DEBUG;
 
@@ -45,12 +45,12 @@ sub new {
 
     # Abstract class setup
     no strict 'refs';
-    my $aclass = 'SQL::DB::ARow::'. $self->{name};
+    my $aclass = 'SQL::DB::Schema::ARow::'. $self->{name};
     my $isa = \@{$aclass . '::ISA'};
     if (defined @{$isa}) {
         carp "redefining $aclass";
     }
-    push(@{$isa}, 'SQL::DB::ARow');
+    push(@{$isa}, 'SQL::DB::Schema::ARow');
     $aclass->mk_accessors($self->column_names_ordered);
     ${$aclass .'::TABLE'} = $self;
 
@@ -116,7 +116,7 @@ sub setup_bases {
 sub setup_column {
     my $self = shift;
 
-    my $col = SQL::DB::Column->new();
+    my $col = SQL::DB::Schema::Column->new();
     $col->table($self);
 
     while (my $key = shift) {
@@ -388,7 +388,7 @@ sub primary_column_names {
 
 sub arow {
     my $self   = shift;
-    my $class  = 'SQL::DB::ARow::' . $self->name;
+    my $class  = 'SQL::DB::Schema::ARow::' . $self->name;
     return $class->new;
 }
 
@@ -534,13 +534,13 @@ __END__
 
 =head1 NAME
 
-SQL::DB::Table - Perl representation of an SQL database table
+SQL::DB::Schema::Table - Perl representation of an SQL database table
 
 =head1 SYNOPSIS
 
-  use SQL::DB::Table;
+  use SQL::DB::Schema::Table;
 
-  my $table = SQL::DB::Table->new(
+  my $table = SQL::DB::Schema::Table->new(
       table   => 'users',
       class   => 'User',
       bases   => [qw(SQL::DB::Object)],
@@ -560,8 +560,8 @@ SQL::DB::Table - Perl representation of an SQL database table
 
 =head1 DESCRIPTION
 
-B<SQL::DB::Table> objects represent SQL database tables. Once
-defined, a B<SQL::DB::Table> object can be queried for information
+B<SQL::DB::Schema::Table> objects represent SQL database tables. Once
+defined, a B<SQL::DB::Schema::Table> object can be queried for information
 about the table such as the primary keys, name and type of the
 columns, and the SQL table creation syntax.
 
@@ -589,7 +589,7 @@ A list of classes that the class will inherit from.
 
 =head2 columns => [ $col1, $col2, ... ]
 
-$col1, $col2, ... are passed directly to L<SQL::DB::Column> new().
+$col1, $col2, ... are passed directly to L<SQL::DB::Schema::Column> new().
 
 =head2 primary => [ $name1, $name2, ... ]
 
@@ -636,7 +636,7 @@ $tspace specifies the PostgreSQL tablespace definition.
 
 =head2 new(@definition)
 
-Returns a new B<SQL::DB::Table> object. The @definition is a list
+Returns a new B<SQL::DB::Schema::Table> object. The @definition is a list
 of key/value pairs as defined under L<DEFINITION KEYS>.
 
 =head2 name
@@ -650,12 +650,12 @@ table.
 
 =head2 columns
 
-Returns the list of L<SQL::DB::Column> objects representing each column
+Returns the list of L<SQL::DB::Schema::Column> objects representing each column
 definition in the database. The order is the same as they were defined.
 
 =head2 column($name)
 
-Returns the L<SQL::DB::Column> object for the column $name.
+Returns the L<SQL::DB::Schema::Column> object for the column $name.
 
 =head2 column_names
 
@@ -663,7 +663,7 @@ Returns a list of the SQL names of the columns.
 
 =head2 primary_columns
 
-Returns the list of L<SQL::DB::Column> objects which have been defined
+Returns the list of L<SQL::DB::Schema::Column> objects which have been defined
 as primary.
 
 =head2 primary_column_names
@@ -693,7 +693,195 @@ These are used internally but are documented here for completeness.
 
 =head1 SEE ALSO
 
-L<SQL::DB::Schema>, L<SQL::DB::Column>, L<SQL::DB>
+L<SQL::DB::Schema>, L<SQL::DB::Schema::Column>, L<SQL::DB>
+
+=head1 AUTHOR
+
+Mark Lawrence E<lt>nomad@null.netE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2007 Mark Lawrence <nomad@null.net>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+=cut
+
+# vim: set tabstop=4 expandtab:
+
+
+=head1 NAME
+
+SQL::DB::Schema::Table - description
+
+=head1 SYNOPSIS
+
+  use SQL::DB::Schema::Table;
+
+=head1 DESCRIPTION
+
+B<SQL::DB::Schema::Table> is ...
+
+=head1 METHODS
+
+=head2 new
+
+
+
+=head2 setup_schema
+
+
+
+=head2 setup_table
+
+
+
+=head2 setup_class
+
+
+
+=head2 setup_bases
+
+
+
+=head2 setup_column
+
+
+
+=head2 setup_columns
+
+
+
+=head2 setup_primary
+
+
+
+=head2 add_primary
+
+
+
+=head2 setup_unique
+
+
+
+=head2 setup_unique_index
+
+
+
+=head2 setup_index
+
+
+
+=head2 setup_foreign
+
+
+
+=head2 setup_type
+
+
+
+=head2 setup_engine
+
+
+
+=head2 setup_default_charset
+
+
+
+=head2 setup_tablespace
+
+
+
+=head2 text2cols
+
+
+
+=head2 name
+
+
+
+=head2 class
+
+
+
+=head2 columns
+
+
+
+=head2 column_names
+
+
+
+=head2 column_names_ordered
+
+
+
+=head2 column
+
+
+
+=head2 primary_columns
+
+
+
+=head2 primary_column_names
+
+
+
+=head2 arow
+
+
+
+=head2 schema
+
+
+
+=head2 sql_primary
+
+
+
+=head2 sql_unique
+
+
+
+=head2 sql_foreign
+
+
+
+=head2 sql_type
+
+
+
+=head2 sql_engine
+
+
+
+=head2 sql_default_charset
+
+
+
+=head2 sql_create_table
+
+
+
+=head2 sql_create_indexes
+
+
+
+=head2 sql_create
+
+
+
+=head1 FILES
+
+
+
+=head1 SEE ALSO
+
+L<Other>
 
 =head1 AUTHOR
 

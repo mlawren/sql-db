@@ -139,3 +139,83 @@ __END__
 
 
 # vim: set tabstop=4 expandtab:
+
+
+=head1 NAME
+
+SQL::DB::Object - description
+
+=head1 SYNOPSIS
+
+  use SQL::DB::Object;
+
+=head1 DESCRIPTION
+
+B<SQL::DB::Object> is ...
+
+=head1 METHODS
+
+=head2 mutator_name_for
+
+
+
+=head2 set
+
+
+
+=head2 get
+
+
+
+=head2 new
+
+
+
+=head2 _table
+
+
+
+=head2 _changed
+
+
+
+=head2 _in_storage
+
+
+
+=head2 q_insert
+
+
+
+=head2 q_update
+
+
+
+=head2 q_delete
+
+
+
+=head1 FILES
+
+
+
+=head1 SEE ALSO
+
+L<Other>
+
+=head1 AUTHOR
+
+Mark Lawrence E<lt>nomad@null.netE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2007 Mark Lawrence <nomad@null.net>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+=cut
+
+# vim: set tabstop=4 expandtab:

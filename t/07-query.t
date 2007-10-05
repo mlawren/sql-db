@@ -4,8 +4,8 @@ use Test::More tests => 5;
 require 't/Schema.pm';
 
 use_ok('SQL::DB::Schema');
-use_ok('SQL::DB::Query');
-can_ok('SQL::DB::Query', qw/
+use_ok('SQL::DB::Schema::Query');
+can_ok('SQL::DB::Schema::Query', qw/
     new
     st_where
     st_insert_into

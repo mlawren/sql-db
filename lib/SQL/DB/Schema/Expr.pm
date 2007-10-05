@@ -1,4 +1,4 @@
-package SQL::DB::Expr;
+package SQL::DB::Schema::Expr;
 use strict;
 use warnings;
 use Carp;
@@ -303,4 +303,160 @@ sub between {
 
 1;
 __END__
+# vim: set tabstop=4 expandtab:
+
+
+=head1 NAME
+
+SQL::DB::Schema::Expr - description
+
+=head1 SYNOPSIS
+
+  use SQL::DB::Schema::Expr;
+
+=head1 DESCRIPTION
+
+B<SQL::DB::Schema::Expr> is ...
+
+=head1 METHODS
+
+=head2 new
+
+
+
+=head2 _clone
+
+
+
+=head2 as
+
+
+
+=head2 _as
+
+
+
+=head2 val
+
+
+
+=head2 set_val
+
+
+
+=head2 reset_bind_values
+
+
+
+=head2 push_bind_values
+
+
+
+=head2 bind_values
+
+
+
+=head2 multi
+
+
+
+=head2 op
+
+
+
+=head2 as_string
+
+
+
+=head2 bind_values_sql
+
+
+
+=head2 _as_string
+
+
+
+=head2 expr_binary
+
+
+
+=head2 expr_eq
+
+
+
+=head2 expr_ne
+
+
+
+=head2 expr_and
+
+
+
+=head2 expr_or
+
+
+
+=head2 expr_lt
+
+
+
+=head2 expr_lte
+
+
+
+=head2 expr_gt
+
+
+
+=head2 expr_gte
+
+
+
+=head2 expr_plus
+
+
+
+=head2 expr_minus
+
+
+
+=head2 expr_not
+
+
+
+=head2 in
+
+
+
+=head2 not_in
+
+
+
+=head2 between
+
+
+
+=head1 FILES
+
+
+
+=head1 SEE ALSO
+
+L<Other>
+
+=head1 AUTHOR
+
+Mark Lawrence E<lt>nomad@null.netE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2007 Mark Lawrence <nomad@null.net>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+=cut
+
 # vim: set tabstop=4 expandtab:

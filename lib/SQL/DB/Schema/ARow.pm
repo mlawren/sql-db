@@ -1,9 +1,9 @@
-package SQL::DB::ARow;
+package SQL::DB::Schema::ARow;
 use strict;
 use warnings;
 use base qw(Class::Accessor);
 use Carp qw(carp croak confess);
-use SQL::DB::AColumn;
+use SQL::DB::Schema::AColumn;
 
 
 our $tcount = 0;
@@ -19,7 +19,7 @@ sub new {
     bless($self, $class);
 
     foreach my $col ($self->_table->columns) {
-        my $acol = SQL::DB::AColumn->new($col, $self);
+        my $acol = SQL::DB::Schema::AColumn->new($col, $self);
 
         push(@{$self->{arow_columns}}, $acol);
         $self->{arow_column_names}->{$col->name} = $acol;
@@ -67,4 +67,68 @@ DESTROY {
 
 1;
 __END__
+# vim: set tabstop=4 expandtab:
+
+
+=head1 NAME
+
+SQL::DB::Schema::ARow - description
+
+=head1 SYNOPSIS
+
+  use SQL::DB::Schema::ARow;
+
+=head1 DESCRIPTION
+
+B<SQL::DB::Schema::ARow> is ...
+
+=head1 METHODS
+
+=head2 new
+
+
+
+=head2 _table
+
+
+
+=head2 _table_name
+
+
+
+=head2 _alias
+
+
+
+=head2 _columns
+
+
+
+=head2 _column_names
+
+
+
+=head1 FILES
+
+
+
+=head1 SEE ALSO
+
+L<Other>
+
+=head1 AUTHOR
+
+Mark Lawrence E<lt>nomad@null.netE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2007 Mark Lawrence <nomad@null.net>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+=cut
+
 # vim: set tabstop=4 expandtab:

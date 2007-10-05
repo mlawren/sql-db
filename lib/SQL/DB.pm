@@ -7,20 +7,20 @@ use Carp qw(carp croak confess);
 use DBI;
 use UNIVERSAL qw(isa);
 use SQL::DB::Schema;
-use SQL::DB::Function;
+use SQL::DB::Schema::Function;
 use SQL::DB::Row;
 use Class::Accessor::Fast;
 
 use Data::Dumper;
 $Data::Dumper::Indent = 1;
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 our $DEBUG   = 0;
-our @EXPORT_OK = @SQL::DB::Function::EXPORT_OK;
+our @EXPORT_OK = @SQL::DB::Schema::Function::EXPORT_OK;
 
 foreach (@EXPORT_OK) {
     no strict 'refs';
-    *{$_} = *{'SQL::DB::Function::'.$_};
+    *{$_} = *{'SQL::DB::Schema::Function::'.$_};
 }
 
 
@@ -125,7 +125,7 @@ sub create_seq {
 
     $self->{sqldb_dbi} || croak 'Must be connected before calling create_seq';
 
-    my $s = SQL::DB::ARow::sqldb->new;
+    my $s = SQL::DB::Schema::ARow::sqldb->new;
 
     if (eval {
         $self->do(
@@ -147,7 +147,7 @@ sub seq {
     $self->{sqldb_dbi} || croak 'Must be connected before calling seq';
 
     $self->{sqldb_dbh}->begin_work;
-    my $sqldb = SQL::DB::ARow::sqldb->new;
+    my $sqldb = SQL::DB::Schema::ARow::sqldb->new;
     my $seq;
     my $no_updates;
 
@@ -620,7 +620,7 @@ Create a new B<SQL::DB> object.
 =head2 define(@def)
 
 Define the structure of the tables and indexes in the database. @def
-is a list of ARRAY references as required by L<SQL::DB::Table>.
+is a list of ARRAY references as required by L<SQL::DB::Schema::Table>.
 
 =head2 connect($dbi, $user, $pass, $attrs)
 
@@ -645,13 +645,13 @@ already exist.
 
 =head2 query(@query)
 
-Return an L<SQL::DB::Query> object as defined by @query. This method
+Return an L<SQL::DB::Schema::Query> object as defined by @query. This method
 is useful when creating nested SELECTs, UNIONs, or you can print the
 returned object if you just want to see what the SQL looks like.
 
 =head2 do(@query)
 
-Constructs a L<SQL::DB::Query> object as defined by @query and runs
+Constructs a L<SQL::DB::Schema::Query> object as defined by @query and runs
 that query against the connected database.  Croaks if an error occurs.
 This is the method to use for any statement that doesn't retrieve
 values (eg INSERT, UPDATE and DELETE). Returns whatever value the
@@ -659,7 +659,7 @@ underlying L<DBI>->do call returns.
 
 =head2 fetch(@query)
 
-Constructs an L<SQL::DB::Query> object as defined by @query and runs
+Constructs an L<SQL::DB::Schema::Query> object as defined by @query and runs
 that query against the connected database.  Croaks if an error occurs.
 This method should be used for SELECT-type statements that retrieve
 rows.

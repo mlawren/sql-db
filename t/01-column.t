@@ -2,10 +2,10 @@ use strict;
 use warnings;
 use Test::More tests => 11;
 BEGIN {
-    use_ok('SQL::DB::Column');
+    use_ok('SQL::DB::Schema::Column');
 }
 
-can_ok('SQL::DB::Column', qw(
+can_ok('SQL::DB::Schema::Column', qw(
     new
     table
     name
@@ -20,7 +20,7 @@ can_ok('SQL::DB::Column', qw(
     sql
 ));
 
-my $col = SQL::DB::Column->new(
+my $col = SQL::DB::Schema::Column->new(
 {    name    => 'testcol',
     type    => 'INTEGER',
     null    => 1,
@@ -29,7 +29,7 @@ my $col = SQL::DB::Column->new(
     primary => 1,
 });
 
-isa_ok($col, 'SQL::DB::Column');
+isa_ok($col, 'SQL::DB::Schema::Column');
 like($col->name, qr/testcol/, 'name');
 like($col->type, qr/INTEGER/, 'type');
 ok($col->null == 1, 'null');

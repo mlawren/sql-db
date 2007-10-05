@@ -1,7 +1,7 @@
-package SQL::DB::AColumn;
+package SQL::DB::Schema::AColumn;
 use strict;
 use warnings;
-use base qw(SQL::DB::Expr);
+use base qw(SQL::DB::Schema::Expr);
 use Carp qw(carp croak confess);
 use Scalar::Util qw(weaken);
 use UNIVERSAL qw(isa);
@@ -14,7 +14,7 @@ sub new {
 
     my $col   = shift;
     my $arow  = shift;
-    $self->{col}  = $col;  # column definition SQL::DB::AColumn
+    $self->{col}  = $col;  # column definition SQL::DB::Schema::AColumn
     $self->{arow} = $arow; # abstract representation of a table row
     $self->{expr_as}   = $col->name; #FIXME shouldn't know about Expr internals
     $self->set_val($arow->_alias .'.'. $col->name);
@@ -78,7 +78,7 @@ sub set {
     @_ || confess 'set() requires an argument:'. $self;
     my $val      = shift;
     $self        = $self->_clone();
-    if (UNIVERSAL::isa($val, 'SQL::DB::Expr')) {
+    if (UNIVERSAL::isa($val, 'SQL::DB::Schema::Expr')) {
         $self->set_val($self->{col}->name .' = '. $val);
         $self->push_bind_values($val->bind_values);
     }
@@ -98,4 +98,80 @@ DESTROY {
 
 1;
 __END__
+# vim: set tabstop=4 expandtab:
+
+
+=head1 NAME
+
+SQL::DB::Schema::AColumn - description
+
+=head1 SYNOPSIS
+
+  use SQL::DB::Schema::AColumn;
+
+=head1 DESCRIPTION
+
+B<SQL::DB::Schema::AColumn> is ...
+
+=head1 METHODS
+
+=head2 new
+
+
+
+=head2 _column
+
+
+
+=head2 _arow
+
+
+
+=head2 is_null
+
+
+
+=head2 expr_not
+
+
+
+=head2 like
+
+
+
+=head2 asc
+
+
+
+=head2 desc
+
+
+
+=head2 set
+
+
+
+=head1 FILES
+
+
+
+=head1 SEE ALSO
+
+L<Other>
+
+=head1 AUTHOR
+
+Mark Lawrence E<lt>nomad@null.netE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2007 Mark Lawrence <nomad@null.net>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+=cut
+
 # vim: set tabstop=4 expandtab:
