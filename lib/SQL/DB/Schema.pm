@@ -3,22 +3,30 @@ use strict;
 use warnings;
 use base qw(Exporter);
 use Carp qw(carp croak confess);
-
 use SQL::DB::Schema::Table;
 use SQL::DB::Schema::Query;
-use SQL::DB::Schema::Function;
+use SQL::DB::Schema::Expr;
+use UNIVERSAL;
+use Exporter;
+
 
 our $VERSION = '0.07';
 our $DEBUG;
-our @EXPORT_OK = @SQL::DB::Schema::Function::EXPORT_OK;
 
-foreach (@EXPORT_OK) {
-    no strict 'refs';
-    *{$_} = *{'SQL::DB::Schema::Function::'.$_};
-}
+our @ISA = qw(Exporter);
+our @EXPORT_OK = qw(
+    coalesce
+    count
+    max
+    min
+    sum
+    cast
+    now
+    nextval
+    currval
+    setval
+);
 
-use Data::Dumper;
-$Data::Dumper::Indent = 1;
 
 
 sub new {
@@ -94,6 +102,125 @@ sub query {
     my $self = shift;
     return SQL::DB::Schema::Query->new(@_);
 }
+
+
+#
+# Functions
+#
+
+sub do_function {
+    my $name = shift;
+
+    my @vals;
+    my @bind;
+
+    foreach (@_) {
+        if (UNIVERSAL::isa($_, 'SQL::DB::Schema::Expr')) {
+            push(@vals, $_);
+            push(@bind, $_->bind_values);
+        }
+        else {
+            push(@vals, $_);
+        }
+    }
+    return SQL::DB::Schema::Expr->new($name .'('. join(', ',@vals) .')', @bind);
+
+}
+
+
+# FIXME set a flag somewhere so that SQL::DB::Row doesn't create a
+# modifier method
+sub coalesce {
+    scalar @_ >= 2 || croak 'coalesce() requires at least two argument';
+
+    my $new;
+    if (UNIVERSAL::isa($_[0], 'SQL::DB::Schema::Expr')) {
+        $new = $_[0]->_clone();
+    }
+    else {
+        $new = SQL::DB::Schema::Expr->new;
+    }
+    $new->set_val('COALESCE('. join(', ', @_) .')');
+    return $new;
+}
+
+
+sub count {
+    return do_function('COUNT', @_);
+}
+
+
+sub min {
+    return do_function('MIN', @_);
+}
+
+
+sub max {
+    return do_function('MAX', @_);
+}
+
+
+sub sum {
+    return do_function('SUM', @_);
+}
+
+
+sub cast {
+    return do_function('CAST', @_);
+}
+
+
+sub now {
+    return do_function('NOW');
+}
+
+
+sub do_function_quoted {
+    my $name = shift;
+
+    my @vals;
+    my @bind;
+
+    foreach (@_) {
+        if (UNIVERSAL::isa($_, 'SQL::DB::Schema::Expr')) {
+            push(@vals, "'$_'");
+            push(@bind, $_->bind_values);
+        }
+        else {
+            push(@vals, "'$_'");
+        }
+    }
+    return SQL::DB::Schema::Expr->new($name .'('. join(', ',@vals) .')', @bind);
+
+}
+
+
+sub nextval {
+    return do_function_quoted('nextval', @_);
+}
+
+
+sub currval {
+    return do_function_quoted('currval', @_);
+}
+
+
+sub setval {
+    my $expr = SQL::DB::Schema::Expr->new;
+    if (@_ == 2) {
+        $expr->set_val('setval(\''. $_[0] .'\', '.  $_[1] .')');
+    }
+    elsif (@_ == 3) {
+        $expr->set_val('setval(\''. $_[0] .'\', '.  $_[1] .', '.
+                           ($_[2] ? 'true' : 'false') .')');
+    }
+    else {
+        confess 'setval() takes 2 or 3 arguments';
+    }
+
+    return $expr;
+}
+
 
 1;
 __END__
@@ -408,6 +535,58 @@ These are used internally but are documented here for completeness.
 
 Create the representation of table 'Table' according to the schema
 in {...definition...}. Each table can only be defined once.
+
+
+=head1 SQL FUNCTIONS
+
+
+=head2 do_function
+
+
+
+=head2 coalesce
+
+
+
+=head2 count
+
+
+
+=head2 min
+
+
+
+=head2 max
+
+
+
+=head2 sum
+
+
+
+=head2 cast
+
+
+
+=head2 now
+
+
+
+=head2 do_function_quoted
+
+
+
+=head2 nextval
+
+
+
+=head2 currval
+
+
+
+=head2 setval
+
+
 
 =head1 SEE ALSO
 

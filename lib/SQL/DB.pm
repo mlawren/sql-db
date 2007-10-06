@@ -6,21 +6,17 @@ use base qw(SQL::DB::Schema);
 use Carp qw(carp croak confess);
 use DBI;
 use UNIVERSAL qw(isa);
-use SQL::DB::Schema;
-use SQL::DB::Schema::Function;
 use SQL::DB::Row;
 use Class::Accessor::Fast;
 
-use Data::Dumper;
-$Data::Dumper::Indent = 1;
 
 our $VERSION = '0.07';
 our $DEBUG   = 0;
-our @EXPORT_OK = @SQL::DB::Schema::Function::EXPORT_OK;
 
+our @EXPORT_OK = @SQL::DB::Schema::EXPORT_OK;
 foreach (@EXPORT_OK) {
     no strict 'refs';
-    *{$_} = *{'SQL::DB::Schema::Function::'.$_};
+    *{$_} = *{'SQL::DB::Schema::'.$_};
 }
 
 
@@ -94,7 +90,7 @@ sub deploy {
     my $self = shift;
 
     TABLES: foreach my $table ($self->tables) {
-        my $sth = $self->{sqldb_dbh}->table_info('', '', $table->name, 'TABLE');
+        my $sth = $self->dbh->table_info('', '', $table->name, 'TABLE');
         if (!$sth) {
             die $DBI::errstr;
         }
@@ -109,9 +105,9 @@ sub deploy {
         foreach my $action ($table->sql_create) {
             warn "debug: $action" if($DEBUG);
             my $res;
-            eval {$res = $self->{sqldb_dbh}->do($action);};
+            eval {$res = $self->dbh->do($action);};
             if (!$res or $@) {
-                die $self->{sqldb_dbh}->errstr . ' query: '. $action;
+                die $self->dbh->errstr . ' query: '. $action;
             }
         }
     }
@@ -146,7 +142,7 @@ sub seq {
 
     $self->{sqldb_dbi} || croak 'Must be connected before calling seq';
 
-    $self->{sqldb_dbh}->begin_work;
+    $self->dbh->begin_work;
     my $sqldb = SQL::DB::Schema::ARow::sqldb->new;
     my $seq;
     my $no_updates;
@@ -154,7 +150,7 @@ sub seq {
     eval {
         # Aparent MySQL bug - no locking with FOR UPDATE
         if ($self->{sqldb_dbi} =~ m/mysql/i) {
-            $self->{sqldb_dbh}->do('LOCK TABLES sqldb WRITE, sqldb AS '.
+            $self->dbh->do('LOCK TABLES sqldb WRITE, sqldb AS '.
                                     $sqldb->_alias .' WRITE');
         }
 
@@ -181,24 +177,24 @@ sub seq {
         );
 
         if ($self->{sqldb_dbi} =~ m/mysql/i) {
-            $self->{sqldb_dbh}->do('UNLOCK TABLES');
+            $self->dbh->do('UNLOCK TABLES');
         }
 
     };
 
     if ($@ or !$no_updates) {
         my $tmp = $@;
-        eval {$self->{sqldb_dbh}->rollback;};
+        eval {$self->dbh->rollback;};
 
         if ($self->{sqldb_dbi} =~ m/mysql/i) {
-            $self->{sqldb_dbh}->do('UNLOCK TABLES');
+            $self->dbh->do('UNLOCK TABLES');
         }
 
         croak "seq: $tmp";
     }
 
 
-    $self->{sqldb_dbh}->commit;
+    $self->dbh->commit;
     return $seq->val + 1;
 }
 
@@ -213,7 +209,7 @@ sub do {
 
     my $rv;
     eval {
-        $rv = $self->{sqldb_dbh}->do("$query", undef, $query->bind_values);
+        $rv = $self->dbh->do("$query", undef, $query->bind_values);
     };
 
     if ($@ or !defined($rv)) {
@@ -235,7 +231,7 @@ sub execute {
 
     my $sth;
     eval {
-        $sth = $self->{sqldb_dbh}->prepare($sql);
+        $sth = $self->dbh->prepare($sql);
     };
     if ($@ or !$sth) {
         croak "DBI::prepare $DBI::errstr $@: Query was:\n"
@@ -272,7 +268,7 @@ sub fetch {
     if (wantarray) {
         my $arrayref;
         eval {
-            $arrayref = $self->{sqldb_dbh}->selectall_arrayref(
+            $arrayref = $self->dbh->selectall_arrayref(
                         "$query", undef, $query->bind_values);
         };
         if (!$arrayref or $@) {
@@ -295,7 +291,7 @@ sub fetch1 {
     my $query = $self->query(@_);
     my $class = SQL::DB::Row->make_class_from($query->acolumns);
 
-    my @list = $self->{sqldb_dbh}->selectrow_array("$query", undef,
+    my @list = $self->dbh->selectrow_array("$query", undef,
                                                      $query->bind_values);
     $self->{sqldb_qcount}++;
     carp 'debug: '. $self->query_as_string("$query", $query->bind_values) if($DEBUG);
@@ -389,7 +385,7 @@ sub objects {
         }
         push(@returns, $first);
     }
-    die $self->{sqldb_dbh}->errstr if ($self->{sqldb_dbh}->errstr);
+    die $self->dbh->errstr if ($self->dbh->errstr);
 
     warn 'debug: # returns: '. scalar(@returns) if($DEBUG);
 
@@ -458,7 +454,7 @@ sub query_as_string {
     my $sql  = shift || croak 'query_as_string requires an argument';
     
     foreach (@_) {
-        my $quote = $self->{sqldb_dbh}->quote($_);
+        my $quote = $self->dbh->quote($_);
         $sql =~ s/\?/$quote/;
     }
     return $sql;
@@ -467,9 +463,10 @@ sub query_as_string {
 
 sub disconnect {
     my $self = shift;
-    if ($self->{sqldb_dbh}) {
+    if ($self->dbh) {
         warn 'debug: Disconnecting from DBI' if($DEBUG);
-        $self->{sqldb_dbh}->disconnect;
+        $self->dbh->disconnect;
+        delete $self->{sqldb_dbh};
     }
     return;
 }
