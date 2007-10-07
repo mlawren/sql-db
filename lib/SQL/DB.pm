@@ -115,6 +115,83 @@ sub deploy {
 }
 
 
+sub query_as_string {
+    my $self = shift;
+    my $sql  = shift || croak 'query_as_string requires an argument';
+    
+    foreach (@_) {
+        my $quote = $self->dbh->quote($_);
+        $sql =~ s/\?/$quote/;
+    }
+    return $sql;
+}
+
+
+sub do {
+    my $self        = shift;
+    my $query       = $self->query(@_);
+
+    my $rv;
+    eval {
+        $rv = $self->dbh->do("$query", undef, $query->bind_values);
+    };
+
+    if ($@ or !defined($rv)) {
+        croak "DBI::do $DBI::errstr $@: Query was:\n"
+               . $self->query_as_string("$query", $query->bind_values);
+    }
+
+    $self->{sqldb_qcount}++;
+
+    carp 'debug: '. $self->query_as_string("$query", $query->bind_values)
+         ." /* Result: $rv */" if($DEBUG);
+    return $rv;
+}
+
+
+sub fetch {
+    my $self  = shift;
+    my $query = $self->query(@_);
+    my $class = SQL::DB::Row->make_class_from($query->acolumns);
+
+    if (wantarray) {
+        my $arrayref;
+        eval {
+            $arrayref = $self->dbh->selectall_arrayref(
+                        "$query", undef, $query->bind_values);
+        };
+        if (!$arrayref or $@) {
+            croak "DBI::selectall_arrayref: $DBI::errstr $@: Query was:\n"
+                . $query->_as_string;
+        }
+
+        $self->{sqldb_qcount}++;
+        carp 'debug: (Rows: '. scalar @$arrayref .') '.
+              $self->query_as_string("$query", $query->bind_values) if($DEBUG);
+        return map {$class->new($_)->_inflate} @{$arrayref};
+    }
+
+    croak 'sorry, cursor support not yet implemented';
+}
+
+
+sub fetch1 {
+    my $self  = shift;
+    my $query = $self->query(@_);
+    my $class = SQL::DB::Row->make_class_from($query->acolumns);
+
+    my @list = $self->dbh->selectrow_array("$query", undef,
+                                                     $query->bind_values);
+    $self->{sqldb_qcount}++;
+    carp 'debug: '. $self->query_as_string("$query", $query->bind_values) if($DEBUG);
+
+    if (@list) {
+        return $class->new(\@list)->_inflate;
+    }
+    return;
+}
+
+
 sub create_seq {
     my $self = shift;
     my $name = shift || croak 'usage: $db->create_seq($name)';
@@ -199,200 +276,6 @@ sub seq {
 }
 
 
-# ------------------------------------------------------------------------
-# For everything other than SELECT
-# ------------------------------------------------------------------------
-
-sub do {
-    my $self        = shift;
-    my $query       = $self->query(@_);
-
-    my $rv;
-    eval {
-        $rv = $self->dbh->do("$query", undef, $query->bind_values);
-    };
-
-    if ($@ or !defined($rv)) {
-        croak "DBI::do $DBI::errstr $@: Query was:\n"
-               . $self->query_as_string("$query", $query->bind_values);
-    }
-
-    $self->{sqldb_qcount}++;
-
-    carp 'debug: '. $self->query_as_string("$query", $query->bind_values)
-         ." /* Result: $rv */" if($DEBUG);
-    return $rv;
-}
-
-
-sub execute {
-    my $self = shift;
-    my ($sql,$attrs,@bind) = @_;
-
-    my $sth;
-    eval {
-        $sth = $self->dbh->prepare($sql);
-    };
-    if ($@ or !$sth) {
-        croak "DBI::prepare $DBI::errstr $@: Query was:\n"
-              . $self->query_as_string($sql, @bind);
-    }
-
-    my $res;
-    eval {
-        $res = $sth->execute(@bind);
-    };
-    if (!$res or $@) {
-        croak "DBI::execute $DBI::errstr $@: Query was:\n"
-              . $self->query_as_string($sql, @bind);
-    }
-
-    carp 'debug:'. $self->query_as_string($sql, @bind) 
-         ." /* RESULT: $res */" if($DEBUG);
-    $self->{sqldb_qcount}++;
-    return $sth;
-}
-
-
-
-# ------------------------------------------------------------------------
-# SELECT
-# ------------------------------------------------------------------------
-
-
-sub fetch {
-    my $self  = shift;
-    my $query = $self->query(@_);
-    my $class = SQL::DB::Row->make_class_from($query->acolumns);
-
-    if (wantarray) {
-        my $arrayref;
-        eval {
-            $arrayref = $self->dbh->selectall_arrayref(
-                        "$query", undef, $query->bind_values);
-        };
-        if (!$arrayref or $@) {
-            croak "DBI::selectall_arrayref: $DBI::errstr $@: Query was:\n"
-                . $query->_as_string;
-        }
-
-        $self->{sqldb_qcount}++;
-        carp 'debug: (Rows: '. scalar @$arrayref .') '.
-              $self->query_as_string("$query", $query->bind_values) if($DEBUG);
-        return map {$class->new($_)->_inflate} @{$arrayref};
-    }
-
-    croak 'sorry, cursor support not yet implemented';
-}
-
-
-sub fetch1 {
-    my $self  = shift;
-    my $query = $self->query(@_);
-    my $class = SQL::DB::Row->make_class_from($query->acolumns);
-
-    my @list = $self->dbh->selectrow_array("$query", undef,
-                                                     $query->bind_values);
-    $self->{sqldb_qcount}++;
-    carp 'debug: '. $self->query_as_string("$query", $query->bind_values) if($DEBUG);
-
-    if (@list) {
-        return $class->new(\@list)->_inflate;
-    }
-    return;
-}
-
-
-sub fetcho {
-    my $self = shift;
-    my $query   = $self->query(@_);
-    my $sth     = $self->execute("$query", undef, $query->bind_values);
-
-    return $self->objects($query, $sth);
-}
-
-
-sub fetcho1 {
-    my $self = shift;
-    my $query   = $self->query(@_);
-    my $sth     = $self->execute($query, undef, $query->bind_values);
-
-    my @results;
-    @results = $self->objects($query, $sth);
-    return $results[0];
-}
-
-
-sub objects {
-    my $self    = shift;
-    my $query   = shift;
-    my $sth     = shift;
-    my @acols   = $query->acolumns;
-
-    my @returns;
-
-    while (my $row = $sth->fetchrow_arrayref) {
-        my %objs;
-        my $i = 0;
-        my $first;
-        my @references;
-
-        foreach my $col (map {$_->_column} @acols) {
-            if (!$col or !ref($col)) {
-                confess "Missing column ". $col;
-            }
-            my $class = $col->table->class;
-            if (!$class) {
-                die "Missing class for table ". $col->table->name;
-            }
-            my $set   = 'set_' . $col->name;
-
-            if (!$objs{$class}) {
-                $objs{$class} = $class->new;
-            }
-            my $obj = $objs{$class};
-            $first ||= $obj;
-
-            $obj->$set($row->[$i++]);
-
-            if ($col->primary and defined($row->[$i-1])) {
-                $obj->_in_storage(1);
-            }
-#    warn "$set ".$row->[$i-1];
-            if (my $ref = $col->references) {
-                # FIXME need to check that refclass was part of the query.
-                # otherwise we are creating objects that were not wanted...
-                my $refclass = $ref->table->class;
-                push(@references, $col);
-            }
-        }
-
-        foreach my $r (@references) {
-            next unless($objs{$r->table->class}->_in_storage);
-            if (my $target = $objs{$r->references->table->class}) {
-                my $set = 'set_' . $r->name;
-                if ($target->_in_storage) {
-                    $objs{$r->table->class}->$set($target);
-                }
-                else {
-                    $objs{$r->table->class}->$set(undef); # FIXME: autoload based on key value
-                }
-            }
-        }
-
-        foreach my $o (values %objs) {
-            $o->{_changed} = {};
-        }
-        push(@returns, $first);
-    }
-    die $self->dbh->errstr if ($self->dbh->errstr);
-
-    warn 'debug: # returns: '. scalar(@returns) if($DEBUG);
-
-    return @returns;
-}
-
-
 sub insert {
     my $self = shift;
     foreach my $obj (@_) {
@@ -404,7 +287,6 @@ sub insert {
                 croak 'INSERT for '. ref($obj) . ' object failed';
             }
         }
-#        $obj->_in_storage(1);
     }
     return 1;
 }
@@ -448,17 +330,6 @@ sub qcount {
     return $self->{sqldb_qcount};
 }
 
-
-sub query_as_string {
-    my $self = shift;
-    my $sql  = shift || croak 'query_as_string requires an argument';
-    
-    foreach (@_) {
-        my $quote = $self->dbh->quote($_);
-        $sql =~ s/\?/$quote/;
-    }
-    return $sql;
-}
 
 
 sub disconnect {
@@ -646,6 +517,11 @@ Return an L<SQL::DB::Schema::Query> object as defined by @query. This method
 is useful when creating nested SELECTs, UNIONs, or you can print the
 returned object if you just want to see what the SQL looks like.
 
+=head2 query_as_string($sql, @bind_values)
+
+An internal function for pretty printing SQL queries by inserting the
+bind values into the SQL itself. Returns a string.
+
 =head2 do(@query)
 
 Constructs a L<SQL::DB::Schema::Query> object as defined by @query and runs
@@ -696,6 +572,29 @@ A shortcut for $db->do($sqlobject->q_update).
 
 A shortcut for $db->do($sqlobject->q_delete).
 
+=head2 create_seq($name)
+
+This (and the seq() method below) are the only attempt that B<SQL::DB>
+makes at cross-database abstraction. create_seq() creates a sequence called
+$name. The sequence is actually just a row in the 'sqldb' table.
+
+Warns if the sequence already exists, returns true if successful.
+
+=head2 seq($name)
+
+Return the next value for the sequence $name. The uniqueness of the
+returned value is assured by locking the appropriate table (or rows in
+the table) as required.
+
+Note that this is not intended as a replacment for auto-incrementing primary
+keys in MySQL/SQLite, or real sequences in PostgreSQL. It is simply an
+ease-of-use mechanism for applications wishing to use a common sequence
+api across multiple databases.
+
+=head2 disconnect
+
+Disconnect from the database. Effectively DBI->disconnect.
+
 =head1 DEBUGGING
 
 If $SQL::DB::DEBUG is set to a true value then SQL
@@ -706,7 +605,7 @@ queries and other important actions are 'warn'ed to STDERR
 L<SQL::Abstract>, L<DBIx::Class>, L<Class::DBI>, L<Tangram>
 
 You can see B<SQL::DB> in action in the L<MySpam> application
-(disclaimer: I am also the author)
+(disclaimer: I also wrote that application.)
 
 =head1 AUTHOR
 

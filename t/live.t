@@ -205,7 +205,7 @@ foreach (@res) {
     print "Queen Album: ". $_->title ."\n";
 }
 
-@res = $db->fetcho(
+@res = $db->fetch(
     select => [$cd->title, $cd->id],
     from    => [$cd],
     left_join => $artist,

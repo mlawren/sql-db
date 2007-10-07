@@ -10,7 +10,9 @@ requires        'Scalar::Util'          => 0;
 requires        'Class::Accessor::Fast' => 0;
 
 build_requires  'Test::More'            => 0;
-    
+build_requires  'Test::Pod'             => 0;
+build_requires  'Test::Pod::Coverage'   => 0;
+
 auto_install;
 
 WriteAll;
