@@ -372,7 +372,6 @@ SQL::DB - Perl interface to SQL Databases
       column => [name => 'id',   type => 'INTEGER', primary => 1],
       column => [name => 'kind', type => 'INTEGER'],
       column => [name => 'city', type => 'INTEGER'],
-#      seq    => [name => 'name', start => 1, increment => 2],
   ]);
 
   $db->define([
@@ -420,8 +419,9 @@ SQL::DB - Perl interface to SQL Databases
     where  => $persons->age > 40,
   );
 
-  print 'Head count: '. $ans->count_name .' Max age:'.$ans->max_age."\n";
-  # "Head count: 1 Max age:43"
+  # The following prints "Head count: 1 Max age:43"
+  print 'Head count: '. $ans->count_name .
+          ' Max age: '. $ans->max_age ."\n";
 
 
   my @items = $db->fetch(
@@ -434,11 +434,12 @@ SQL::DB - Perl interface to SQL Databases
     limit     => 10,
   );
 
+  # Give me "Homer(43) lives in Springfield"
   foreach my $item (@items) {
       print $item->name, '(',$item->age,') lives in ', $item->city, "\n";
   }
-  # "Homer(43) lives in Springfield"
-  return @items # this line for automatic test
+
+  return @items # this line for the automatic test
 
 =head1 DESCRIPTION
 
@@ -458,11 +459,10 @@ object you can:
 
 * Create one or more "abstract row" objects using arow().
 
-* do() insert, update or delete queries defined using the abstract
+* do() (insert, update or delete) queries defined using the abstract
 row objects.
 
-* fetch() (select) data with queries defined using the abstract row
-objects.
+* fetch() (select) data to work with and/or modify.
 
 * Repeat the above three steps as needed. Further queries (with a
 higher level of automation) are possible with the objects returned by
@@ -556,22 +556,6 @@ You should only use this method if you know/expect one result.
 
 Returns the number of successful queries that have been run.
 
-The following methods are part of the _very thin_ object layer that is
-part of B<SQL::DB>. The objects returned by fetch() and fetch1() can
-typically be used here. See L<SQL::DB::Row> for more details.
-
-=head2 insert($sqlobject)
-
-A shortcut for $db->do($sqlobject->q_insert).
-
-=head2 update($sqlobject)
-
-A shortcut for $db->do($sqlobject->q_update).
-
-=head2 delete($sqlobject)
-
-A shortcut for $db->do($sqlobject->q_delete).
-
 =head2 create_seq($name)
 
 This (and the seq() method below) are the only attempt that B<SQL::DB>
@@ -594,6 +578,36 @@ api across multiple databases.
 =head2 disconnect
 
 Disconnect from the database. Effectively DBI->disconnect.
+
+=head1 METHODS ON FETCHED OBJECTS
+
+Although B<SQL::DB> is not an ORM system it does comes with a _very
+thin_ object layer. Objects returned by fetch() and fetch1() can be
+modified using their set_* methods, just like a regular ORM system.
+However, the difference here is that the objects fields may map across
+multiple database tables. 
+
+Since the objects keep track of which columns have changed, and they
+also know which columns belong to which tables and which columns are
+primary keys, they can also automatically generate the appropriate
+commands for UPDATE or DELETE statements in order to make matching
+changes in the database.
+
+Of course, the appropriate statements only work if the primary keys have
+been included as part of the fetch(). See the q_update() and q_delete()
+methods in L<SQL::DB::Row> for more details.
+
+=head2 update($sqlobject)
+
+A shortcut for $db->do($sqlobject->q_update).
+
+=head2 delete($sqlobject)
+
+A shortcut for $db->do($sqlobject->q_delete).
+
+=head2 insert($sqlobject)
+
+A shortcut for $db->do($sqlobject->q_insert).
 
 =head1 DEBUGGING
 
