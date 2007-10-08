@@ -7,6 +7,8 @@ use_ok('SQL::DB::Schema');
 use_ok('SQL::DB::Schema::Query');
 can_ok('SQL::DB::Schema::Query', qw/
     new
+    acolumns
+    bind_types
     st_where
     st_insert_into
     st_insert

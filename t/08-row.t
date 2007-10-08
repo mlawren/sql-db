@@ -1,6 +1,7 @@
 use strict;
 use warnings;
-use Test::More tests => 40;
+use Test::More tests => 41;
+use DBI qw(SQL_BLOB);
 
 require_ok('t/Schema.pm');
 use_ok('SQL::DB::Schema');
@@ -84,10 +85,10 @@ is($new3->id, 4, 'id');
 is($new3->name, 'Skinner', 'name');
 
 my $dclass = SQL::DB::Row->make_class_from($schema->table('defaults')->columns);
-is($dclass, 'SQL::DB::Row::defaults.id_defaults.scalar_defaults.sub', 'default class name');
+is($dclass, 'SQL::DB::Row::defaults.id_defaults.scalar_defaults.sub_defaults.binary', 'default class name');
 
 my $def = $dclass->new;
-isa_ok($def, 'SQL::DB::Row::defaults.id_defaults.scalar_defaults.sub');
+isa_ok($def, 'SQL::DB::Row::defaults.id_defaults.scalar_defaults.sub_defaults.binary');
 is($def->scalar, 1, 'scalar default');
 is($def->sub, 2, 'sub default');
 
@@ -95,6 +96,10 @@ $def = Default->new;
 isa_ok($def, 'Default', 'Default class');
 is($def->scalar, 1, 'scalar default');
 is($def->sub, 2, 'sub default');
+
+#is($schema->table('defaults')->column(0
+my $adrow = $schema->arow('defaults');
+is($adrow->binary->_column->bind_type, SQL_BLOB, 'binary is SQL_BLOB');
 
 $class = SQL::DB::Row->make_class_from(
     $schema->table('artists')->columns,

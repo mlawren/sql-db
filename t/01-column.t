@@ -10,6 +10,7 @@ can_ok('SQL::DB::Schema::Column', qw(
     table
     name
     type
+    bind_type
     null
     default
     unique

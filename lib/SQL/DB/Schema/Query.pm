@@ -78,6 +78,15 @@ sub acolumns {
 }
 
 
+sub bind_types {
+    my $self = shift;
+    if ($self->{bind_types}) {
+        return @{$self->{bind_types}};
+    }
+    return;
+}
+
+
 sub exists {
     my $self = shift;
     return SQL::DB::Schema::Expr->new('EXISTS ('. $self .')', $self->bind_values);
@@ -116,7 +125,7 @@ sub st_where {
 sub sql_where {
     my $self  = shift;
     my $where = shift;
-    if (!$self->{acolumns}) {
+    if (!$self->{acolumns}) { # !SELECT
         $where =~ s/t\d+\.//g;
     }
     return "WHERE\n    " . $where . "\n";
@@ -136,6 +145,7 @@ sub st_insert {
 #    if (@{$self->{arows}} > 1) {
 #        confess "Can only insert into columns of the same table";
 #    }
+    $self->{bind_types} = [map {$_->_column->bind_type} @$ref];
 
     push(@{$self->{query}}, 'sql_insert', $ref);
 
@@ -193,6 +203,12 @@ sub st_update {
     foreach (@items) {
         if (UNIVERSAL::isa($_, 'SQL::DB::Schema::Expr')) {
             $self->push_bind_values($_->bind_values);
+            if ($_->can('_column')) {
+                push(@{$self->{bind_types}}, $_->_column->bind_type);
+            }
+            else {
+                push(@{$self->{bind_types}}, undef);
+            }
         }
     }
 
@@ -587,6 +603,11 @@ B<SQL::DB::Schema::Query> is ...
 
 =head2 acolumns
 
+Only valid for select type queries.
+
+=head2 bind_types
+
+Only valid for !select type queries.
 
 
 =head2 exists

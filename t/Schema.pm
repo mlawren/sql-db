@@ -1,4 +1,5 @@
 package Schema;
+use DBI qw(SQL_BLOB);
 
 sub Artist {
     [
@@ -26,6 +27,7 @@ sub Default {
         column => [name => 'id',  type => 'INTEGER', primary => 1],
         column => [name => 'scalar',type => 'INTEGER', default => 1],
         column => [name => 'sub',type => 'INTEGER', default => sub {1+1}],
+        column => [name => 'binary',type => 'BLOB', bind_type => SQL_BLOB],
     ];
 }
 

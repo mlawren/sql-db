@@ -9,6 +9,7 @@ SQL::DB::Schema::Column->mk_accessors(qw(
     table
     name
     type
+    bind_type
     null
     default
     unique

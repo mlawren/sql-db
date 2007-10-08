@@ -136,21 +136,36 @@ sub query_as_string {
 sub do {
     my $self        = shift;
     my $query       = $self->query(@_);
-
     my $rv;
-    eval {
-        $rv = $self->dbh->do("$query", undef, $query->bind_values);
-    };
+
+    if ($query->bind_types) { # INSERT or UPDATE
+        eval {
+            my @bind_values = $query->bind_values;
+            my @bind_types  = $query->bind_types;
+            my $count = scalar(@bind_values);
+
+            my $sth = $self->dbh->prepare("$query");
+            foreach my $i (0..($count-1)) {
+                $sth->bind_param($i+1, $bind_values[$i], $bind_types[$i]);
+            }
+            $rv = $sth->execute;
+        };
+    }
+    else { # DELETE
+        eval {
+            $rv = $self->dbh->do("$query", undef, $query->bind_values);
+        };
+    }
 
     if ($@ or !defined($rv)) {
         croak "DBI::do $DBI::errstr $@: Query was:\n"
-               . $self->query_as_string("$query", $query->bind_values);
+            . $self->query_as_string("$query", $query->bind_values);
     }
-
-    $self->{sqldb_qcount}++;
 
     carp 'debug: '. $self->query_as_string("$query", $query->bind_values)
          ." /* Result: $rv */" if($DEBUG);
+
+    $self->{sqldb_qcount}++;
     return $rv;
 }
 
