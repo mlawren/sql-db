@@ -45,9 +45,10 @@ sub make_class_from {
     if (defined @{$isa}) {
         return $class;
     }
-
     push(@{$isa}, $proto);
 
+
+    my $defaults = {};
 
     my $i = 0;
     foreach my $def (@methods) {
@@ -63,6 +64,9 @@ sub make_class_from {
             if ($def->[2]->deflate) {
                 push(@{$class.'::_deflate'}, $i);
                 *{$class.'::_deflate'.$i} = $def->[2]->deflate;
+            }
+            if (defined $def->[2]->default) {
+                $defaults->{$def->[0]} = $def->[2]->default;
             }
         }
 
@@ -89,22 +93,53 @@ sub make_class_from {
         $i++;
     }
 
+
+    *{$class.'::new_from_arrayref'} = sub {
+        my $proto      = shift;
+        my $finalclass = ref($proto) || $proto;
+
+        my $valref = shift ||
+            croak 'new_from_arrayref requires ARRAYREF argument';
+        ref($valref) eq 'ARRAY' ||
+            croak 'new_from_arrayref requires ARRAYREF argument';
+
+        my $self  = [
+            $valref,                   # ORIGINAL
+            [],                        # MODIFIED
+            [map {ORIGINAL} (1..scalar @methods)], # STATUS
+        ];
+    
+        bless($self, $finalclass);
+        return $self;
+    };
+
+
     *{$class.'::new'} = sub {
         my $proto = shift;
+        my $incoming;
 
-        my $hash;
+
         if (ref($_[0]) and ref($_[0]) eq 'HASH') {
-            $hash = shift;
+            $incoming = shift;
         }
         else {
-            $hash = {@_};
+            $incoming = {@_};
         }
+
+        my $hash  = {};
+        map {$hash->{$_} = $defaults->{$_}} keys %$defaults;
+        map {$hash->{$_} = $incoming->{$_}} keys %$incoming;
 
         my @array = ();
         while (my ($key,$val) = each %$hash) {
             my $i = ${$class.'::_index_'.$key};
             if (defined($i)) {
-                $array[$i] = $val;
+                if (ref($val) and ref($val) eq 'CODE') {
+                    $array[$i] = &$val;
+                }
+                else {
+                    $array[$i] = $val;
+                }
             }
         }
 
@@ -214,23 +249,6 @@ sub make_class_from {
     return $class;
 }
 
-
-
-sub new_from_arrayref {
-    my $proto = shift;
-    my $class = ref($proto) || $proto;
-    my $valref = shift || croak 'new requires ARRAYREF argument';
-    ref($valref) eq 'ARRAY' || croak 'new requires ARRAYREF argument';
-
-    my $self  = [
-        $valref,                   # ORIGINAL
-        [],                        # MODIFIED
-        [map {ORIGINAL} @$valref], # STATUS
-    ];
-    
-    bless($self, $class);
-    return $self;
-}
 
 
 sub _inflate {

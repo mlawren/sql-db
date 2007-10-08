@@ -19,6 +19,17 @@ sub Artist {
 }
 
 
+sub Default {
+    [
+        table => 'defaults',
+        class => 'Default',
+        column => [name => 'id',  type => 'INTEGER', primary => 1],
+        column => [name => 'scalar',type => 'INTEGER', default => 1],
+        column => [name => 'sub',type => 'INTEGER', default => sub {1+1}],
+    ];
+}
+
+
 sub CD {
     [
         table => 'cds',
@@ -90,7 +101,7 @@ sub ArtistFan {
 
     
 sub All {
-    return (Artist(),CD(),Track(),Fan(),ArtistFan());
+    return (Artist(),Default(),CD(),Track(),Fan(),ArtistFan());
 }
 
 1;

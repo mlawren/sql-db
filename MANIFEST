@@ -16,14 +16,12 @@ inc/Module/Install/Metadata.pm
 inc/Module/Install/Win32.pm
 inc/Module/Install/WriteAll.pm
 lib/SQL/DB.pm
-lib/SQL/DB/Object.pm
 lib/SQL/DB/Row.pm
 lib/SQL/DB/Schema.pm
 lib/SQL/DB/Schema/AColumn.pm
 lib/SQL/DB/Schema/ARow.pm
 lib/SQL/DB/Schema/Column.pm
 lib/SQL/DB/Schema/Expr.pm
-lib/SQL/DB/Schema/Function.pm
 lib/SQL/DB/Schema/Query.pm
 lib/SQL/DB/Schema/Table.pm
 lib/SQL/DB/Tutorial.pod
@@ -36,10 +34,11 @@ t/01-column.t
 t/02-table.t
 t/03-schema.t
 t/04-expr.t
-t/05-functions.t
 t/06-acol.t
 t/07-query.t
 t/08-row.t
 t/10-synopsis.t
 t/live.t
 t/Schema.pm
+t/pod.t
+t/pod-coverage.t

@@ -5,7 +5,7 @@ use overload '""' => 'sql_create';
 use Carp qw(carp croak confess);
 use Scalar::Util qw(weaken);
 use SQL::DB::Schema::Column;
-use SQL::DB::Object;
+use SQL::DB::Row;
 use SQL::DB::Schema::ARow;
 
 our $DEBUG;
@@ -67,11 +67,8 @@ sub new {
             carp "redefining $class";
         }
 
-        my @bases = $self->{bases} ? @{$self->{bases}} : ('SQL::DB::Object');
-        push(@{$isa}, @bases);
-        $class->mk_accessors($self->column_names_ordered);
-        ${$class .'::TABLE'} = $self;
-
+        my $baseclass = SQL::DB::Row->make_class_from($self->columns);
+        push(@{$isa}, $baseclass);
     }
 
     return $self;

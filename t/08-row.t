@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 33;
+use Test::More tests => 40;
 
 require_ok('t/Schema.pm');
 use_ok('SQL::DB::Schema');
@@ -83,6 +83,18 @@ $new3->set_id(4);
 is($new3->id, 4, 'id');
 is($new3->name, 'Skinner', 'name');
 
+my $dclass = SQL::DB::Row->make_class_from($schema->table('defaults')->columns);
+is($dclass, 'SQL::DB::Row::defaults.id_defaults.scalar_defaults.sub', 'default class name');
+
+my $def = $dclass->new;
+isa_ok($def, 'SQL::DB::Row::defaults.id_defaults.scalar_defaults.sub');
+is($def->scalar, 1, 'scalar default');
+is($def->sub, 2, 'sub default');
+
+$def = Default->new;
+isa_ok($def, 'Default', 'Default class');
+is($def->scalar, 1, 'scalar default');
+is($def->sub, 2, 'sub default');
 
 $class = SQL::DB::Row->make_class_from(
     $schema->table('artists')->columns,
