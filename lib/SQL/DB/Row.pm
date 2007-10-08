@@ -60,7 +60,7 @@ sub make_class_from {
                 push(@{$class.'::_inflate'}, $i);
                 *{$class.'::_inflate'.$i} = $def->[2]->inflate;
             }
-            if ($def->[2]->inflate) {
+            if ($def->[2]->deflate) {
                 push(@{$class.'::_deflate'}, $i);
                 *{$class.'::_deflate'.$i} = $def->[2]->deflate;
             }
@@ -89,8 +89,80 @@ sub make_class_from {
         $i++;
     }
 
+    *{$class.'::new'} = sub {
+        my $proto = shift;
+
+        my $hash;
+        if (ref($_[0]) and ref($_[0]) eq 'HASH') {
+            $hash = shift;
+        }
+        else {
+            $hash = {@_};
+        }
+
+        my @array = ();
+        while (my ($key,$val) = each %$hash) {
+            my $i = ${$class.'::_index_'.$key};
+            if (defined($i)) {
+                $array[$i] = $val;
+            }
+        }
+
+        my $self = $class->new_from_arrayref(\@array);
+
+        my $finalclass = ref($proto) || $proto;
+        bless($self, $finalclass);
+        return $self;
+    };
+
+
+    *{$class.'::q_insert'} = sub {
+        my $self = shift;
+        $self->_deflate;
+
+        my @cols = @{$class .'::_columns'};
+        
+        my $arows   = {};
+        my $columns = {};
+        my $values  = {};
+
+        my $i = 0;
+        foreach my $col (@cols) {
+            next unless($col);
+            my $status = $self->[STATUS]->[$i];
+
+            my $colname = $col->name;
+            my $tname   = $col->table->name;
+
+            if (!exists($arows->{$tname})) {
+                $arows->{$tname}   = $col->table->arow();
+                $columns->{$tname} = [];
+                $values->{$tname}  = [];
+            }
+
+            push(@{$columns->{$tname}}, $arows->{$tname}->$colname);
+            push(@{$values->{$tname}}, $self->[$status]->[$i]);
+
+            $i++;
+        }
+
+        my @queries;
+        foreach my $tname (keys %{$columns}) {
+            next unless(@{$columns->{$tname}});
+            push(@queries, [
+                insert => $columns->{$tname},
+                values => $values->{$tname},
+            ]);
+        }
+        $self->_inflate;
+        return @queries;
+    };
+
+
     *{$class.'::q_update'} = sub {
         my $self = shift;
+        $self->_deflate;
+
         my @cols = @{$class .'::_columns'};
         
         my $arows   = {};
@@ -127,22 +199,24 @@ sub make_class_from {
             $i++;
         }
 
-        my @query;
+        my @queries;
         foreach my $table (keys %{$updates}) {
             next unless(@{$updates->{$table}});
-            push(@query, [
+            push(@queries, [
                 update => $updates->{$table},
                 ($where->{$table} ? (where  => $where->{$table}) : ()),
             ]);
         }
-        return @query;
+        $self->_inflate;
+        return @queries;
     };
 
     return $class;
 }
 
 
-sub new {
+
+sub new_from_arrayref {
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $valref = shift || croak 'new requires ARRAYREF argument';
@@ -209,6 +283,10 @@ B<SQL::DB::Row> is ...
 =head2 make_class_from
 
 
+=head2 new_from_arrayref
+
+Create a new object from values contained a reference to an ARRAY. The
+array values must be in the same order as the definition of the class.
 
 =head2 new
 

@@ -1,13 +1,12 @@
 use strict;
 use warnings;
-use Test::More tests => 22;
+use Test::More tests => 33;
 
 require_ok('t/Schema.pm');
 use_ok('SQL::DB::Schema');
 use_ok('SQL::DB::Row');
 can_ok('SQL::DB::Row', qw/
     make_class_from
-    new
 /);
 
 
@@ -16,27 +15,73 @@ my $schema = SQL::DB::Schema->new(Schema->All);
 my $class = SQL::DB::Row->make_class_from($schema->table('artists')->columns);
 is($class, 'SQL::DB::Row::artists.id_artists.name', 'class name');
 
-my $new = $class->new([qw(1 Homer)]);
-isa_ok($new, 'SQL::DB::Row::artists.id_artists.name');
-
 can_ok('SQL::DB::Row::artists.id_artists.name', qw/
+    new
+    new_from_arrayref
     id
     set_id
     name
     set_name
+    q_update
 /);
+
+my $new = $class->new_from_arrayref([qw(1 Homer)]);
+isa_ok($new, 'SQL::DB::Row::artists.id_artists.name');
 
 is($new->id, 1, 'id');
 is($new->name, 'Homer', 'name');
+
+use Data::Dumper;
+#die Dumper($new->q_insert);
+
+foreach my $insert ($new->q_insert) {
+    my $q = $schema->query(@{$insert});
+    isa_ok($q, 'SQL::DB::Schema::Query', 'query insert');
+    is($q, 'INSERT INTO
+    artists (id, name)
+VALUES
+    (?, ?)
+', 'INSERT');
+}
+
+
 $new->set_id(2);
 is($new->id, 2, 'id');
 is($new->name, 'Homer', 'name');
 
+
 foreach my $update ($new->q_update) {
     my $q = $schema->query(@{$update});
-    isa_ok($q, 'SQL::DB::Schema::Query', $q->_as_string);
+    isa_ok($q, 'SQL::DB::Schema::Query', 'query update');
+    is($q, 'UPDATE
+    artists
+SET
+    id = ?
+WHERE
+    id = ?
+', 'INSERT');
 }
 
+my $new2 = $class->new({
+    id => 2,
+    name => 'Sideshow Bob',
+});
+is($new2->id, 2, 'id');
+is($new2->name, 'Sideshow Bob', 'name');
+$new2->set_id(3);
+is($new2->id, 3, 'id');
+is($new2->name, 'Sideshow Bob', 'name');
+
+
+my $new3 = $class->new(
+    id => 3,
+    name => 'Skinner',
+);
+is($new3->id, 3, 'id');
+is($new3->name, 'Skinner', 'name');
+$new3->set_id(4);
+is($new3->id, 4, 'id');
+is($new3->name, 'Skinner', 'name');
 
 
 $class = SQL::DB::Row->make_class_from(
@@ -47,10 +92,12 @@ $class = SQL::DB::Row->make_class_from(
 );
 is($class, 'SQL::DB::Row::artists.id_artists.name_cds.id_cds.title_cds.year', 'class name');
 
-$new = $class->new([qw(1 Homer 2 Singing)]);
+$new = $class->new_from_arrayref([qw(1 Homer 2 Singing)]);
 isa_ok($new, 'SQL::DB::Row::artists.id_artists.name_cds.id_cds.title_cds.year');
 
 can_ok($new, qw/
+    new
+    new_from_arrayref
     id
     name
     title

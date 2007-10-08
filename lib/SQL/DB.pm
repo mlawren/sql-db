@@ -168,7 +168,7 @@ sub fetch {
         $self->{sqldb_qcount}++;
         carp 'debug: (Rows: '. scalar @$arrayref .') '.
               $self->query_as_string("$query", $query->bind_values) if($DEBUG);
-        return map {$class->new($_)->_inflate} @{$arrayref};
+        return map {$class->new_from_arrayref($_)->_inflate} @{$arrayref};
     }
 
     croak 'sorry, cursor support not yet implemented';
@@ -186,7 +186,7 @@ sub fetch1 {
     carp 'debug: '. $self->query_as_string("$query", $query->bind_values) if($DEBUG);
 
     if (@list) {
-        return $class->new(\@list)->_inflate;
+        return $class->new_from_arrayref(\@list)->_inflate;
     }
     return;
 }
