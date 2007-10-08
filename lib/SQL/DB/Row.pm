@@ -130,10 +130,13 @@ sub make_class_from {
         map {$hash->{$_} = $defaults->{$_}} keys %$defaults;
         map {$hash->{$_} = $incoming->{$_}} keys %$incoming;
 
+        my @status = map {ORIGINAL} (1.. scalar @methods);
+
         my @array = ();
         while (my ($key,$val) = each %$hash) {
             my $i = ${$class.'::_index_'.$key};
             if (defined($i)) {
+                $status[$i] = MODIFIED;
                 if (ref($val) and ref($val) eq 'CODE') {
                     $array[$i] = &$val;
                 }
@@ -143,10 +146,39 @@ sub make_class_from {
             }
         }
 
-        my $self = $class->new_from_arrayref(\@array);
-
+        my $self  = [
+            [],                        # ORIGINAL
+            \@array,                   # MODIFIED
+            \@status,                  # STATUS
+        ];
+    
         my $finalclass = ref($proto) || $proto;
         bless($self, $finalclass);
+        return $self;
+    };
+
+
+
+    *{$class.'::_inflate'} = sub {
+        my $self = shift;
+
+        foreach my $i (@{$class .'::_inflate'}) {
+            my $inflate = *{$class .'::_inflate'.$i};
+            $self->[$self->[STATUS]->[$i]]->[$i] =
+                &$inflate($self->[$self->[STATUS]->[$i]]->[$i]);
+        }
+        return $self;
+    };
+
+
+    *{$class.'::_deflate'} = sub {
+        my $self = shift;
+
+        foreach my $i (@{$class .'::_deflate'}) {
+            my $deflate = *{$class .'::_deflate'.$i};
+            $self->[$self->[STATUS]->[$i]]->[$i] =
+                &$deflate($self->[$self->[STATUS]->[$i]]->[$i]);
+        }
         return $self;
     };
 
@@ -216,9 +248,16 @@ sub make_class_from {
                 $updates->{$tname} = [],
             }
 
-            if ($col->primary and !$where->{$tname}) {
-                $where->{$tname} =
-                   ($arows->{$tname}->$colname == $self->[ORIGINAL]->[$i]);
+            if ($col->primary) {
+                if (!$where->{$tname}) {
+                    $where->{$tname} = ($arows->{$tname}->$colname ==
+                        $self->[$self->[STATUS]->[$i]]->[$i]);
+                }
+                else {
+                    $where->{$tname} = $where->{$tname} & 
+                        ($arows->{$tname}->$colname ==
+                        $self->[$self->[STATUS]->[$i]]->[$i]);
+                }
             }
             elsif ($col->primary) {
                 $where->{$tname} =
@@ -248,36 +287,6 @@ sub make_class_from {
 
     return $class;
 }
-
-
-
-sub _inflate {
-    my $self = shift;
-    my $class = ref($self);
-
-    no strict 'refs';
-    foreach my $i (@{$class .'::_inflate'}) {
-        my $inflate = *{$class .'::_inflate'.$i};
-        $self->[$self->[STATUS]->[$i]]->[$i] =
-            &$inflate($self->[$self->[STATUS]->[$i]]->[$i]);
-    }
-    return $self;
-}
-
-
-sub _deflate {
-    my $self = shift;
-    my $class = ref($self);
-
-    no strict 'refs';
-    foreach my $i (@{$class .'::_deflate'}) {
-        my $deflate = *{$class .'::_deflate'.$i};
-        $self->[$self->[STATUS]->[$i]]->[$i] =
-            &$deflate($self->[$self->[STATUS]->[$i]]->[$i]);
-    }
-    return $self;
-}
-
 
 
 1;

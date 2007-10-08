@@ -115,13 +115,19 @@ sub deploy {
 }
 
 
+
 sub query_as_string {
     my $self = shift;
     my $sql  = shift || croak 'query_as_string requires an argument';
     
     foreach (@_) {
-        my $quote = $self->dbh->quote($_);
-        $sql =~ s/\?/$quote/;
+        if (defined($_) and $_ !~ /^[[:print:]]+$/) {
+            $sql =~ s/\?/*BINARY DATA*/;
+        }
+        else {
+            my $quote = $self->dbh->quote($_);
+            $sql =~ s/\?/$quote/;
+        }
     }
     return $sql;
 }
