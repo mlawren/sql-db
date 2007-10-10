@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 52;
+use Test::More tests => 14;
 use Test::Memory::Cycle;
 
 END {
