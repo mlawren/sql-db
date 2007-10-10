@@ -11,7 +11,9 @@ can_ok('SQL::DB::Row', qw/
 /);
 
 
-my $schema = SQL::DB::Schema->new(Schema->All);
+SQL::DB::Schema->import('define_tables');
+define_tables(Schema->All);
+my $schema = SQL::DB::Schema->new(qw/artists cds defaults/);
 
 my $class = SQL::DB::Row->make_class_from($schema->table('artists')->columns);
 is($class, 'SQL::DB::Row::artists.id_artists.name', 'class name');

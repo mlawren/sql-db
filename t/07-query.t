@@ -1,9 +1,10 @@
 use strict;
 use warnings;
-use Test::More tests => 5;
+use Test::More tests => 4;
 require 't/Schema.pm';
 
-use_ok('SQL::DB::Schema');
+use SQL::DB::Schema qw(define_tables);
+
 use_ok('SQL::DB::Schema::Query');
 can_ok('SQL::DB::Schema::Query', qw/
     new
@@ -37,7 +38,8 @@ can_ok('SQL::DB::Schema::Query', qw/
     st_delete_from
 /);
 
-my $s = SQL::DB::Schema->new(Schema->All);
+define_tables(Schema->All);
+my $s = SQL::DB::Schema->new(qw/artists/);
 
 my $artist = $s->arow('artists');
 

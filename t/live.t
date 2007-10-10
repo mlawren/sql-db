@@ -15,8 +15,12 @@ END {
     unlink "/tmp/sqldb$$.db";
 }
 
-use_ok('SQL::DB');
+#$SQL::DB::Schema::DEBUG=1;
+
+use_ok('SQL::DB', 'define_tables');
 require_ok('t/Schema.pm');
+
+define_tables(Schema->All);
 
 SQL::DB->import(qw/
     max min count coalesce sum
@@ -28,10 +32,10 @@ SQL::DB->import(qw/
 
 
 our $schema;
+#our $db = SQL::DB->new(qw/tracks cds artists fans artists_fans/);
 our $db = SQL::DB->new;
 isa_ok($db, 'SQL::DB');
 
-$db->define(Schema->All);
 
 $db->connect(
     "dbi:SQLite:/tmp/sqldb$$.db",undef,undef,

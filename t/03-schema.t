@@ -1,13 +1,16 @@
 use strict;
 use warnings;
-use Test::More tests => 39;
+use Test::More tests => 41;
+use Test::Exception;
 
 BEGIN { use_ok('SQL::DB::Schema');}
 require_ok('t/Schema.pm');
 
 
-can_ok('SQL::DB::Schema', qw(new define tables table query));
+# Class and Object methods
+can_ok('SQL::DB::Schema', qw(define_tables new tables table query));
 
+# Functions
 can_ok('SQL::DB::Schema', qw/
     coalesce
     count
@@ -35,11 +38,18 @@ SQL::DB::Schema->import(qw/
 /);
 
 
+throws_ok {
+    SQL::DB::Schema->new('unknown');
+} qr/not been defined/;
 
-my $s = SQL::DB::Schema->new(Schema->Artist);
+SQL::DB::Schema->import('define_tables');
+define_tables(Schema->All);
+
+my $s = SQL::DB::Schema->new('artists');
 isa_ok($s, 'SQL::DB::Schema', '->new empty');
 
 my $artist = $s->table('artists')->arow;
+isa_ok($artist, 'SQL::DB::Schema::ARow::artists');
 
 
 foreach my $t (

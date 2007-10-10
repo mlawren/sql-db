@@ -14,7 +14,9 @@ our $VERSION = '0.07';
 our $DEBUG;
 
 our @ISA = qw(Exporter);
+
 our @EXPORT_OK = qw(
+    define_tables
     coalesce
     count
     max
@@ -28,65 +30,78 @@ our @EXPORT_OK = qw(
 );
 
 
+our %table_names;
+
+sub define_tables {
+    foreach my $def (@_) {
+        unless (ref($def) and ref($def) eq 'ARRAY') {
+            croak 'usage: define_tables($arrayref,...)';
+        }
+
+        my $table = SQL::DB::Schema::Table->new(@{$def});
+
+        if (exists($table_names{$table->name})) {
+            croak "Table ". $table->name ." already defined";
+        }
+
+        warn 'debug: defined table '.$table->name if($DEBUG);
+        $table_names{$table->name} = $table;
+    }
+    return;
+}
+
 
 sub new {
     my $proto = shift;
     my $class = ref($proto) || $proto;
+
     my $self = {
         sqldbs_tables      => [],
         sqldbs_table_names => {},
     };
     bless($self,$class);
 
-    foreach (@_) {
-        unless (ref($_) and ref($_) eq 'ARRAY') {
-            croak 'usage: new($arrayref, $arrayref,...)'
-        }
-        $self->define($_);
+    push(@_, keys %table_names) unless(@_);
+
+    foreach my $name (@_) {
+        $self->associate_table($name);
     }
+
     return $self;
 }
 
 
-sub define {
+sub associate_table {
     my $self = shift;
+    my $name = shift || croak 'usage: associate_table($name)';
 
-    foreach my $def (@_) {
-        unless (ref($def) and ref($def) eq 'ARRAY') {
-            croak 'usage: define($arrayref,...)';
-        }
-
-        my $table = SQL::DB::Schema::Table->new(schema => $self, @{$def});
-
-        if (exists($self->{sqldbs_table_names}->{$table->name})) {
-            croak "Table ". $table->name ." already defined";
-        }
-
-        push(@{$self->{sqldbs_tables}}, $table);
-        $self->{sqldbs_table_names}->{$table->name} = $table;
+    my $table = exists($table_names{$name}) ? $table_names{$name} : undef;
+    if (!$table) {
+        croak "table '$name' has not been defined";
     }
+
+    push(@{$self->{sqldbs_tables}}, $table);
+    $self->{sqldbs_table_names}->{$name} = $table;
+
+    warn 'debug: schema associated with table '.$table->name if($DEBUG);
+    $table->setup_schema($self);
     return;
 }
 
 
 sub table {
     my $self = shift;
-    my $name  = shift;
+    my $name  = shift || croak 'usage: table($name)';
 
-    if ($name) {
-        if (!exists($self->{sqldbs_table_names}->{$name})) {
-            confess "Table '$name' has not been defined";
-        }
-        return $self->{sqldbs_table_names}->{$name};
+    if (!exists($self->{sqldbs_table_names}->{$name})) {
+        confess "Table '$name' is not associated with the current schema";
     }
-    confess 'usage: table($name)';
+    return $self->{sqldbs_table_names}->{$name};
 }
 
 
 sub tables {
     my $self = shift;
-    my $name  = shift;
-
     return @{$self->{sqldbs_tables}};
 }
 
@@ -346,6 +361,13 @@ are writing an Object Mapping Layer or need to produce SQL offline.
 If you need to talk to a real database you are much better off
 interfacing with L<SQL::DB>.
 
+=head1 CLASS SUBROUTINES
+
+=head2 define_tables(@table_definitions)
+
+Define SQL table definitions. @table_definitions must be a list of
+ARRAY references which are passed directly to L<SQL::DB::Schema::Table>.
+
 =head1 METHODS
 
 =head2 new(\@schema)
@@ -415,6 +437,11 @@ your database backend.
 
 Also note that the order in which the tables are defined matters
 when it comes to foreign keys. See a good SQL book or Google for why.
+
+=head2 associate_table($name)
+
+Associates table with name $name with this schema object. Tables that
+are not associated cannot be queried.
 
 =head2 tables( )
 

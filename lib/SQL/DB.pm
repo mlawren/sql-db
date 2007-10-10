@@ -19,17 +19,22 @@ foreach (@EXPORT_OK) {
     *{$_} = *{'SQL::DB::Schema::'.$_};
 }
 
+# Define our sequence table
+define_tables([
+    table => 'sqldb',
+    class => 'SQL::DB::Sequence',
+    column => [name => 'name', type => 'VARCHAR(32)', unique => 1],
+    column => [name => 'val', type => 'INTEGER'],
+]);
+
 
 sub new {
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self  = bless($class->SUPER::new(@_), $class);
-    $self->define([
-        table => 'sqldb',
-        class => 'SQL::DB::Sequence',
-        column => [name => 'name', type => 'VARCHAR(32)', unique => 1],
-        column => [name => 'val', type => 'INTEGER'],
-    ]);
+    if (!eval {$self->table('sqldb');1;}) {
+        $self->associate_table('sqldb');
+    }
     return $self;
 }
 
@@ -89,7 +94,47 @@ sub dbh {
 sub deploy {
     my $self = shift;
 
-    TABLES: foreach my $table ($self->tables) {
+    # calculate which tables reference which other tables, and plan the
+    # deployment order accordingly.
+    my @tables;
+    my %name_to_table = (map {$_->name => $_} $self->tables);
+    my %deployed;
+    my $thash;
+
+    foreach my $t ($self->tables) {
+        my $none = 1;
+        foreach my $c ($t->columns) {
+            if (my $ref = $c->references) {
+                # check for self reference or already deployed
+                next if ($ref->table == $t or $deployed{$ref->name});
+
+                $thash->{$t->name}->{$ref->table->name} = 1;
+                $none = 0;
+            }
+        }
+        
+        if ($none) { # doesn't reference anyone - can deploy first
+            push(@tables, $t);
+            $deployed{$t->name} = 1;
+        }
+    }
+
+    while (my ($t1,$h) =  each %$thash) {
+        while (my ($t2,$val) = each %$h) {
+            next unless($val);
+            if ($deployed{$t2}) { # been deployed, remove this entry
+                delete $h->{$t2};
+            }
+        }
+        if (!keys %$h) {
+            push(@tables, $name_to_table{$t1});
+            $deployed{$t1} = 1;
+            delete $thash->{$t1};
+        }
+    }
+
+
+    TABLES: foreach my $table (@tables) {
         my $sth = $self->dbh->table_info('', '', $table->name, 'TABLE');
         if (!$sth) {
             die $DBI::errstr;
@@ -384,18 +429,16 @@ SQL::DB - Perl interface to SQL Databases
 
 =head1 SYNOPSIS
 
-  use SQL::DB qw(max min coalesce count nextval currval setval);
-  my $db = SQL::DB->new();
+  use SQL::DB qw(define_tables max min coalesce count nextval currval setval);
 
-  $db->define([
+  define_tables([
       table  => 'addresses',
       class  => 'Address',
       column => [name => 'id',   type => 'INTEGER', primary => 1],
       column => [name => 'kind', type => 'INTEGER'],
       column => [name => 'city', type => 'INTEGER'],
-  ]);
-
-  $db->define([
+  ],
+  [
       table  => 'persons',
       class  => 'Person',
       column => [name => 'id',      type => 'INTEGER', primary => 1],
@@ -409,6 +452,8 @@ SQL::DB - Perl interface to SQL Databases
                                     null => 1],
       index  => 'name',
   ]);
+
+  my $db = SQL::DB->new('addresses', 'persons');
 
   $db->connect('dbi:SQLite:/tmp/sqldbtest.db', 'user', 'pass', {});
   $db->deploy;

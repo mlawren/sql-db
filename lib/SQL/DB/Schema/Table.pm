@@ -1,7 +1,6 @@
 package SQL::DB::Schema::Table;
 use strict;
 use warnings;
-use overload '""' => 'sql_create';
 use Carp qw(carp croak confess);
 use Scalar::Util qw(weaken);
 use SQL::DB::Schema::Column;
@@ -522,7 +521,7 @@ sub sql_create {
 
 DESTROY {
     my $self = shift;
-    warn "DESTROY $self" if($DEBUG and $DEBUG>2);
+    warn 'DESTROY Table '.$self->name if($DEBUG and $DEBUG>2);
 }
 
 
