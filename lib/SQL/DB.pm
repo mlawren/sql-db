@@ -455,13 +455,12 @@ SQL::DB - Perl interface to SQL Databases
       index  => 'name',
   ]);
 
-  my $db = SQL::DB->new('addresses', 'persons');
+  my $db = SQL::DB->new();
 
   $db->connect('dbi:SQLite:/tmp/sqldbtest.db', 'user', 'pass', {});
   $db->deploy;
 
-
-  my $persons  = $db->arow('persons');
+  my $persons   = $db->arow('persons');
   my $addresses = $db->arow('addresses');
 
   $db->do(
@@ -516,21 +515,18 @@ Perl objects and logic operators. It is NOT an Object
 Relational Mapper like L<Class::DBI> and neither is it an abstraction
 such as L<SQL::Abstract>. It falls somewhere inbetween.
 
-The typical workflow is as follows. After creating an B<SQL::DB>
-object you can:
-
-* define() the desired or existing schema (tables and columns)
+After using define_tables() to specify your schema and creating an
+B<SQL::DB> object, the typical workflow is as follows:
 
 * connect() to the database
 
 * deploy() the schema (CREATE TABLEs etc)
 
-* Create one or more "abstract row" objects using arow().
+* Using one or more "abstract rows" obtained via arow() you can
+do() insert, update or delete queries.
 
-* do() (insert, update or delete) queries defined using the abstract
-row objects.
-
-* fetch() (select) data to work with and/or modify.
+* Using one or more "abstract rows" obtained via arow() you can
+fetch() (select) data to work with (and possibly modify).
 
 * Repeat the above three steps as needed. Further queries (with a
 higher level of automation) are possible with the objects returned by
@@ -547,16 +543,22 @@ welcome.
 
 For a more complete introduction see L<SQL::DB::Intro>.
 
+=head1 CLASS SUBROUTINES
+
+=head2 define_tables(@definitions)
+
+Define the structure of tables, their columns, and associated indexes.
+@definition is list of ARRAY references as required by
+L<SQL::DB::Schema::Table>. This class subroutine can be called multiple
+times. Will warn if you redefine a table.
+
 =head1 METHODS
 
-=head2 new
+=head2 new(@names)
 
-Create a new B<SQL::DB> object.
-
-=head2 define(@def)
-
-Define the structure of the tables and indexes in the database. @def
-is a list of ARRAY references as required by L<SQL::DB::Schema::Table>.
+Create a new B<SQL::DB> object. The optional @names lists the tables
+that this object is to know about. By default all tables defined by
+define_tables() are known.
 
 =head2 connect($dbi, $user, $pass, $attrs)
 
@@ -577,7 +579,8 @@ Returns the L<DBI> database handle we are connected with.
 
 Runs the CREATE TABLE and CREATE INDEX statements necessary to
 create the schema in the database. Will warn on any tables that
-already exist.
+already exist. Table creation is automatically ordered based on column
+references.
 
 =head2 query(@query)
 
@@ -649,8 +652,8 @@ Disconnect from the database. Effectively DBI->disconnect.
 
 =head1 METHODS ON FETCHED OBJECTS
 
-Although B<SQL::DB> is not an ORM system it does comes with a _very
-thin_ object layer. Objects returned by fetch() and fetch1() can be
+Although B<SQL::DB> is not an ORM system it does comes with a very
+thin object layer. Objects returned by fetch() and fetch1() can be
 modified using their set_* methods, just like a regular ORM system.
 However, the difference here is that the objects fields may map across
 multiple database tables. 
@@ -667,15 +670,15 @@ methods in L<SQL::DB::Row> for more details.
 
 =head2 update($sqlobject)
 
-A shortcut for $db->do($sqlobject->q_update).
+Nearly the same as $db->do($sqlobject->q_update).
 
 =head2 delete($sqlobject)
 
-A shortcut for $db->do($sqlobject->q_delete).
+Nearly the same as $db->do($sqlobject->q_delete).
 
 =head2 insert($sqlobject)
 
-A shortcut for $db->do($sqlobject->q_insert).
+Nearly the same as $db->do($sqlobject->q_insert).
 
 =head1 DEBUGGING
 
@@ -686,8 +689,8 @@ queries and other important actions are 'warn'ed to STDERR
 
 L<SQL::Abstract>, L<DBIx::Class>, L<Class::DBI>, L<Tangram>
 
-You can see B<SQL::DB> in action in the L<MySpam> application
-(disclaimer: I also wrote that application.)
+You can see B<SQL::DB> in action in the L<MySpam> application, also
+by the same author.
 
 =head1 AUTHOR
 

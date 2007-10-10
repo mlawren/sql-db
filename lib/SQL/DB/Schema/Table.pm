@@ -539,7 +539,6 @@ SQL::DB::Schema::Table - Perl representation of an SQL database table
   my $table = SQL::DB::Schema::Table->new(
       table   => 'users',
       class   => 'User',
-      bases   => [qw(SQL::DB::Object)],
       columns => [
            [name => 'id',  type => 'INT',          primary => 1],
            [name => 'name',type => 'VARCHAR(255)', unique  => 1],

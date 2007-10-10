@@ -43,24 +43,6 @@ sub new {
 }
 
 
-sub push_bind_values {
-    my $self = shift;
-    my @values;
-    foreach my $item (@_) {
-        if (ref($item) && UNIVERSAL::isa($item, 'SQL::DB::Object')) {
-            my @cols = $item->_table->primary_columns;
-            my $colname = $cols[0]->name;
-            push(@values, $item->$colname);
-        }
-        else {
-            push(@values, $item);
-        }
-    }
-    $self->SUPER::push_bind_values(@values);
-}
-
-
-
 sub acolumns {
     my $self = shift;
     if ($self->{acolumns}) {
