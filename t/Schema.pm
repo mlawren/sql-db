@@ -16,6 +16,7 @@ sub Artist {
             columns => 'name',
             unique  => 1,
         ],
+        type_mysql => 'InnoDB',
     ];
 }
 

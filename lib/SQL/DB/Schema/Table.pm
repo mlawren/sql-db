@@ -24,7 +24,10 @@ my @reserved = qw(
 sub new {
     my $proto = shift;
     my $class = ref($proto) || $proto;
-    my $self  = {columns => []};
+    my $self  = {
+        columns => [],
+        db_type => '',
+    };
     bless($self, $class);
 
     while (my ($key,$val) = splice(@_, 0, 2)) {
@@ -261,27 +264,33 @@ sub setup_foreign {
 }
 
 
-sub setup_type {
+sub setup_type_mysql {
     my $self = shift;
-    $self->{type} = shift;
+    $self->{engine_mysql} = shift;
 }
 
 
-sub setup_engine {
+sub setup_engine_mysql {
     my $self = shift;
-    $self->{engine} = shift;
+    $self->{engine_mysql} = shift;
 }
 
 
-sub setup_default_charset {
+sub setup_default_charset_mysql {
     my $self = shift;
-    $self->{default_charset} = shift;
+    $self->{default_charset_mysql} = shift;
 }
 
 
-sub setup_tablespace {
+sub setup_default_charset_pg {
     my $self = shift;
-    $self->{tablespace} = shift;
+    $self->{default_charset_pg} = shift;
+}
+
+
+sub setup_tablespace_pg {
+    my $self = shift;
+    $self->{tablespace_pg} = shift;
 }
 
 
@@ -395,6 +404,12 @@ sub schema {
 }
 
 
+sub set_db_type {
+    my $self = shift;
+    $self->{db_type} = shift || croak 'usage: set_db_type($type)';
+}
+
+
 sub sql_primary {
     my $self = shift;
     if (!$self->{primary}) {
@@ -446,30 +461,30 @@ sub sql_foreign {
 }
 
 
-sub sql_type {
+sub sql_engine_mysql {
     my $self = shift;
-    if (!$self->{type}) {
+    unless ($self->{db_type} eq 'mysql' and $self->{engine_mysql}) {
         return '';
     }
-    return ' ENGINE='.$self->{type};
+    return ' ENGINE='.$self->{engine_mysql};
 }
 
 
-sub sql_engine {
+sub sql_default_charset_mysql {
     my $self = shift;
-    if (!$self->{engine}) {
+    unless ($self->{db_type} eq 'mysql' and $self->{default_charset_mysql}) {
         return '';
     }
-    return ' ENGINE='.$self->{engine};
+    return ' DEFAULT CHARACTER SET '.$self->{default_charset_mysql};
 }
 
 
-sub sql_default_charset {
+sub sql_default_charset_pg {
     my $self = shift;
-    if (!$self->{default_charset}) {
+    unless ($self->{db_type} eq 'pg' and $self->{default_charset_pg}) {
         return '';
     }
-    return ' DEFAULT_CHARSET='.$self->{default_charset};
+    return ' DEFAULT_CHARSET='.$self->{default_charset_pg};
 }
 
 
@@ -483,9 +498,9 @@ sub sql_create_table {
     return 'CREATE TABLE '
            . $self->{name}
            . " (\n    " . join(",\n    ", @vals) . "\n)"
-           . $self->sql_engine
-           . $self->sql_type
-           . $self->sql_default_charset
+           . $self->sql_engine_mysql
+           . $self->sql_default_charset_mysql
+           . $self->sql_default_charset_pg
     ;
 }
 
@@ -774,20 +789,11 @@ B<SQL::DB::Schema::Table> is ...
 
 
 
-=head2 setup_type
-
-
-
-=head2 setup_engine
-
-
-
-=head2 setup_default_charset
-
-
-
-=head2 setup_tablespace
-
+=head2 setup_default_charset_mysql
+=head2 setup_default_charset_pg
+=head2 setup_engine_mysql
+=head2 setup_tablespace_pg
+=head2 setup_type_mysql
 
 
 =head2 text2cols
@@ -833,6 +839,9 @@ B<SQL::DB::Schema::Table> is ...
 =head2 schema
 
 
+=head2 set_db_type
+
+
 
 =head2 sql_primary
 
@@ -846,15 +855,10 @@ B<SQL::DB::Schema::Table> is ...
 
 
 
-=head2 sql_type
 
-
-
-=head2 sql_engine
-
-
-
-=head2 sql_default_charset
+=head2 sql_default_charset_mysql
+=head2 sql_default_charset_pg
+=head2 sql_engine_mysql
 
 
 

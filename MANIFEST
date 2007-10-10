@@ -37,6 +37,7 @@ t/04-expr.t
 t/06-acol.t
 t/07-query.t
 t/08-row.t
+t/09-db.t
 t/10-synopsis.t
 t/live.t
 t/Schema.pm

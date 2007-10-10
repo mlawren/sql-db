@@ -70,6 +70,11 @@ sub make_class_from {
             }
         }
 
+        if (defined(&{$class.'::'.$def->[0]})) {
+            croak 'Attempt to define column "'.$def->[0].'" twice. '
+                  .'You cannot fetch two columns with the same name';
+        }
+
         # accessor
         *{$class.'::'.$def->[0]} = sub {
             my $self = shift;
@@ -79,6 +84,9 @@ sub make_class_from {
 
         # modifier
         if ($def->[1]) {
+            if (defined(&{$class.'::'.$def->[1]})) {
+                die "double definition";
+            }
             *{$class.'::'.$def->[1]} = sub {
                 my $self = shift;
                 if (!@_) {

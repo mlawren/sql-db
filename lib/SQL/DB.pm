@@ -10,7 +10,7 @@ use SQL::DB::Row;
 use Class::Accessor::Fast;
 
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 our $DEBUG   = 0;
 
 our @EXPORT_OK = @SQL::DB::Schema::EXPORT_OK;
@@ -26,6 +26,18 @@ define_tables([
     column => [name => 'name', type => 'VARCHAR(32)', unique => 1],
     column => [name => 'val', type => 'INTEGER'],
 ]);
+
+
+# Tell each of the tables why type of DBI/Database we are connected to
+sub _set_table_types {
+    my $self = shift;
+    (my $type = lc($self->{sqldb_dbi})) =~ s/^dbi:(.*?):.*/$1/;
+    $type || confess 'bad/missing dbi: definition';
+
+    foreach my $table ($self->tables) {
+        $table->set_db_type($type);
+    }
+}
 
 
 sub new {
@@ -57,6 +69,8 @@ sub connect {
     $self->{sqldb_attrs}  = $attrs;
     $self->{sqldb_qcount} = 0;
 
+    $self->_set_table_types();
+
     warn "debug: connected to $dbi" if($DEBUG);
     return;
 }
@@ -79,6 +93,8 @@ sub connect_cached {
     $self->{sqldb_pass}   = $pass;
     $self->{sqldb_attrs}  = $attrs;
     $self->{sqldb_qcount} = 0;
+
+    $self->_set_table_types();
 
     warn "debug: connect_cached to $dbi" if($DEBUG);
     return;
@@ -282,6 +298,11 @@ sub create_seq {
 sub seq {
     my $self = shift;
     my $name = shift || croak 'usage: $db->seq($name)';
+    my $count = shift || 1;
+
+    if ($count> 1 and !wantarray) {
+        croak 'you should want the full array of sequences';
+    }
 
     $self->{sqldb_dbi} || croak 'Must be connected before calling seq';
 
@@ -315,7 +336,7 @@ sub seq {
         }
 
         $no_updates = $self->do(
-            update  => [$sqldb->val->set($seq->val + 1)],
+            update  => [$sqldb->val->set($seq->val + $count)],
             where   => $sqldb->name == $name,
         );
 
@@ -338,7 +359,13 @@ sub seq {
 
 
     $self->dbh->commit;
-    return $seq->val + 1;
+
+    if (wantarray) {
+        my $start = $seq->val + 1;
+        my $stop  = $start + $count - 1;
+        return ($start..$stop);
+    }
+    return $seq->val + $count;
 }
 
 
@@ -563,13 +590,18 @@ define_tables() are known.
 =head2 connect($dbi, $user, $pass, $attrs)
 
 Connect to a database. The parameters are passed directly to
-L<DBI>->connect.
+L<DBI>->connect. This method also informs the internal table/column
+representations what type of database we are connected to, so they
+can set their database-specific features accordingly.
 
 =head2 connect_cached($dbi, $user, $pass, $attrs)
 
 Connect to a database, potentially reusing an existing connection.
 The parameters are passed directly to L<DBI>->connect_cached. Useful
 when running under persistent environments.
+This method also informs the internal table/column
+representations what type of database we are connected to, so they
+can set their database-specific features accordingly.
 
 =head2 dbh
 
@@ -635,10 +667,11 @@ $name. The sequence is actually just a row in the 'sqldb' table.
 
 Warns if the sequence already exists, returns true if successful.
 
-=head2 seq($name)
+=head2 seq($name,$count)
 
-Return the next value for the sequence $name. The uniqueness of the
-returned value is assured by locking the appropriate table (or rows in
+Return the next value for the sequence $name. If $count is specified then
+a list/array of $count values are returned. The uniqueness of the
+returned value(s) is assured by locking the appropriate table (or rows in
 the table) as required.
 
 Note that this is not intended as a replacment for auto-incrementing primary

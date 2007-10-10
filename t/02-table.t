@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 21;
+use Test::More tests => 23;
 use Test::Memory::Cycle;
 
 BEGIN {
@@ -19,10 +19,11 @@ can_ok('SQL::DB::Schema::Table', qw(
     setup_unique
     setup_index
     setup_foreign
-    setup_type
-    setup_engine
-    setup_default_charset
-    setup_tablespace
+    setup_type_mysql
+    setup_engine_mysql
+    setup_default_charset_mysql
+    setup_default_charset_pg
+    setup_tablespace_pg
     name
     class
     columns
@@ -32,6 +33,7 @@ can_ok('SQL::DB::Schema::Table', qw(
     primary_columns
     schema
     arow
+    set_db_type
     sql_create_table
     sql_create_indexes
     sql_create
@@ -61,6 +63,22 @@ like($table->sql_create_table, qr/CREATE TABLE artists/, 'SQL');
 like($table->sql_create_table, qr/PRIMARY KEY/, 'SQL');
 like($table->sql_create_table, qr/UNIQUE/, 'SQL');
 
+is($table->sql_create_table,'CREATE TABLE artists (
+    id              INTEGER        NOT NULL,
+    name            VARCHAR(255)   NOT NULL UNIQUE,
+    PRIMARY KEY(id),
+    UNIQUE (name)
+)', 'create table no database');
+
+
+$table->set_db_type('mysql');
+
+is($table->sql_create_table,'CREATE TABLE artists (
+    id              INTEGER        NOT NULL,
+    name            VARCHAR(255)   NOT NULL UNIQUE,
+    PRIMARY KEY(id),
+    UNIQUE (name)
+) ENGINE=InnoDB', 'create table mysql');
 
 my $cd = SQL::DB::Schema::Table->new(@{Schema->CD});
 $cd->column('artist')->references($table->column('id'));
