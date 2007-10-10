@@ -222,7 +222,13 @@ sub make_class_from {
             ]);
         }
         $self->_inflate;
-        return @queries;
+
+        # To prevent circular references all AColumns 'weaken' the link
+        # to their ARow. This method returns AColumns to the caller, but
+        # is the only holder of a strong reference to the ARows belonging
+        # to those AColumns. So if we didn't return the ARow as well then
+        # AColumn->_arow is undefined and SQL::DB::Schema::Query barfs.
+        return ($arows, @queries);
     };
 
 
@@ -282,7 +288,13 @@ sub make_class_from {
             ]);
         }
         $self->_inflate;
-        return @queries;
+
+        # To prevent circular references all AColumns 'weaken' the link
+        # to their ARow. This method returns AColumns to the caller, but
+        # is the only holder of a strong reference to the ARows belonging
+        # to those AColumns. So if we didn't return the ARow as well then
+        # AColumn->_arow is undefined and SQL::DB::Schema::Query barfs.
+        return ($arows, @queries);
     };
 
     return $class;

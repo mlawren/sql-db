@@ -1,6 +1,8 @@
 use strict;
 use warnings;
-use Test::More tests => 4;
+use Test::More tests => 6;
+use Test::Memory::Cycle;
+
 require 't/Schema.pm';
 
 use SQL::DB::Schema qw(define_tables);
@@ -48,11 +50,20 @@ my $q;
 $q = $s->query(
     select => [$artist->id],
 );
-like($q, qr/^SELECT.*id/sm, $q);
+is($q, 'SELECT
+    t0.id
+', 'select');
+memory_cycle_ok($q, 'memory cycle');
+
 
 $q = $s->query(
     update => [$artist->id->set(4)],
 );
-like($q, qr/^UPDATE.*SET.*id = /sm, $q);
+is($q, 'UPDATE
+    artists
+SET
+    id = ?
+', 'update');
+memory_cycle_ok($q, 'memory cycle');
 
 

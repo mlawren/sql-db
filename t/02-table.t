@@ -1,6 +1,8 @@
 use strict;
 use warnings;
-use Test::More tests => 18;
+use Test::More tests => 21;
+use Test::Memory::Cycle;
+
 BEGIN {
     use_ok('SQL::DB::Schema::Table');
 }
@@ -40,6 +42,7 @@ isa_ok($table, 'SQL::DB::Schema::Table');
 isa_ok($table->arow, 'SQL::DB::Schema::ARow::artists');
 like($table->name, qr/artists/, 'name');
 ok($table->columns, 'columns');
+memory_cycle_ok($table, 'memory ok');
 
 my @cols = $table->columns;
 ok(@cols == 2, '2 columns');
@@ -64,3 +67,5 @@ $cd->column('artist')->references($table->column('id'));
 
 is($cd->column('artist')->references, $table->column('id'), 'references');
 
+memory_cycle_ok($cd, 'cd memory');
+memory_cycle_ok($table, 'table memory');

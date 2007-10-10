@@ -348,7 +348,8 @@ sub insert {
         unless(ref($obj) and $obj->can('q_update')) {
             croak "Not an insertable object: $obj";
         }
-        foreach ($obj->q_insert) {
+        my ($arows, @inserts) = $obj->q_insert; # reference hand-holding
+        foreach (@inserts) {
             if (!$self->do(@$_)) {
                 croak 'INSERT for '. ref($obj) . ' object failed';
             }
@@ -364,7 +365,8 @@ sub update {
         unless(ref($obj) and $obj->can('q_update')) {
             croak "Not an updatable object: $obj";
         }
-        foreach ($obj->q_update) {
+        my ($arows, @updates) = $obj->q_update; # reference hand-holding
+        foreach (@updates) {
             if ($self->do(@$_) != 1) {
                 croak 'UPDATE for '. ref($obj) . ' object failed';
             }
@@ -380,8 +382,8 @@ sub delete {
         unless(ref($obj) and $obj->can('q_update')) {
             croak "Not a deletable object: $obj";
         }
-        $obj->_in_storage || croak "Can only delete items already in storage";
-        foreach ($obj->q_delete) {
+        my ($arows, @deletes) = $obj->q_delete; # reference hand-holding
+        foreach (@deletes) {
             if ($self->do(@$_) != 1) {
                 croak 'DELETE for '. ref($obj) . ' object failed';
             }

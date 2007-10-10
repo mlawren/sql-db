@@ -4,6 +4,7 @@ use warnings;
 use base qw(Class::Accessor);
 use Carp qw(carp croak confess);
 use SQL::DB::Schema::AColumn;
+use Scalar::Util qw(weaken);
 
 
 our $tcount = 0;

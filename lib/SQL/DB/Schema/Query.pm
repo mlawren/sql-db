@@ -60,14 +60,6 @@ sub push_bind_values {
 }
 
 
-sub arows {
-    my $self = shift;
-    if ($self->{arows}) {
-        return @{$self->{arows}};
-    }
-    return;
-}
-
 
 sub acolumns {
     my $self = shift;
@@ -142,9 +134,6 @@ sub st_insert {
     my $self = shift;
     my $ref  = shift;
 
-#    if (@{$self->{arows}} > 1) {
-#        confess "Can only insert into columns of the same table";
-#    }
     $self->{bind_types} = [map {$_->_column->bind_type} @$ref];
 
     push(@{$self->{query}}, 'sql_insert', $ref);
@@ -167,9 +156,6 @@ sub st_values {
     my $self = shift;
     my $ref  = shift;
 
-#    if (@{$self->{arows}} > 1) {
-#        confess "Can only insert into columns of the same table";
-#    }
 
     push(@{$self->{query}}, 'sql_values', $ref);
     $self->push_bind_values(@{$ref});
@@ -595,9 +581,6 @@ B<SQL::DB::Schema::Query> is ...
 
 =head2 push_bind_values
 
-
-
-=head2 arows
 
 
 

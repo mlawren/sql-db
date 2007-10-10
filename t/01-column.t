@@ -1,6 +1,8 @@
 use strict;
 use warnings;
-use Test::More tests => 11;
+use Test::More tests => 12;
+use Test::Memory::Cycle;
+
 BEGIN {
     use_ok('SQL::DB::Schema::Column');
 }
@@ -40,5 +42,6 @@ ok($col->primary == 1, 'primary');
 ok(!defined($col->auto_increment), 'auto_increment');
 like($col->sql, qr/testcol\s+INTEGER\s+NULL DEFAULT 5 UNIQUE/, 'SQL');
 
+memory_cycle_ok($col);
 
 

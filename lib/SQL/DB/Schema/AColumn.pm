@@ -16,10 +16,11 @@ sub new {
     my $arow  = shift;
     $self->{col}  = $col;  # column definition SQL::DB::Schema::AColumn
     $self->{arow} = $arow; # abstract representation of a table row
+    weaken($self->{arow});
+
     $self->{expr_as}   = $col->name; #FIXME shouldn't know about Expr internals
     $self->set_val($arow->_alias .'.'. $col->name);
 
-#    weaken($self->{arow}); FIXME or cleanup and remove all weak stuff.
 
     bless($self, $class);
     return $self;

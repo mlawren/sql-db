@@ -1,7 +1,8 @@
 use strict;
 use warnings;
-use Test::More tests => 41;
+use Test::More tests => 59;
 use Test::Exception;
+use Test::Memory::Cycle;
 
 BEGIN { use_ok('SQL::DB::Schema');}
 require_ok('t/Schema.pm');
@@ -47,6 +48,7 @@ define_tables(Schema->All);
 
 my $s = SQL::DB::Schema->new('artists');
 isa_ok($s, 'SQL::DB::Schema', '->new empty');
+memory_cycle_ok($s, 'schema memory');
 
 my $artist = $s->table('artists')->arow;
 isa_ok($artist, 'SQL::DB::Schema::ARow::artists');
@@ -92,6 +94,7 @@ foreach my $t (
 
     isa_ok($t->[0], 'SQL::DB::Schema::Expr');
     is($t->[0], $t->[1], $t->[1]);
+    memory_cycle_ok($t->[0], 'memory cycle');
 }
 
 
