@@ -1,10 +1,19 @@
 use strict;
 use warnings;
-use Test::More tests => 14;
+use Test::More;
 use Test::Memory::Cycle;
 
+BEGIN {
+    if (!eval {require DBD::SQLite;1;}) {
+        plan skip_all => "DBD::SQLite not installed: $@";
+    }
+    else {
+        plan tests => 14;
+    }
+
+}
 END {
-    unlink "/tmp/sqldb$$.db";
+    unlink "/tmp/sqldbtest.db";
 }
 
 

@@ -161,7 +161,7 @@ my $q2 =  $db->query(
 my $fan = $db->arow('fans');
 my $link = $db->arow('artists_fans');
 
-my @res = $db->fetch(
+my $cursor = $db->fetch(
     select => [$fan->name, $fan->craziness],
     from   => [$fan, $artist, $link],
     where   => ($artist->name == 'Queen') &
@@ -169,8 +169,8 @@ my @res = $db->fetch(
 );
 
 print "Queen fanss (with craziness)\n";
-foreach (@res) {
-    print $_->name .' ('.$_->craziness .")\n";
+while (my $next = $cursor->next) {
+    print $next->name .' ('.$next->craziness .")\n";
 }
 
 my $res = $db->fetch1(
@@ -184,7 +184,7 @@ print "Only the first Queen fans (with craziness)\n";
 print $res->name .' ('.$res->craziness .")\n";
 
 
-@res = $db->fetch(
+$cursor = $db->fetch(
     select => [$fan->name, $fan->craziness],
     from   => $fan,
     where   => $fan->id->not_in($db->query(select => [$link->fan],
@@ -192,12 +192,12 @@ print $res->name .' ('.$res->craziness .")\n";
 );
 
 print "Un-fanss\n";
-foreach (@res) {
-    print $_->name .' ('.$_->craziness .")\n";
+while (my $next = $cursor->next) {
+    print $next->name .' ('.$next->craziness .")\n";
 }
 
 
-@res = $db->fetch(
+my @res = $db->fetch(
     select => [$cd->title],
     from   => $cd,
     left_join => $artist,

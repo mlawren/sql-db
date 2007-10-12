@@ -47,8 +47,10 @@ my $artist = $s->arow('artists');
 
 my $q;
 
+
 $q = $s->query(
     select => [$artist->id],
+#    where  => $artist->id > 0 && $artist->id < 10,
 );
 is($q, 'SELECT
     t0.id

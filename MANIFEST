@@ -16,6 +16,7 @@ inc/Module/Install/Metadata.pm
 inc/Module/Install/Win32.pm
 inc/Module/Install/WriteAll.pm
 lib/SQL/DB.pm
+lib/SQL/DB/Cursor.pm
 lib/SQL/DB/Row.pm
 lib/SQL/DB/Schema.pm
 lib/SQL/DB/Schema/AColumn.pm
@@ -39,6 +40,7 @@ t/07-query.t
 t/08-row.t
 t/09-db.t
 t/10-synopsis.t
+t/11-cursor.t
 t/live.t
 t/Schema.pm
 t/pod.t
