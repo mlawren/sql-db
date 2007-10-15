@@ -477,20 +477,21 @@ SQL::DB - Perl interface to SQL Databases
 
 =head1 VERSION
 
-0.06. Development release.
+0.09. Development release.
 
 =head1 SYNOPSIS
 
-  use SQL::DB qw(define_tables max min coalesce count nextval currval setval);
+  use SQL::DB qw(define_tables count max);
 
-  define_tables([
+  define_tables(
+    [
       table  => 'addresses',
       class  => 'Address',
       column => [name => 'id',   type => 'INTEGER', primary => 1],
       column => [name => 'kind', type => 'INTEGER'],
       column => [name => 'city', type => 'INTEGER'],
-  ],
-  [
+    ],
+    [
       table  => 'persons',
       class  => 'Person',
       column => [name => 'id',      type => 'INTEGER', primary => 1],
@@ -503,7 +504,8 @@ SQL::DB - Perl interface to SQL Databases
                                     ref  => 'persons(id)',
                                     null => 1],
       index  => 'name',
-  ]);
+    ]
+  );
 
   my $db = SQL::DB->new();
 

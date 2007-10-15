@@ -23,6 +23,8 @@ our @EXPORT_OK = qw(
     min
     sum
     cast
+    upper
+    lower
     now
     nextval
     currval
@@ -182,6 +184,16 @@ sub sum {
 
 sub cast {
     return do_function('CAST', @_);
+}
+
+
+sub upper {
+    return do_function('UPPER', @_);
+}
+
+
+sub lower {
+    return do_function('LOWER', @_);
 }
 
 
@@ -592,6 +604,14 @@ in {...definition...}. Each table can only be defined once.
 
 
 =head2 cast
+
+
+
+=head2 upper
+
+
+
+=head2 lower
 
 
 

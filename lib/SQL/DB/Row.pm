@@ -166,12 +166,22 @@ sub make_class_from {
     };
 
 
+    *{$class.'::_modified'} = sub {
+        my $self = shift;
+        my $colname = shift || croak 'usage: _modified($colname)';
+        my $i = ${$class.'::_index_'.$colname};
+        defined($i) || croak 'Column "'.$colname.'" is not in '.ref($self);
+        return $self->[STATUS]->[$i];
+    };
+
 
     *{$class.'::_inflate'} = sub {
         my $self = shift;
 
         foreach my $i (@{$class .'::_inflate'}) {
             my $inflate = *{$class .'::_inflate'.$i};
+            next unless(defined($self->[$self->[STATUS]->[$i]]->[$i]));
+
             $self->[$self->[STATUS]->[$i]]->[$i] =
                 &$inflate($self->[$self->[STATUS]->[$i]]->[$i]);
         }
@@ -184,6 +194,8 @@ sub make_class_from {
 
         foreach my $i (@{$class .'::_deflate'}) {
             my $deflate = *{$class .'::_deflate'.$i};
+            next unless(defined($self->[$self->[STATUS]->[$i]]->[$i]));
+
             $self->[$self->[STATUS]->[$i]]->[$i] =
                 &$deflate($self->[$self->[STATUS]->[$i]]->[$i]);
         }
@@ -263,6 +275,12 @@ sub make_class_from {
             }
 
             if ($col->primary) {
+                # NULL primary columns can't be used.
+                if (!defined($self->[$self->[STATUS]->[$i]]->[$i])) {
+                    $i++;
+                    next;
+                }
+
                 if (!$where->{$tname}) {
                     $where->{$tname} = ($arows->{$tname}->$colname ==
                         $self->[$self->[STATUS]->[$i]]->[$i]);
@@ -272,11 +290,6 @@ sub make_class_from {
                         ($arows->{$tname}->$colname ==
                         $self->[$self->[STATUS]->[$i]]->[$i]);
                 }
-            }
-            elsif ($col->primary) {
-                $where->{$tname} =
-                    ($where->{$tname} &
-                    ($arows->{$tname}->$colname == $self->[ORIGINAL]->[$i]));
             }
 
             if ($self->[STATUS]->[$i] == MODIFIED) {
@@ -288,13 +301,74 @@ sub make_class_from {
         }
 
         my @queries;
-        foreach my $table (keys %{$updates}) {
-            next unless(@{$updates->{$table}});
+        foreach my $table (keys %{$where}) {
+            next unless($where->{$table} and @{$updates->{$table}});
             push(@queries, [
                 update => $updates->{$table},
                 ($where->{$table} ? (where  => $where->{$table}) : ()),
             ]);
         }
+        $self->_inflate;
+
+        # To prevent circular references all AColumns 'weaken' the link
+        # to their ARow. This method returns AColumns to the caller, but
+        # is the only holder of a strong reference to the ARows belonging
+        # to those AColumns. So if we didn't return the ARow as well then
+        # AColumn->_arow is undefined and SQL::DB::Schema::Query barfs.
+        return ($arows, @queries);
+    };
+
+
+    *{$class.'::q_delete'} = sub {
+        my $self = shift;
+        $self->_deflate;
+
+        my @cols = @{$class .'::_columns'};
+        
+        my $arows   = {};
+        my $where   = {};
+
+        my $i = 0;
+        foreach my $col (@cols) {
+            next unless($col);
+
+            my $colname = $col->name;
+            my $tname   = $col->table->name;
+
+            if (!exists($arows->{$tname})) {
+                $arows->{$tname}   = $col->table->arow();
+            }
+
+            if ($col->primary) {
+                # NULL primary columns can't be used.
+                if (!defined($self->[$self->[STATUS]->[$i]]->[$i])) {
+                    $i++;
+                    next;
+                }
+
+                if (!$where->{$tname}) {
+                    $where->{$tname} = ($arows->{$tname}->$colname ==
+                        $self->[$self->[STATUS]->[$i]]->[$i]);
+                }
+                else {
+                    $where->{$tname} = $where->{$tname} & 
+                        ($arows->{$tname}->$colname ==
+                        $self->[$self->[STATUS]->[$i]]->[$i]);
+                }
+            }
+
+            $i++;
+        }
+
+        my @queries;
+        foreach my $table (keys %{$arows}) {
+            next unless($where->{$table});
+            push(@queries, [
+                delete => $arows->{$table},
+                where  => $where->{$table},
+            ]);
+        }
+
         $self->_inflate;
 
         # To prevent circular references all AColumns 'weaken' the link

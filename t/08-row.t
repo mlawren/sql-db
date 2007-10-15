@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 52;
+use Test::More tests => 59;
 use Test::Memory::Cycle;
 
 use DBI qw(SQL_BLOB);
@@ -34,7 +34,9 @@ my $new = $class->new_from_arrayref([qw(1 Homer)]);
 isa_ok($new, 'SQL::DB::Row::artists.id_artists.name');
 
 is($new->id, 1, 'id');
+ok(!$new->_modified('id'), 'not modified');
 is($new->name, 'Homer', 'name');
+ok(!$new->_modified('name'), 'not modified');
 
 memory_cycle_ok($new, 'memory cycle');
 
@@ -59,7 +61,9 @@ VALUES
 
 $new->set_id(2);
 is($new->id, 2, 'id');
+ok($new->_modified('id'), 'modified');
 is($new->name, 'Homer', 'name');
+ok(!$new->_modified('name'), 'not modified');
 
 my @updates;
 ($arows, @updates) = $new->q_update;
@@ -73,6 +77,18 @@ SET
 WHERE
     id = ?
 ', 'INSERT');
+    memory_cycle_ok($q, 'memory cycle');
+}
+
+($arows, @updates) = $new->q_delete;
+foreach my $update (@updates) {
+    my $q = $schema->query(@{$update});
+    isa_ok($q, 'SQL::DB::Schema::Query', 'query delete');
+    is($q, 'DELETE FROM
+    artists
+WHERE
+    id = ?
+', 'DELETE');
     memory_cycle_ok($q, 'memory cycle');
 }
 
@@ -116,7 +132,7 @@ is($def->sub, 2, 'sub default');
 
 #is($schema->table('defaults')->column(0
 my $adrow = $schema->arow('defaults');
-is($adrow->binary->_column->bind_type, SQL_BLOB, 'binary is SQL_BLOB');
+is($adrow->binary->_column->bind_type, undef, 'bind type undef');
 
 $class = SQL::DB::Row->make_class_from(
     $schema->table('artists')->columns,

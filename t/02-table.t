@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 23;
+use Test::More tests => 27;
 use Test::Memory::Cycle;
 
 BEGIN {
@@ -34,6 +34,7 @@ can_ok('SQL::DB::Schema::Table', qw(
     schema
     arow
     set_db_type
+    db_type
     sql_create_table
     sql_create_indexes
     sql_create
@@ -87,3 +88,13 @@ is($cd->column('artist')->references, $table->column('id'), 'references');
 
 memory_cycle_ok($cd, 'cd memory');
 memory_cycle_ok($table, 'table memory');
+
+$cd->column('artist')->references($table->column('id'));
+
+my $default = SQL::DB::Schema::Table->new(@{Schema->Default});
+is($default->column('binary')->type, 'BLOB', 'column type');
+is($default->column('binary')->bind_type, undef, 'undef bind_column type');
+$default->set_db_type('pg');
+is($default->column('binary')->type, 'BYTEA', 'pg column type');
+is($default->column('binary')->bind_type, 'pg bind type', 'pg bind_column type');
+

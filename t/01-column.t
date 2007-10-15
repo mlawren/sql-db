@@ -12,7 +12,9 @@ can_ok('SQL::DB::Schema::Column', qw(
     table
     name
     type
+    type_pg
     bind_type
+    bind_type_pg
     null
     default
     unique
@@ -26,6 +28,7 @@ can_ok('SQL::DB::Schema::Column', qw(
 my $col = SQL::DB::Schema::Column->new(
 {    name    => 'testcol',
     type    => 'INTEGER',
+    type_pg  => 'PGINTEGER',
     null    => 1,
     default => 5,
     unique  => 1,
@@ -33,8 +36,8 @@ my $col = SQL::DB::Schema::Column->new(
 });
 
 isa_ok($col, 'SQL::DB::Schema::Column');
-like($col->name, qr/testcol/, 'name');
-like($col->type, qr/INTEGER/, 'type');
+is($col->name, 'testcol', 'name');
+is($col->type, 'INTEGER', 'type');
 ok($col->null == 1, 'null');
 ok($col->default == 5, 'default');
 ok($col->unique == 1, 'unique');

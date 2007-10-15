@@ -410,6 +410,12 @@ sub set_db_type {
 }
 
 
+sub db_type {
+    my $self = shift;
+    return $self->{db_type} || '';
+}
+
+
 sub sql_primary {
     my $self = shift;
     if (!$self->{primary}) {
@@ -840,6 +846,9 @@ B<SQL::DB::Schema::Table> is ...
 
 
 =head2 set_db_type
+
+
+=head2 db_type
 
 
 

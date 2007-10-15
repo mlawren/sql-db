@@ -8,8 +8,6 @@ use Scalar::Util qw(weaken);
 SQL::DB::Schema::Column->mk_accessors(qw(
     table
     name
-    type
-    bind_type
     null
     default
     unique
@@ -44,6 +42,62 @@ sub primary {
     else {
         return $self->{primary};
     }
+}
+
+
+sub type {
+    my $self = shift;
+    if (@_) {
+        $self->{type} = shift;
+        return;
+    }
+    if (!$self->{table}) {
+        return $self->{type};
+    }
+
+    my $type = 'type_' . $self->{table}->db_type;
+    if (exists($self->{$type}) and $self->{$type}) {
+        return $self->{$type};
+    }
+    return $self->{type};
+}
+
+
+sub type_pg {
+    my $self = shift;
+    if (@_) {
+        $self->{type_pg} = shift;
+        return;
+    }
+    croak 'usage: type_pg($type)';
+}
+
+
+sub bind_type {
+    my $self = shift;
+    if (@_) {
+        $self->{bind_type} = shift;
+        return;
+    }
+    if (!$self->{table}) {
+        return $self->{bind_type};
+    }
+
+    my $type = 'bind_type_' . $self->{table}->db_type;
+    if (exists($self->{$type}) and $self->{$type}) {
+        return $self->{$type};
+    }
+    return $self->{bind_type};
+}
+
+
+sub bind_type_pg {
+    my $self = shift;
+    if (@_) {
+        $self->{bind_type_pg} = shift;
+        return;
+    }
+    croak 'usage: bind_type_pg($type)';
 }
 
 
@@ -163,9 +217,30 @@ B<SQL::DB::Schema::Column> is ...
 =head2 table
 
 
+=head2 name
+
+
+=head2 null
+
+
+=head2 default
+
+
+=head2 unique
+
+
+=head2 auto_increment
+
+
 
 =head2 primary
 
+=head2 type
+=head2 type_pg
+
+
+=head2 bind_type
+=head2 bind_type_pg
 
 
 =head2 ref
