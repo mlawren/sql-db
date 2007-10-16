@@ -1,24 +1,9 @@
 use strict;
 use warnings;
-use Test::More;
+use Test::More tests => 14;
 use Test::Memory::Cycle;
-
-BEGIN {
-    if (!eval {require DBD::SQLite;1;}) {
-        plan skip_all => "DBD::SQLite not installed: $@";
-    }
-    else {
-        plan tests => 14;
-    }
-
-}
-END {
-    unlink "/tmp/sqldbtest.db";
-}
-
-
 use_ok('SQL::DB');
-require_ok('t/Schema.pm');
+require_ok('t/TestLib.pm');
 
 # FIXME FILL THIS OUT
 can_ok('SQL::DB', qw/
@@ -27,14 +12,13 @@ can_ok('SQL::DB', qw/
     seq
 /);
 
-unlink "/tmp/sqldb$$.db";
 
 my $db = SQL::DB->new();
 isa_ok($db, 'SQL::DB');
 memory_cycle_ok($db, 'memory cycle');
 
 $db->connect(
-    "dbi:SQLite:/tmp/sqldb$$.db",undef,undef,
+    TestLib->dbi,undef,undef,
 #    'dbi:Pg:dbname=test;port=5433', 'rekudos', 'rekudos',
     {PrintError => 0, RaiseError => 1},
 );

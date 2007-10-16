@@ -6,7 +6,7 @@ use Test::Memory::Cycle;
 BEGIN {
     use_ok('SQL::DB::Schema::Table');
 }
-require_ok('t/Schema.pm');
+require_ok('t/TestLib.pm');
 
 
 can_ok('SQL::DB::Schema::Table', qw(
@@ -40,7 +40,7 @@ can_ok('SQL::DB::Schema::Table', qw(
     sql_create
 ));
 
-my $table = SQL::DB::Schema::Table->new(@{Schema->Artist});
+my $table = SQL::DB::Schema::Table->new(@{TestLib->Artist});
 isa_ok($table, 'SQL::DB::Schema::Table');
 isa_ok($table->arow, 'SQL::DB::Schema::ARow::artists');
 like($table->name, qr/artists/, 'name');
@@ -81,7 +81,7 @@ is($table->sql_create_table,'CREATE TABLE artists (
     UNIQUE (name)
 ) ENGINE=InnoDB', 'create table mysql');
 
-my $cd = SQL::DB::Schema::Table->new(@{Schema->CD});
+my $cd = SQL::DB::Schema::Table->new(@{TestLib->CD});
 $cd->column('artist')->references($table->column('id'));
 
 is($cd->column('artist')->references, $table->column('id'), 'references');
@@ -91,7 +91,7 @@ memory_cycle_ok($table, 'table memory');
 
 $cd->column('artist')->references($table->column('id'));
 
-my $default = SQL::DB::Schema::Table->new(@{Schema->Default});
+my $default = SQL::DB::Schema::Table->new(@{TestLib->Default});
 is($default->column('binary')->type, 'BLOB', 'column type');
 is($default->column('binary')->bind_type, undef, 'undef bind_column type');
 $default->set_db_type('pg');

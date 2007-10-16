@@ -5,7 +5,7 @@ use Test::Exception;
 use Test::Memory::Cycle;
 
 BEGIN { use_ok('SQL::DB::Schema');}
-require_ok('t/Schema.pm');
+require_ok('t/TestLib.pm');
 
 
 # Class and Object methods
@@ -48,7 +48,7 @@ throws_ok {
 } qr/not been defined/;
 
 SQL::DB::Schema->import('define_tables');
-define_tables(Schema->All);
+define_tables(TestLib->All);
 
 my $s = SQL::DB::Schema->new('artists');
 isa_ok($s, 'SQL::DB::Schema', '->new empty');

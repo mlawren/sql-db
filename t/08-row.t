@@ -5,16 +5,16 @@ use Test::Memory::Cycle;
 
 use DBI qw(SQL_BLOB);
 
-require_ok('t/Schema.pm');
-use_ok('SQL::DB::Schema');
+require_ok('t/TestLib.pm');
+use_ok('SQL::DB::Schema', 'define_tables');
 use_ok('SQL::DB::Row');
 can_ok('SQL::DB::Row', qw/
     make_class_from
 /);
 
 
-SQL::DB::Schema->import('define_tables');
-define_tables(Schema->All);
+define_tables(TestLib->All);
+
 my $schema = SQL::DB::Schema->new(qw/artists cds defaults/);
 
 my $class = SQL::DB::Row->make_class_from($schema->table('artists')->columns);

@@ -42,6 +42,6 @@ t/09-db.t
 t/10-cursor.t
 t/11-synopsis.t
 t/live.t
-t/Schema.pm
+t/TestLib.pm
 t/pod.t
 t/pod-coverage.t

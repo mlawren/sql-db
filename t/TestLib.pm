@@ -1,5 +1,17 @@
-package Schema;
+package TestLib;
+use strict;
+use warnings;
+use File::Temp qw(tempfile tempdir);
 use DBI qw(SQL_BLOB);
+
+my $dir = tempdir(CLEANUP => 1);
+my $schema = 0;
+
+sub dbi {
+    my ($fh,$tfile) = tempfile(DIR => $dir);
+    return 'dbi:SQLite:'. $tfile;
+}
+
 
 sub Artist {
     [

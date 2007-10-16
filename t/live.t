@@ -1,51 +1,23 @@
 use strict;
 use warnings;
-use Test::More;
+use Test::More tests => 10;
 
-BEGIN {
-    if (!eval {require DBD::SQLite;1;}) {
-        plan skip_all => "DBD::SQLite not installed: $@";
-    }
-    else {
-        plan tests => 11;
-    }
-
-}
-END {
-    unlink "/tmp/sqldb$$.db";
-}
-
-#$SQL::DB::Schema::DEBUG=1;
-
-use_ok('SQL::DB', 'define_tables');
-require_ok('t/Schema.pm');
-
-define_tables(Schema->All);
-
-SQL::DB->import(qw/
-    max min count coalesce sum
-/);
+use_ok('SQL::DB', qw(define_tables max min count coalesce sum));
+require_ok('t/TestLib.pm');
 
 #$SQL::DB::DEBUG = 3;
+#$SQL::DB::Schema::DEBUG=1;
 #$SQL::DB::Schema::ARow::DEBUG = 3;
 #$SQL::DB::Schema::Query::DEBUG = 1;
 
+define_tables(TestLib->All);
 
-our $schema;
-#our $db = SQL::DB->new(qw/tracks cds artists fans artists_fans/);
-our $db = SQL::DB->new;
+my $db = SQL::DB->new;
 isa_ok($db, 'SQL::DB');
 
 
-$db->connect(
-    "dbi:SQLite:/tmp/sqldb$$.db",undef,undef,
-#    'dbi:Pg:dbname=test;port=5433', 'rekudos', 'rekudos',
-    {PrintError => 0, RaiseError => 1},
-);
-ok(1, 'connected');
-
-$db->deploy;
-ok(1, 'deployed');
+$db->connect(TestLib->dbi);
+ok($db->deploy, 'deploy');
 
 ok($db->create_seq('test'), "Sequence test created");
 my $val;

@@ -9,6 +9,7 @@ requires        'DBI'                   => 0;
 requires        'Scalar::Util'          => 0;
 requires        'Class::Accessor::Fast' => 0;
 
+build_requires  'File::Temp'            => 0;
 build_requires  'Test::More'            => 0;
 build_requires  'Test::Exception'       => 0;
 build_requires  'Test::Memory::Cycle'   => 0;

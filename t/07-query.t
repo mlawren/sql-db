@@ -3,7 +3,7 @@ use warnings;
 use Test::More tests => 6;
 use Test::Memory::Cycle;
 
-require 't/Schema.pm';
+require 't/TestLib.pm';
 
 use SQL::DB::Schema qw(define_tables);
 
@@ -40,7 +40,7 @@ can_ok('SQL::DB::Schema::Query', qw/
     st_delete_from
 /);
 
-define_tables(Schema->All);
+define_tables(TestLib->All);
 my $s = SQL::DB::Schema->new(qw/artists/);
 
 my $artist = $s->arow('artists');

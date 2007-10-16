@@ -10,7 +10,7 @@ use SQL::DB::Row;
 use SQL::DB::Cursor;
 
 
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 our $DEBUG   = 0;
 
 our @EXPORT_OK = @SQL::DB::Schema::EXPORT_OK;
@@ -477,7 +477,7 @@ SQL::DB - Perl interface to SQL Databases
 
 =head1 VERSION
 
-0.09. Development release.
+0.10. Development release.
 
 =head1 SYNOPSIS
 
