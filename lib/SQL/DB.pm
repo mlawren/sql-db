@@ -199,27 +199,20 @@ sub do {
     my $query       = $self->query(@_);
     my $rv;
 
-    if ($query->bind_types) { # INSERT or UPDATE
-        eval {
-            my @bind_values = $query->bind_values;
-            my @bind_types  = $query->bind_types;
-            my $count = scalar(@bind_values);
-
-            my $sth = $self->dbh->prepare("$query");
-            foreach my $i (0..($count-1)) {
-                $sth->bind_param($i+1, $bind_values[$i], $bind_types[$i]);
+    eval {
+        my $sth = $self->dbh->prepare_cached("$query");
+        my $i = 1;
+        foreach my $type ($query->bind_types) {
+            if ($type) {
+                $sth->bind_param($i, undef, $type);
             }
-            $rv = $sth->execute;
-        };
-    }
-    else { # DELETE
-        eval {
-            $rv = $self->dbh->do("$query", undef, $query->bind_values);
-        };
-    }
+            $i++;
+        }
+        $rv = $sth->execute($query->bind_values);
+    };
 
     if ($@ or !defined($rv)) {
-        croak "DBI::do $DBI::errstr $@: Query was:\n"
+        croak "$@: Query was:\n"
             . $self->query_as_string("$query", $query->bind_values);
     }
 
@@ -240,19 +233,19 @@ sub fetch {
     my $rv;
 
     eval {
-        my @bind_values = $query->bind_values;
-        my @bind_types  = $query->bind_types;
-        my $count = scalar(@bind_values);
-
         $sth = $self->dbh->prepare("$query");
-        foreach my $i (0..($count-1)) {
-            $sth->bind_param($i+1, $bind_values[$i], $bind_types[$i]);
+        my $i = 1;
+        foreach my $type ($query->bind_types) {
+            if ($type) {
+                $sth->bind_param($i, undef, $type);
+            }
+            $i++;
         }
-        $rv = $sth->execute;
+        $rv = $sth->execute($query->bind_values);
     };
 
-    if (!$rv or $@) {
-        croak "DBI::prepare/execute: $DBI::errstr $@: Query was:\n"
+    if ($@ or !defined($rv)) {
+        croak "$@: Query was:\n"
             . $self->query_as_string("$query", $query->bind_values);
     }
 
@@ -262,7 +255,7 @@ sub fetch {
             $arrayref = $sth->fetchall_arrayref();
         };
         if (!$arrayref or $@) {
-            croak "DBI::fetchall_arrayref: $DBI::errstr $@: Query was:\n"
+            croak "$@: Query was:\n"
                 . $self->query_as_string("$query", $query->bind_values);
         }
 
@@ -280,20 +273,28 @@ sub fetch {
 }
 
 
+# FIXME bind parameters in here?
 sub fetch1 {
     my $self  = shift;
     my $query = $self->query(@_);
     my $class = SQL::DB::Row->make_class_from($query->acolumns);
 
-    my @list = $self->dbh->selectrow_array("$query", undef,
-                                                     $query->bind_values);
-    $self->{sqldb_qcount}++;
-    carp 'debug: '. $self->query_as_string("$query", $query->bind_values) if($DEBUG);
-
-    if (@list) {
-        return $class->new_from_arrayref(\@list)->_inflate;
+    my @list;
+    eval {
+        @list = $self->dbh->selectrow_array("$query", undef,
+                                             $query->bind_values);
+    };
+    if ($@) {
+        croak "$@: Query was:\n"
+            . $self->query_as_string("$query", $query->bind_values);
     }
-    return;
+
+    return unless(@list);
+
+    $self->{sqldb_qcount}++;
+    carp 'debug: (Rows: '. scalar @list .') '.
+          $self->query_as_string("$query", $query->bind_values) if($DEBUG);
+    return $class->new_from_arrayref(\@list)->_inflate;
 }
 
 

@@ -58,11 +58,11 @@ sub make_class_from {
 
         if (UNIVERSAL::isa($def->[2], 'SQL::DB::Schema::Column')) {
             if ($def->[2]->inflate) {
-                push(@{$class.'::_inflate'}, $i);
+                push(@{$class.'::_inflate_indexes'}, $i);
                 *{$class.'::_inflate'.$i} = $def->[2]->inflate;
             }
             if ($def->[2]->deflate) {
-                push(@{$class.'::_deflate'}, $i);
+                push(@{$class.'::_deflate_indexes'}, $i);
                 *{$class.'::_deflate'.$i} = $def->[2]->deflate;
             }
             if (defined $def->[2]->default) {
@@ -178,7 +178,7 @@ sub make_class_from {
     *{$class.'::_inflate'} = sub {
         my $self = shift;
 
-        foreach my $i (@{$class .'::_inflate'}) {
+        foreach my $i (@{$class .'::_inflate_indexes'}) {
             my $inflate = *{$class .'::_inflate'.$i};
             next unless(defined($self->[$self->[STATUS]->[$i]]->[$i]));
 
@@ -192,7 +192,7 @@ sub make_class_from {
     *{$class.'::_deflate'} = sub {
         my $self = shift;
 
-        foreach my $i (@{$class .'::_deflate'}) {
+        foreach my $i (@{$class .'::_deflate_indexes'}) {
             my $deflate = *{$class .'::_deflate'.$i};
             next unless(defined($self->[$self->[STATUS]->[$i]]->[$i]));
 
