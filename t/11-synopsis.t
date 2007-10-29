@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 3;
+use Test::More tests => 4;
 require_ok('t/TestLib.pm');
 
 open(SQL, 'lib/SQL/DB.pm') || die "open: $!";
@@ -20,10 +20,7 @@ while (my $line = <SQL>) {
 }
 push(@lines, 'return @items;');
 
-my $res = eval "@lines";
-if ($@) {
-    die $@;
-}
-ok(!$@, 'Eval ok');
-ok($res > 0, 'Result > 0');
-
+my @res = eval "@lines";
+ok(!$@, 'Eval '.($@ ? $@ : ''));
+ok(scalar(@res) > 0, 'Result > 0');
+isa_ok($res[0], 'SQL::DB::Row::persons.name_persons.age_addresses.city');

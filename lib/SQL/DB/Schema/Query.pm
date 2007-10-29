@@ -223,6 +223,21 @@ sub st_select {
 }
 
 
+sub st_distinct {
+    my $self = shift;
+    $self->{distinct} = shift;
+    return;
+}
+
+
+sub st_select_distinct {
+    my $self = shift;
+    $self->{distinct} = 1;
+    $self->st_select(@_);
+    return;
+}
+
+
 sub sql_select {
     my $self = shift;
     my $ref  = shift;
@@ -240,13 +255,6 @@ sub sql_select {
     $s .= "\n    " .join(",\n    ", @{$self->{acolumns}});
 
     return $s ."\n";
-}
-
-
-sub st_distinct {
-    my $self = shift;
-    $self->{distinct} = shift;
-    return;
 }
 
 
@@ -627,9 +635,11 @@ Only valid for !select type queries.
 
 
 
+
 =head2 sql_select
 
 
+=head2 st_select_distinct
 
 =head2 st_distinct
 

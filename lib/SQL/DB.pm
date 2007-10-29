@@ -10,7 +10,7 @@ use SQL::DB::Row;
 use SQL::DB::Cursor;
 
 
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 our $DEBUG   = 0;
 
 our @EXPORT_OK = @SQL::DB::Schema::EXPORT_OK;
@@ -298,6 +298,45 @@ sub fetch1 {
 }
 
 
+sub txn {
+    my $self = shift;
+    my $subref = shift;
+    (ref($subref) && ref($subref) eq 'CODE') || croak 'usage txn($subref)';
+
+    if ($self->{sqldb_txn}) {
+        croak 'Cannot nest transactions';
+    }
+    $self->{sqldb_txn} = 1;
+
+    $self->dbh->begin_work;
+    warn 'debug: BEGIN WORK' if($DEBUG);
+
+    my $result = eval {local $SIG{__DIE__}; &$subref};
+
+    if ($@) {
+        if ($@ =~ /Cannot nest transactions/) {
+            croak 'Cannot nest transactions';
+        }
+        my $tmp = $@;
+        warn 'debug: ROLLBACK' if($DEBUG);
+        eval {$self->dbh->rollback};
+        delete $self->{sqldb_txn};
+        if (wantarray) {
+            return (undef, $tmp);
+        }
+        return;
+    }
+
+    warn 'debug: COMMIT' if($DEBUG);
+    $self->dbh->commit;
+    delete $self->{sqldb_txn};
+    if (wantarray) {
+        return (1);
+    }
+    return 1;
+}
+
+
 sub create_seq {
     my $self = shift;
     my $name = shift || croak 'usage: $db->create_seq($name)';
@@ -330,7 +369,6 @@ sub seq {
 
     $self->{sqldb_dbi} || croak 'Must be connected before calling seq';
 
-    $self->dbh->begin_work;
     my $sqldb = SQL::DB::Schema::ARow::sqldb->new;
     my $seq;
     my $no_updates;
@@ -349,15 +387,7 @@ sub seq {
             for_update => ($self->{sqldb_dbi} !~ m/sqlite/i),
         );
 
-        if (!$seq) {
-            my $q = $self->query(
-                select     => [$sqldb->val],
-                from       => $sqldb,
-                where      => $sqldb->name == $name,
-                for_update => ($self->{sqldb_dbi} !~ m/sqlite/i),
-            );
-            croak "Can't find sequence $name. Query was ". $q->_as_string unless($seq);
-        }
+        croak "Can't find sequence '$name'" unless($seq);
 
         $no_updates = $self->do(
             update  => [$sqldb->val->set($seq->val + $count)],
@@ -372,7 +402,6 @@ sub seq {
 
     if ($@ or !$no_updates) {
         my $tmp = $@;
-        eval {$self->dbh->rollback;};
 
         if ($self->{sqldb_dbi} =~ m/mysql/i) {
             $self->dbh->do('UNLOCK TABLES');
@@ -380,9 +409,6 @@ sub seq {
 
         croak "seq: $tmp";
     }
-
-
-    $self->dbh->commit;
 
     if (wantarray) {
         my $start = $seq->val + 1;
@@ -478,7 +504,7 @@ SQL::DB - Perl interface to SQL Databases
 
 =head1 VERSION
 
-0.10. Development release.
+0.11. Development release.
 
 =head1 SYNOPSIS
 
@@ -558,8 +584,6 @@ SQL::DB - Perl interface to SQL Databases
   foreach my $item (@items) {
       print $item->name, '(',$item->age,') lives in ', $item->city, "\n";
   }
-
-  return @items # this line for the automatic test
 
 =head1 DESCRIPTION
 
@@ -680,6 +704,19 @@ constructed objects one at a time.
 Similar to fetch() but always returns only the first object from
 the result set. All other rows (if any) can not be retrieved.
 You should only use this method if you know/expect one result.
+
+=head2 txn(&coderef)
+
+Runs the code in &coderef as an SQL transaction. If &coderef does not
+raise any exceptions then the transaction is commited, otherwise it is
+rolled back.
+
+In scalar context returns true/undef on sucess/failure. In array context
+returns (true/undef, $errstr) on success/failure.
+
+It is not possible to nest transactions with B<SQL::DB>, even if your
+database backend supports this. Hence this method will croak if you
+attempt to do so. Let me know if this is a feature you require.
 
 =head2 qcount
 
