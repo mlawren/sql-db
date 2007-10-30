@@ -112,43 +112,33 @@ sub deploy {
 
     # calculate which tables reference which other tables, and plan the
     # deployment order accordingly.
+    my @tlist = $self->tables;
     my @tables;
-    my %name_to_table = (map {$_->name => $_} $self->tables);
-    my %deployed;
-    my $thash;
+    my $deployed = {map {$_->name => 0} @tlist};
 
-    foreach my $t ($self->tables) {
-        my $none = 1;
-        foreach my $c ($t->columns) {
-            if (my $ref = $c->references) {
-                # check for self reference or already deployed
-                next if ($ref->table == $t or $deployed{$ref->name});
-
-                $thash->{$t->name}->{$ref->table->name} = 1;
-                $none = 0;
+    while (@tlist) {
+        my @newtlist = ();
+        foreach my $t (@tlist) {
+            my $none = 1;
+            foreach my $c ($t->columns) {
+                if (my $ref = $c->references) {
+                    # check for self reference or already deployed
+                    next if ($ref->table == $t or
+                             $deployed->{$ref->table->name});
+                    $none = 0;
+                }
             }
-        }
         
-        if ($none) { # doesn't reference anyone - can deploy first
-            push(@tables, $t);
-            $deployed{$t->name} = 1;
-        }
-    }
-
-    while (my ($t1,$h) =  each %$thash) {
-        while (my ($t2,$val) = each %$h) {
-            next unless($val);
-            if ($deployed{$t2}) { # been deployed, remove this entry
-                delete $h->{$t2};
+            if ($none) { # doesn't reference anyone not already deployed
+                push(@tables, $t);
+                $deployed->{$t->name} = 1;
+            }
+            else {
+                push(@newtlist, $t);
             }
         }
-        if (!keys %$h) {
-            push(@tables, $name_to_table{$t1});
-            $deployed{$t1} = 1;
-            delete $thash->{$t1};
-        }
+        @tlist = @newtlist;
     }
-
 
     TABLES: foreach my $table (@tables) {
         my $sth = $self->dbh->table_info('', '', $table->name, 'TABLE');
