@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 22;
+use Test::More tests => 23;
 use Test::Exception;
 use Test::Memory::Cycle;
 
@@ -51,7 +51,7 @@ is($db->fetch1(
 my ($res,$err) = $db->txn(sub {
     $db->insert($a1);
 });
-ok(!$res, "transaction insert duplicate: $err");
+ok(!$res, "transaction insert duplicate");
 
 is($db->fetch1(
     select => count($artists->id)->as('acount'),
@@ -87,3 +87,5 @@ throws_ok(sub {
         });
     })
 }, qr/Cannot/, 'nested txn');
+
+memory_cycle_ok($db, 'memory cycle');

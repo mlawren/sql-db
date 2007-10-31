@@ -195,6 +195,7 @@ sub do {
         foreach my $type ($query->bind_types) {
             if ($type) {
                 $sth->bind_param($i, undef, $type);
+                carp 'debug: binding param '.$i.' with '.$type if($DEBUG);
             }
             $i++;
         }
@@ -299,7 +300,7 @@ sub txn {
     $self->{sqldb_txn} = 1;
 
     $self->dbh->begin_work;
-    warn 'debug: BEGIN WORK' if($DEBUG);
+    carp 'debug: BEGIN WORK' if($DEBUG);
 
     my $result = eval {local $SIG{__DIE__}; &$subref};
 
@@ -308,7 +309,7 @@ sub txn {
             croak 'Cannot nest transactions';
         }
         my $tmp = $@;
-        warn 'debug: ROLLBACK' if($DEBUG);
+        carp 'debug: ROLLBACK' if($DEBUG);
         eval {$self->dbh->rollback};
         delete $self->{sqldb_txn};
         if (wantarray) {
@@ -317,7 +318,7 @@ sub txn {
         return;
     }
 
-    warn 'debug: COMMIT' if($DEBUG);
+    carp 'debug: COMMIT' if($DEBUG);
     $self->dbh->commit;
     delete $self->{sqldb_txn};
     if (wantarray) {

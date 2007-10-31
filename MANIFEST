@@ -42,6 +42,7 @@ t/09-db.t
 t/10-cursor.t
 t/11-synopsis.t
 t/12-txn.t
+t/13-blob.t
 t/live.t
 t/TestLib.pm
 t/pod.t

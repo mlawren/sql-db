@@ -3,6 +3,15 @@ use strict;
 use warnings;
 use File::Temp qw(tempfile tempdir);
 use DBI qw(SQL_BLOB);
+use Storable qw(nfreeze thaw);
+use Encode qw(encode_utf8 decode_utf8);
+
+our $pg_type;
+BEGIN {
+    if (eval {require DBD::Pg;1;}) {
+        eval '$pg_type = DBD::Pg::PG_BYTEA;';
+    }
+}
 
 my $dir = tempdir(CLEANUP => 1);
 my $schema = 0;
@@ -30,6 +39,20 @@ sub Artist {
         ],
         type_mysql => 'InnoDB',
     ];
+}
+
+sub Btable {
+    [
+        table => 'btable',
+        class => 'Btable',
+        column => [
+            name => 'bincol',
+            type => 'BLOB', bind_type => SQL_BLOB,
+            type_pg => 'BYTEA', bind_type_pg => { pg_type => $pg_type },
+            deflate => sub { return nfreeze($_[0]) },
+            inflate => sub { return thaw($_[0]) },
+        ],
+    ]
 }
 
 
