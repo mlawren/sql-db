@@ -116,6 +116,7 @@ sub deploy {
     my @tables;
     my $deployed = {map {$_->name => 0} @tlist};
 
+    my $max = 0;
     while (@tlist) {
         my @newtlist = ();
         foreach my $t (@tlist) {
@@ -138,6 +139,10 @@ sub deploy {
             }
         }
         @tlist = @newtlist;
+
+        if ($max++ > 2000) {
+            croak 'infinite deployment calculation - reference columns loop?';
+        }
     }
 
     TABLES: foreach my $table (@tables) {
