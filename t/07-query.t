@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 6;
+use Test::More tests => 8;
 use Test::Memory::Cycle;
 
 require 't/TestLib.pm';
@@ -68,4 +68,13 @@ SET
 ', 'update');
 memory_cycle_ok($q, 'memory cycle');
 
+
+my $acol = $s->acol('id');
+$q = $s->query(
+    select => [$acol],
+);
+is($q, 'SELECT
+    id
+', 'select with acol');
+memory_cycle_ok($q, 'memory cycle');
 

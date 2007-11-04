@@ -25,6 +25,7 @@ our @EXPORT_OK = qw(
     cast
     upper
     lower
+    case
     now
     nextval
     currval
@@ -110,8 +111,19 @@ sub tables {
 
 sub arow {
     my $self   = shift;
-    my $tablename  = shift || croak 'usage: arow($tablename)';
-    return $self->table($tablename)->arow;
+    if (wantarray) {
+        return (map {$self->table($_)->arow} @_);
+    }
+    return $self->table(shift)->arow;
+}
+
+
+sub acol {
+    my $self = shift;
+    if (wantarray) {
+        return (map {SQL::DB::Schema::Expr->new($_)} @_);
+    }
+    return SQL::DB::Schema::Expr->new(shift);
 }
 
 
@@ -194,6 +206,43 @@ sub upper {
 
 sub lower {
     return do_function('LOWER', @_);
+}
+
+
+sub case {
+    @_ || croak 'case([$expr,] when => $expr, then => $val,[else...])';
+
+    my @bind;
+
+    my $str = 'CASE';
+    if ($_[0] !~ /^when$/i) {
+        # FIXME more cleaning? What can be injected here?
+        my $expr = shift;
+        $expr =~ s/\sEND\W.*//gi;
+        $str .= ' '.$expr;
+    }
+
+    UNIVERSAL::isa($_, 'SQL::DB::Schema::Expr') && push(@bind, $_->bind_values);
+
+    my @vals;
+
+    while (my ($p,$v) = splice(@_,0,2)) {
+        ($p =~ m/(^when$)|(^then$)|(^else$)/)
+            || croak 'case($expr, when => $cond, then => $val, [else...])';
+
+        if (UNIVERSAL::isa($v, 'SQL::DB::Schema::Expr')) {
+            $str .= ' '.uc($p).' '.$v;
+            push(@bind, $v->bind_values);
+        }
+        else {
+            $str .= ' '.uc($p).' ?';
+            push(@bind, $v);
+        }
+    }
+
+    @_ && croak 'case($expr, when => $cond, then => $val,...)';
+
+    return SQL::DB::Schema::Expr->new($str. ' END', @bind);
 }
 
 
@@ -484,6 +533,7 @@ for more details.
 Returns an object representing the database table 'Table'. Also see
 L<SQL::DB::Schema::Table> for more details.
 
+
 =head2 arow('Table')
 
 Returns an abstract representation of a row from 'Table' for
@@ -515,6 +565,11 @@ do the following:
     );
 
 See L<SQL::DB::Schema::ARow> for more details.
+
+=head2 acol($scalar)
+
+Returns an expression object that can be used anywhere a column
+would be specified. Useful when selecting columns from a nested select.
 
 =head2 query(key => value, key => value, key => value, ...)
 
@@ -613,6 +668,12 @@ in {...definition...}. Each table can only be defined once.
 
 =head2 lower
 
+
+=head2 case($expr...);
+
+case ($expr, when => $x, then => $val);
+case ($expr, when => $x, then => $val, when $y, then > $val2);
+case ($expr, when => $x, then => $val, else => $val2);
 
 
 =head2 now

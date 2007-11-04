@@ -35,10 +35,6 @@ sub new {
     }
 
     $self->multi(1);
-
-    if (wantarray()) {
-        return ("$self", $self->bind_values);
-    }
     return $self;
 }
 
@@ -79,6 +75,15 @@ sub as_string {
         $s =~ s/t\d+\.//g;
     }
     return $s;
+}
+
+
+sub _alias {
+    my $self = shift;
+    if (!$self->{tid}) {
+        $self->{tid} = $SQL::DB::Schema::ARow::tcount++;
+    }
+    return 't'.$self->{tid};
 }
 
 
@@ -283,24 +288,37 @@ sub st_from {
     if (UNIVERSAL::isa($ref, 'ARRAY')) {
         foreach (@{$ref}) {
             if (UNIVERSAL::isa($_, 'SQL::DB::Schema::AColumn')) {
-                push(@acols, $_->_reference);
+                push(@acols, $_->_reference->_table_name .' AS '.
+                             $_->_reference->_alias);
             }
             elsif (UNIVERSAL::isa($_, 'SQL::DB::Schema::ARow')) {
-                push(@acols, $_);
+                push(@acols, $_->_table_name .' AS '. $_->_alias);
+            }
+            elsif (UNIVERSAL::isa($_, __PACKAGE__)) {
+                my $str = $_->as_string;
+                $str =~ s/^/    /gm;
+                push(@acols, "(\n".$str.') AS '. $_->_alias);
+                $self->push_bind_values($_->bind_values);
             }
             else {
-                croak "Invalid from object: $_";
+                push(@acols, $_);
             }
         }
     }
     elsif (UNIVERSAL::isa($ref, 'SQL::DB::Schema::AColumn')) {
-        push(@acols, $ref->_arow);
+        push(@acols, $ref->_arow->_table_name .' AS '. $ref->_arow->_alias);
     }
     elsif (UNIVERSAL::isa($ref, 'SQL::DB::Schema::ARow')) {
-        push(@acols, $ref);
+        push(@acols, $ref->_table_name .' AS '. $ref->_alias);
+    }
+    elsif (UNIVERSAL::isa($ref, __PACKAGE__)) {
+        my $str = $ref->as_string;
+        $str =~ s/^/    /gm;
+        push(@acols, "(\n".$str.') AS '. $ref->_alias);
+        $self->push_bind_values($ref->bind_values);
     }
     else {
-        croak "Invalid from object: $ref";
+        push(@acols, $_);
     }
 
     push(@{$self->{query}}, 'sql_from', \@acols);
@@ -312,8 +330,7 @@ sub sql_from {
     my $self = shift;
     my $ref  = shift;
 
-    return "FROM\n    ". join(",\n    ",
-                     map {$_->_table_name. ' AS '. $_->_alias} @{$ref}) ."\n";
+    return "FROM\n    ". join(",\n    ", @$ref) ."\n";
 }
 
 

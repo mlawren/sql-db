@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 59;
+use Test::More tests => 66;
 use Test::Memory::Cycle;
 
 use DBI qw(SQL_BLOB);
@@ -27,18 +27,45 @@ can_ok('SQL::DB::Row::artists.id_artists.name', qw/
     set_id
     name
     set_name
+    q_insert
     q_update
+    q_delete
+    quickdump
 /);
 
 my $new = $class->new_from_arrayref([qw(1 Homer)]);
 isa_ok($new, 'SQL::DB::Row::artists.id_artists.name');
 
 is($new->id, 1, 'id');
+
+is_deeply($new->_hashref, {name => 'Homer', id => 1}, 'hashref');
+
+is_deeply($new->_hashref_modified, {}, 'hashref modified');
+
 ok(!$new->_modified('id'), 'not modified');
+
 is($new->name, 'Homer', 'name');
+
 ok(!$new->_modified('name'), 'not modified');
 
+is($new->quickdump, 'id           = 1
+name         = Homer
+', 'dump ok');
+
+$new->set_name('Homer');
+
+is_deeply($new->_hashref, {name => 'Homer', id => 1}, 'hashref');
+
+is_deeply($new->_hashref_modified, {name => 'Homer'}, 'hashref modified');
+
+is($new->quickdump, 'id           = 1
+name[m]      = Homer
+', 'dump ok');
+
+
 memory_cycle_ok($new, 'memory cycle');
+
+$new = $class->new_from_arrayref([qw(1 Homer)]);
 
 use Data::Dumper;
 $Data::Dumper::Indent=1;
@@ -180,4 +207,6 @@ foreach my $update (@updates) {
     memory_cycle_ok($q, 'memory cycle');
 }
 
-
+my $acol = $schema->acol('id');
+$class = SQL::DB::Row->make_class_from($acol);
+is($class, 'SQL::DB::Row::id', 'class from abstract column');

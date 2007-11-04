@@ -29,8 +29,9 @@ sub make_class_from {
             push(@tablecolumns, $obj->table->name .'.'. $obj->name);
         }
         elsif (UNIVERSAL::can($obj, '_as')) {         # Expr
-            $method = $obj->_as;
-            push(@methods, [$method, undef, undef]);
+            $method = $obj->_as || $obj->as_string;
+            $set_method = 'set_'. $method;
+            push(@methods, [$method, $set_method, undef]);
             push(@tablecolumns, $method);
         }
         else {
@@ -87,16 +88,29 @@ sub make_class_from {
             if (defined(&{$class.'::'.$def->[1]})) {
                 die "double definition";
             }
-            *{$class.'::'.$def->[1]} = sub {
-                my $self = shift;
-                if (!@_) {
-                    croak $def->[1] . ' requires an argument';
-                }
-                my $pos  = ${$class.'::_index_'.$def->[0]};
-                $self->[STATUS]->[$pos] = 1;
-                $self->[MODIFIED]->[$pos] = shift;
-                return;
-            };
+            if ($def->[2]) { # we have a column - record modification
+                *{$class.'::'.$def->[1]} = sub {
+                    my $self = shift;
+                    if (!@_) {
+                        croak $def->[1] . ' requires an argument';
+                    }
+                    my $pos  = ${$class.'::_index_'.$def->[0]};
+                    $self->[STATUS]->[$pos] = 1;
+                    $self->[MODIFIED]->[$pos] = shift;
+                    return;
+                };
+            }
+            else { # no column, just change the value
+                *{$class.'::'.$def->[1]} = sub {
+                    my $self = shift;
+                    if (!@_) {
+                        croak $def->[1] . ' requires an argument';
+                    }
+                    my $pos  = ${$class.'::_index_'.$def->[0]};
+                    $self->[ORIGINAL]->[$pos] = shift;
+                    return;
+                };
+            }
         }
         $i++;
     }
@@ -166,12 +180,45 @@ sub make_class_from {
     };
 
 
+    *{$class.'::_hashref'} = sub {
+        my $self = shift;
+
+        my @cols = @{$class .'::_columns'};
+        my $hashref = {};
+        
+        my $i = 0;
+        foreach my $col (@cols) {
+            next unless($col);
+            $hashref->{$col->name} = $self->[$self->[STATUS]->[$i]]->[$i];
+            $i++;
+        }
+        return $hashref;
+    };
+
+
     *{$class.'::_modified'} = sub {
         my $self = shift;
         my $colname = shift || croak 'usage: _modified($colname)';
         my $i = ${$class.'::_index_'.$colname};
         defined($i) || croak 'Column "'.$colname.'" is not in '.ref($self);
         return $self->[STATUS]->[$i];
+    };
+
+
+    *{$class.'::_hashref_modified'} = sub {
+        my $self = shift;
+        my @cols = @{$class .'::_columns'};
+        my $hashref = {};
+        
+        my $i = 0;
+        foreach my $col (@cols) {
+            next unless($col);
+            if ($self->[STATUS]->[$i] == MODIFIED) {
+                $hashref->{$col->name} = $self->[MODIFIED]->[$i];
+            }
+            $i++;
+        }
+        return $hashref;
     };
 
 
@@ -379,6 +426,27 @@ sub make_class_from {
         return ($arows, @queries);
     };
 
+    *{$class.'::quickdump'} = sub {
+        my $self = shift;
+
+        my $str;
+
+        my $i = 0;
+        foreach my $def (@methods) {
+            my $key = $def->[0] .($self->[STATUS]->[$i] ? '[m]' : '');
+            my $val = $self->[$self->[STATUS]->[$i]]->[$i];
+            if (defined($val) and $val !~ /^[[:print:]]+$/) {
+                $val = '*BINARY DATA*';
+            }
+            else {
+                $val = (defined($val) ? $val : '*undef*');
+            }
+            $str .= sprintf("\%-12s = \%s\n", $key, $val);
+            $i++;
+        }
+        return $str;
+    };
+
     return $class;
 }
 
@@ -411,6 +479,10 @@ array values must be in the same order as the definition of the class.
 
 =head2 new
 
+
+=head2 _hashref
+
+Returns a reference to a hash containing the keys and values of the object.
 
 
 =head2 _inflate

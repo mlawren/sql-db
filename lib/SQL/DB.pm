@@ -112,7 +112,7 @@ sub deploy {
 
     # calculate which tables reference which other tables, and plan the
     # deployment order accordingly.
-    my @tlist = $self->tables;
+    my @tlist = grep {$_->name ne 'sqldb'} $self->tables;
     my @tables;
     my $deployed = {map {$_->name => 0} @tlist};
 
@@ -145,6 +145,10 @@ sub deploy {
         }
     }
 
+    if ($self->table('sqldb')) {
+        unshift(@tables, $self->table('sqldb'));
+    }
+
     TABLES: foreach my $table (@tables) {
         my $sth = $self->dbh->table_info('', '', $table->name, 'TABLE');
         if (!$sth) {
@@ -166,6 +170,8 @@ sub deploy {
                 die $self->dbh->errstr . ' query: '. $action;
             }
         }
+
+        $self->create_seq($table->name);
     }
     return 1;
 }
@@ -349,7 +355,7 @@ sub create_seq {
         }) {
         return 1;
     }
-    warn "CreateSequence: $@";
+    croak "create_seq: $@";
     return;
 }
 
