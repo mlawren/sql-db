@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 66;
+use Test::More tests => 77;
 use Test::Memory::Cycle;
 
 use DBI qw(SQL_BLOB);
@@ -201,6 +201,9 @@ use Data::Dumper;
 $Data::Dumper::Maxdepth = 3;
 #warn Dumper($new->q_update);
 ($arows,@updates) =  $new->q_update;
+
+
+
 foreach my $update (@updates) {
     my $q = $schema->query(@{$update});
     isa_ok($q, 'SQL::DB::Schema::Query', $q->_as_string);
@@ -210,3 +213,107 @@ foreach my $update (@updates) {
 my $acol = $schema->acol('id');
 $class = SQL::DB::Row->make_class_from($acol);
 is($class, 'SQL::DB::Row::id', 'class from abstract column');
+
+# Checking the multiple arow update service when different arows from
+# the same table are used
+my $artists = $schema->arow('artists');
+my $artists2 = $schema->arow('artists');
+
+$class = SQL::DB::Row->make_class_from(
+        $artists->id,
+        $artists->name,
+        $artists2->id->as('id2'),
+        $artists2->name->as('name2'),
+);
+
+my $n = $class->new_from_arrayref([]);
+($arows,@updates) = $n->q_update;
+ok(!@updates, 'no updates with no changes');
+
+$n->set_id(1);
+is_deeply($n->_hashref_modified, {
+    id        => 1,
+}, 'hashref ok');
+
+($arows,@updates) = $n->q_update;
+is(scalar @updates, 1, 'one change one update');
+
+my $query = $schema->query(@{$updates[0]});
+is($query->as_string, 'UPDATE
+    artists
+SET
+    id = ?
+WHERE
+    id = ?
+', 'query ok');
+
+$n->set_name2(1);
+is_deeply($n->_hashref_modified, {
+    id        => 1,
+    name2     => 1,
+}, 'hashref ok');
+
+is_deeply($n->_hashref, {
+    id        => 1,
+    id2       => undef,
+    name      => undef,
+    name2     => 1,
+}, 'hashref ok');
+
+($arows,@updates) = $n->q_update;
+is(scalar @updates, 1, 'no second primary key, one update');
+
+$query = $schema->query(@{$updates[0]});
+is($query->as_string, 'UPDATE
+    artists
+SET
+    id = ?
+WHERE
+    id = ?
+', 'query ok');
+
+$n->set_id2(1);
+is_deeply($n->_hashref_modified, {
+    id        => 1,
+    id2       => 1,
+    name2     => 1,
+}, 'hashref ok');
+
+($arows,@updates) = $n->q_update;
+is(scalar @updates, 2, 'second primary key, two updates');
+
+$n->set_name(1);
+($arows,@updates) = $n->q_update;
+is(scalar @updates, 2, 'second primary key, two updates');
+
+$query = $schema->query(@{$updates[0]});
+is($query->as_string, 'UPDATE
+    artists
+SET
+    id = ?, name = ?
+WHERE
+    id = ?
+', 'query ok');
+
+$query = $schema->query(@{$updates[1]});
+is($query->as_string, 'UPDATE
+    artists
+SET
+    id = ?, name = ?
+WHERE
+    id = ?
+', 'query ok');
+
+
+is($n->quickdump, 'id[m]        = 1
+name[m]      = 1
+id2[m]       = 1
+name2[m]     = 1
+', 'dump ok');
+
+is_deeply($n->_hashref, {
+    id        => 1,
+    name      => 1,
+    id2       => 1,
+    name2     => 1,
+}, 'hashref ok');

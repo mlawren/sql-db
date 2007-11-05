@@ -2,6 +2,8 @@ package SQL::DB::Row;
 use strict;
 use warnings;
 use Carp qw(croak);
+use Scalar::Util qw(refaddr);
+
 use constant ORIGINAL => 0;
 use constant MODIFIED => 1;
 use constant STATUS   => 2;
@@ -13,6 +15,9 @@ sub make_class_from {
 
     my @methods;
     my @tablecolumns;
+    my $arows = {};
+
+    my $i = 0;
     foreach my $obj (@_) {
         my $method;
         my $set_method;
@@ -20,7 +25,9 @@ sub make_class_from {
             ($method = $obj->_as) =~ s/^t\d+\.//;
             $set_method = 'set_'. $method;
             push(@methods, [$method, $set_method, $obj->_column]);
-            push(@tablecolumns, $obj->_column->table->name .'.'. $obj->_column->name);
+            push(@tablecolumns, $obj->_column->table->name .'.'.
+                                $obj->_column->name);
+            push(@{$arows->{refaddr($obj->_arow)}}, [$i,$obj->_column]);
         }
         elsif (UNIVERSAL::can($obj, 'table')) {      # Column
             $method = $obj->name;
@@ -37,6 +44,7 @@ sub make_class_from {
         else {
             croak 'MultiRow takes AColumns, Columns or Exprs: '. ref($obj);
         }
+        $i++;
     }
 
     my $class = $proto .'::'. join('_', @tablecolumns);
@@ -48,10 +56,11 @@ sub make_class_from {
     }
     push(@{$isa}, $proto);
 
+    ${$class.'::_arow_groups'} = [values %$arows] if(keys %$arows);;
 
     my $defaults = {};
 
-    my $i = 0;
+    $i = 0;
     foreach my $def (@methods) {
         # index/position in array
         ${$class.'::_index_'.$def->[0]} = $i;
@@ -88,7 +97,7 @@ sub make_class_from {
             if (defined(&{$class.'::'.$def->[1]})) {
                 die "double definition";
             }
-            if ($def->[2]) { # we have a column - record modification
+            if ($def->[2]) { # we have a column - record the modification
                 *{$class.'::'.$def->[1]} = sub {
                     my $self = shift;
                     if (!@_) {
@@ -182,14 +191,11 @@ sub make_class_from {
 
     *{$class.'::_hashref'} = sub {
         my $self = shift;
-
-        my @cols = @{$class .'::_columns'};
         my $hashref = {};
         
         my $i = 0;
-        foreach my $col (@cols) {
-            next unless($col);
-            $hashref->{$col->name} = $self->[$self->[STATUS]->[$i]]->[$i];
+        foreach my $def (@methods) {
+            $hashref->{$def->[0]} = $self->[$self->[STATUS]->[$i]]->[$i];
             $i++;
         }
         return $hashref;
@@ -207,14 +213,12 @@ sub make_class_from {
 
     *{$class.'::_hashref_modified'} = sub {
         my $self = shift;
-        my @cols = @{$class .'::_columns'};
         my $hashref = {};
         
         my $i = 0;
-        foreach my $col (@cols) {
-            next unless($col);
+        foreach my $def (@methods) {
             if ($self->[STATUS]->[$i] == MODIFIED) {
-                $hashref->{$col->name} = $self->[MODIFIED]->[$i];
+                $hashref->{$def->[0]} = $self->[MODIFIED]->[$i];
             }
             $i++;
         }
@@ -305,50 +309,95 @@ sub make_class_from {
 
         my @cols = @{$class .'::_columns'};
         
-        my $arows   = {};
-        my $updates = {};
-        my $where   = {};
+        my $arows     = {};
+        my $primary   = {};
+        my $updates   = {};
+        my $where     = {};
 
-        my $i = 0;
-        foreach my $col (@cols) {
-            next unless($col);
+        if (my $_arow_groups = ${$class.'::_arow_groups'}) {
+            my $groupid = 0;
+            foreach my $group (@$_arow_groups) {
+                foreach my $group_item (@$group) {
+                    my ($i,$col) = @$group_item;
+                    my $colname  = $col->name;
 
-            my $colname = $col->name;
-            my $tname   = $col->table->name;
+                    if (!exists($arows->{$groupid})) {
+                        $arows->{$groupid}   = $col->table->arow();
+                        $updates->{$groupid} = [],
+                    }
 
-            if (!exists($arows->{$tname})) {
-                $arows->{$tname}   = $col->table->arow();
-                $updates->{$tname} = [],
+                    if ($col->primary) {
+                        # NULL primary columns can't be used.
+                        if (!defined($self->[$self->[STATUS]->[$i]]->[$i])) {
+                            next;
+                        }
+
+                        $primary->{$groupid} = 1;
+                        if (!$where->{$groupid}) {
+                            $where->{$groupid} =
+                                ($arows->{$groupid}->$colname ==
+                                $self->[$self->[STATUS]->[$i]]->[$i]);
+                        }
+                        else {
+                            $where->{$groupid} = $where->{$groupid} & 
+                                ($arows->{$groupid}->$colname ==
+                                $self->[$self->[STATUS]->[$i]]->[$i]);
+                        }
+                    }
+
+                    if ($self->[STATUS]->[$i] == MODIFIED) {
+                        push(@{$updates->{$groupid}},
+                            $arows->{$groupid}->$colname->set(
+                                        $self->[MODIFIED]->[$i])
+                        );
+                    }
+                }
+                $groupid++;
             }
+        }
+        else {
+            my $i = 0;
+            foreach my $col (@cols) {
+                next unless($col);
 
-            if ($col->primary) {
-                # NULL primary columns can't be used.
-                if (!defined($self->[$self->[STATUS]->[$i]]->[$i])) {
-                    $i++;
-                    next;
+                my $colname = $col->name;
+                my $tname   = $col->table->name;
+
+                if (!exists($arows->{$tname})) {
+                    $arows->{$tname}   = $col->table->arow();
+                    $updates->{$tname} = [],
                 }
 
-                if (!$where->{$tname}) {
-                    $where->{$tname} = ($arows->{$tname}->$colname ==
-                        $self->[$self->[STATUS]->[$i]]->[$i]);
-                }
-                else {
-                    $where->{$tname} = $where->{$tname} & 
-                        ($arows->{$tname}->$colname ==
-                        $self->[$self->[STATUS]->[$i]]->[$i]);
-                }
-            }
+                if ($col->primary) {
+                    # NULL primary columns can't be used.
+                    if (!defined($self->[$self->[STATUS]->[$i]]->[$i])) {
+                        $i++;
+                        next;
+                    }
 
-            if ($self->[STATUS]->[$i] == MODIFIED) {
-                push(@{$updates->{$tname}},
-                    $arows->{$tname}->$colname->set($self->[MODIFIED]->[$i])
-                );
+                    $primary->{$tname} = 1;
+                    if (!$where->{$tname}) {
+                        $where->{$tname} = ($arows->{$tname}->$colname ==
+                            $self->[$self->[STATUS]->[$i]]->[$i]);
+                    }
+                    else {
+                        $where->{$tname} = $where->{$tname} & 
+                            ($arows->{$tname}->$colname ==
+                            $self->[$self->[STATUS]->[$i]]->[$i]);
+                    }
+                }
+
+                if ($self->[STATUS]->[$i] == MODIFIED) {
+                    push(@{$updates->{$tname}},
+                        $arows->{$tname}->$colname->set($self->[MODIFIED]->[$i])
+                    );
+                }
+                $i++;
             }
-            $i++;
         }
 
         my @queries;
-        foreach my $table (keys %{$where}) {
+        foreach my $table (keys %{$primary}) {
             next unless($where->{$table} and @{$updates->{$table}});
             push(@queries, [
                 update => $updates->{$table},

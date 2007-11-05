@@ -12,14 +12,12 @@ use UNIVERSAL qw(isa);
 sub new {
     my $proto = shift;
     my $class = ref($proto) || $proto;
+    @_ || confess "usage: ". __PACKAGE__ ."->new(\@statements)";
+
     my $self = $proto->SUPER::new; # Get an Expr-based object
     bless($self, $class);
 
     $self->{is_select} = $_[0] =~ m/^select/i;
-
-    unless (@_) {
-        confess "usage: ". __PACKAGE__ ."->new(\@statements)";
-    }
 
     $self->{query} = [];
 
