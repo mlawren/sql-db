@@ -412,6 +412,7 @@ sub seq {
         croak "seq: $tmp";
     }
 
+
     if (wantarray) {
         my $start = $seq->val + 1;
         my $stop  = $start + $count - 1;
@@ -478,6 +479,29 @@ sub qcount {
 }
 
 
+sub quickrows {
+    my $self = shift;
+    return unless(@_);
+
+    my @keys = $_[0]->_column_names;
+    my $c = join(' ', map {'%-'.(length($_)+ 2).'.'
+                           .(length($_)+ 2).'s'} @keys) . "\n";
+
+    my $str = sprintf($c, @keys);
+
+    foreach my $row (@_) {
+        my @values = map {$row->$_} @keys;
+        my @print = map {
+            !defined($_) ?
+            'NULL' :
+            ($_ !~ m/^[[:print:]]*$/ ? '*BINARY*' : $_)
+        } @values;
+
+        $str .= sprintf($c, @print);
+    }
+    return $str;
+}
+    
 
 sub disconnect {
     my $self = shift;
@@ -490,11 +514,11 @@ sub disconnect {
 }
 
 
-DESTROY {
-    my $self = shift;
-    $self->disconnect;
-    return;
-}
+#DESTROY {
+#    my $self = shift;
+#    $self->disconnect;
+#    return;
+#}
 
 
 1;
@@ -723,6 +747,15 @@ attempt to do so. Let me know if this is a feature you require.
 =head2 qcount
 
 Returns the number of successful queries that have been run.
+
+
+=head2 quickrows(@objs)
+
+Returns a string containing the column values of @objs in a tabular
+format. Useful for having a quick look at what the database has returned:
+
+    my @objs = $db->fetch(....);
+    warn $db->quickrows(@objs);
 
 =head2 create_seq($name)
 
