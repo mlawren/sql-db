@@ -17,6 +17,8 @@ use overload
     '>='     => 'expr_gte',
     '+'      => 'expr_plus',
     '-'      => 'expr_minus',
+    '*'      => 'expr_multiply',
+    '/'      => 'expr_divide',
     '""'     => 'as_string',
     fallback => 1,
 ;
@@ -206,27 +208,75 @@ sub expr_or {
 }
 
 sub expr_lt {
-    return expr_binary($_[0],'<',$_[1]);
+    if ($_[2]) {
+        return expr_binary($_[1],'<',$_[0]);
+    }
+    else {
+        return expr_binary($_[0],'<',$_[1]);
+    }
 }
 
 sub expr_lte {
-    return expr_binary($_[0],'<=',$_[1]);
+    if ($_[2]) {
+        return expr_binary($_[1],'<=',$_[0]);
+    }
+    else {
+        return expr_binary($_[0],'<=',$_[1]);
+    }
 }
 
 sub expr_gt {
-    return expr_binary($_[0],'>',$_[1]);
+    if ($_[2]) {
+        return expr_binary($_[1],'>',$_[0]);
+    }
+    else {
+        return expr_binary($_[0],'>',$_[1]);
+    }
 }
 
 sub expr_gte {
-    return expr_binary($_[0],'>=',$_[1]);
+    if ($_[2]) {
+        return expr_binary($_[1],'>=',$_[0]);
+    }
+    else {
+        return expr_binary($_[0],'>=',$_[1]);
+    }
 }
 
 sub expr_plus {
-    return expr_binary($_[0],'+',$_[1]);
+    if ($_[2]) {
+        return expr_binary($_[1],'+',$_[0]);
+    }
+    else {
+        return expr_binary($_[0],'+',$_[1]);
+    }
 }
 
 sub expr_minus {
-    return expr_binary($_[0],'-',$_[1]);
+    if ($_[2]) {
+        return expr_binary($_[1],'-',$_[0]);
+    }
+    else {
+        return expr_binary($_[0],'-',$_[1]);
+    }
+}
+
+sub expr_multiply {
+    if ($_[2]) {
+        return expr_binary($_[1],'*',$_[0]);
+    }
+    else {
+        return expr_binary($_[0],'*',$_[1]);
+    }
+}
+
+sub expr_divide {
+    if ($_[2]) {
+        return expr_binary($_[1],'/',$_[0]);
+    }
+    else {
+        return expr_binary($_[0],'/',$_[1]);
+    }
 }
 
 
@@ -295,6 +345,29 @@ sub between {
     }
 
     my $new =  __PACKAGE__->new($expr1 .' BETWEEN '.
+                                 join(' AND ', @exprs), @bind);
+    $new->multi(1);
+    return $new;
+}
+
+
+sub not_between {
+    my $expr1 = shift;
+    my @bind = $expr1->bind_values;
+    my @exprs;
+
+    foreach my $e (@_) {
+        if (isa($e, __PACKAGE__)) {
+            push(@exprs, $e);
+            push(@bind, $e->bind_values);
+        }
+        else {
+            push(@exprs, '?');
+            push(@bind, $e);
+        }
+    }
+
+    my $new =  __PACKAGE__->new($expr1 .' NOT BETWEEN '.
                                  join(' AND ', @exprs), @bind);
     $new->multi(1);
     return $new;
@@ -419,6 +492,11 @@ B<SQL::DB::Schema::Expr> is ...
 =head2 expr_minus
 
 
+=head2 expr_multiply
+
+
+=head2 expr_divide
+
 
 =head2 expr_not
 
@@ -434,6 +512,8 @@ B<SQL::DB::Schema::Expr> is ...
 
 =head2 between
 
+
+=head2 not_between
 
 
 =head1 FILES

@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 80;
+use Test::More tests => 83;
 use Test::Exception;
 use Test::Memory::Cycle;
 
@@ -22,6 +22,7 @@ can_ok('SQL::DB::Schema', qw/
     upper
     lower
     case
+    EXISTS
     now
     nextval
     currval
@@ -38,6 +39,7 @@ SQL::DB::Schema->import(qw/
     upper
     lower
     case
+    EXISTS
     now
     nextval
     currval
@@ -80,11 +82,13 @@ foreach my $t (
     [sum('length')->as('sum_length'),
         'SUM(length) AS sum_length'],
     [cast($artist->name->as('something')),
-        'CAST(t0.name AS something)'],
+        'CAST(artists0.name AS something)'],
     [upper('length'),
         'UPPER(length)'],
     [lower('length'),
         'LOWER(length)'],
+    [EXISTS('something'),
+        'EXISTS(something)'],
     [case('col',when => 'x', then => 1),
         'CASE col WHEN ? THEN ? END'],
     [case('col',when => 'x', then => 1, when => 'y', then => 2),

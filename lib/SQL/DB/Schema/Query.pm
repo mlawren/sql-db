@@ -70,7 +70,8 @@ sub as_string {
         $s .= $self->$stm($val);    
     }
     unless ($self->{is_select}) {
-        $s =~ s/t\d+\.//g;
+        $s =~ s/t\d+\.//go;
+        $s =~ s/\w+\d+\.//go;
     }
     return $s;
 }
@@ -79,7 +80,7 @@ sub as_string {
 sub _alias {
     my $self = shift;
     if (!$self->{tid}) {
-        $self->{tid} = $SQL::DB::Schema::ARow::tcount++;
+        $self->{tid} = $SQL::DB::Schema::ARow::tcount->{Query}++;
     }
     return 't'.$self->{tid};
 }
@@ -103,7 +104,8 @@ sub sql_where {
     my $self  = shift;
     my $where = shift;
     if (!$self->{acolumns}) { # !SELECT
-        $where =~ s/t\d+\.//g;
+        $where =~ s/t\d+\.//go;
+        $where =~ s/\w+\d+\.//go;
     }
     return "WHERE\n    " . $where . "\n";
 }

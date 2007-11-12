@@ -53,7 +53,7 @@ $q = $s->query(
 #    where  => $artist->id > 0 && $artist->id < 10,
 );
 is($q, 'SELECT
-    t0.id
+    artists0.id
 ', 'select');
 memory_cycle_ok($q, 'memory cycle');
 

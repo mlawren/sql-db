@@ -2,22 +2,44 @@ package SQL::DB::Schema::ARow;
 use strict;
 use warnings;
 use base qw(Class::Accessor);
-use Carp qw(carp croak confess);
+use Carp qw(carp croak confess cluck);
 use SQL::DB::Schema::AColumn;
 use Scalar::Util qw(weaken);
 
 
-our $tcount = 0;
 our $DEBUG;
+
+
+our $tcount = {};
+
+
+sub _getid {
+    my $name = shift;
+    $tcount->{$name} ||= [];
+    my $i = 0;
+    while ($tcount->{$name}->[$i]) {
+        $i++;
+    }
+    $tcount->{$name}->[$i] = 1;
+    return $i;
+}
+
+
+sub _releaseid {
+    my ($name,$i) = @_;
+    $tcount->{$name}->[$i] = undef;
+    return;
+}
 
 
 sub new {
     my $proto = shift;
     my $class = ref($proto) || $proto;
-    my $self = {
-        arow_tid => $tcount++,
-    };
+    my $self = {};
     bless($self, $class);
+
+    $self->{arow_tid} = _getid($self->_table->name);
+#    $self->{arow_tid} = $tcount++;
 
     foreach my $col ($self->_table->columns) {
         my $acol = SQL::DB::Schema::AColumn->new($col, $self);
@@ -45,6 +67,7 @@ sub _table_name {
 
 sub _alias {
     my $self = shift;
+    return $self->_table->name . $self->{arow_tid};
     return 't'. $self->{arow_tid};
 }
 
@@ -63,6 +86,7 @@ sub _column_names {
 
 DESTROY {
     my $self = shift;
+    _releaseid($self->_table->name, $self->{arow_tid});
     warn "DESTROY $self" if($SQL::DB::DEBUG && $SQL::DB::DEBUG>3);
 }
 

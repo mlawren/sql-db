@@ -22,7 +22,7 @@ sub make_class_from {
         my $method;
         my $set_method;
         if (UNIVERSAL::can($obj, '_column')) {        # AColumn
-            ($method = $obj->_as) =~ s/^t\d+\.//;
+            ($method = $obj->_as) =~ s/(^t\d+\.)|(^\w+\d+\.)//go;
             $set_method = 'set_'. $method;
             push(@methods, [$method, $set_method, $obj->_column]);
             push(@tablecolumns, $obj->_column->table->name .'.'.
@@ -84,6 +84,8 @@ sub make_class_from {
             croak 'Attempt to define column "'.$def->[0].'" twice. '
                   .'You cannot fetch two columns with the same name';
         }
+
+        push(@{$class.'::_column_names'}, $def->[0]);
 
         # accessor
         *{$class.'::'.$def->[0]} = sub {
@@ -149,7 +151,6 @@ sub make_class_from {
         my $proto = shift;
         my $incoming;
 
-
         if (ref($_[0]) and ref($_[0]) eq 'HASH') {
             $incoming = shift;
         }
@@ -157,35 +158,53 @@ sub make_class_from {
             $incoming = {@_};
         }
 
-        my $hash  = {};
-        map {$hash->{$_} = $defaults->{$_}} keys %$defaults;
-        map {$hash->{$_} = $incoming->{$_}} keys %$incoming;
-
         my @status = map {ORIGINAL} (1.. scalar @methods);
 
-        my @array = ();
+        # Set the default values
+        my @original = ();
+        my $hash  = {};
+        map {$hash->{$_} = $defaults->{$_}} keys %$defaults;
+
         while (my ($key,$val) = each %$hash) {
             my $i = ${$class.'::_index_'.$key};
             if (defined($i)) {
-                $status[$i] = MODIFIED;
                 if (ref($val) and ref($val) eq 'CODE') {
-                    $array[$i] = &$val;
+                    $original[$i] = &$val;
                 }
                 else {
-                    $array[$i] = $val;
+                    $original[$i] = $val;
                 }
             }
         }
 
+        # Set the incoming values
+        $hash = {};
+        my @modified = ();
+        map {$hash->{$_} = $incoming->{$_}} keys %$incoming;
+
+        while (my ($key,$val) = each %$hash) {
+            my $i = ${$class.'::_index_'.$key};
+            if (defined($i)) {
+                $status[$i] = MODIFIED;
+                $modified[$i] = $val;
+            }
+        }
+
         my $self  = [
-            [],                        # ORIGINAL
-            \@array,                   # MODIFIED
+            \@original,                # ORIGINAL
+            \@modified,                # MODIFIED
             \@status,                  # STATUS
         ];
     
         my $finalclass = ref($proto) || $proto;
         bless($self, $finalclass);
         return $self;
+    };
+
+
+    *{$class.'::_column_names'} = sub {
+        my $self = shift;
+        return @{$class.'::_column_names'};
     };
 
 
@@ -488,7 +507,7 @@ sub make_class_from {
                 $val = '*BINARY DATA*';
             }
             else {
-                $val = (defined($val) ? $val : '*undef*');
+                $val = (defined($val) ? $val : 'NULL');
             }
             $str .= sprintf("\%-12s = \%s\n", $key, $val);
             $i++;

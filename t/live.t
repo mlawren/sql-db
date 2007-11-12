@@ -79,6 +79,7 @@ foreach my $obj (@objs) {
     print $obj->id,', ',$obj->title,', ',$obj->name,"\n";
 }
 
+#warn $db->quickrows(@objs);
 
 
 @objs = $db->fetch(

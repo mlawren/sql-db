@@ -26,6 +26,7 @@ our @EXPORT_OK = qw(
     upper
     lower
     case
+    EXISTS
     now
     nextval
     currval
@@ -206,6 +207,11 @@ sub upper {
 
 sub lower {
     return do_function('LOWER', @_);
+}
+
+
+sub EXISTS {
+    return do_function('EXISTS', @_);
 }
 
 

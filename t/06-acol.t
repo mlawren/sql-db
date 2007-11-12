@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 42;
+use Test::More tests => 52;
 use Test::Memory::Cycle;
 
 use_ok('SQL::DB::Schema::AColumn');
@@ -8,6 +8,7 @@ can_ok('SQL::DB::Schema::AColumn', qw/
     new
     as
     is_null
+    is_not_null
     like
     asc
     desc
@@ -48,6 +49,8 @@ foreach my $t (
     [$acol, 't01.fakecol' ],
     [$acol->as('fakecolas'), 't01.fakecol AS fakecolas' ],
     [$acol->is_null(), 't01.fakecol IS NULL' ],
+    [!$acol, 't01.fakecol IS NULL' ],
+    [$acol->is_not_null(), 't01.fakecol IS NOT NULL' ],
     [$acol->like('%str%'), 't01.fakecol LIKE ?' ],
     [$acol->asc(), 't01.fakecol ASC' ],
     [$acol->desc(), 't01.fakecol DESC' ],

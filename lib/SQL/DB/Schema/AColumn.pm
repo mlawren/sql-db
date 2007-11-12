@@ -39,13 +39,22 @@ sub _arow {
 }
 
 
+sub expr_not {is_null(@_);}
 sub is_null {
     my $self     = shift;
     $self        = $self->_clone();
     $self->set_val($self->{arow}->_alias .'.'. $self->{col}->name .' IS NULL');
     return $self;
 }
-sub expr_not {is_null(@_);}
+
+
+sub is_not_null {
+    my $self     = shift;
+    $self        = $self->_clone();
+    $self->set_val($self->{arow}->_alias .'.'. $self->{col}->name 
+                   .' IS NOT NULL');
+    return $self;
+}
 
 
 sub like {
@@ -130,6 +139,11 @@ B<SQL::DB::Schema::AColumn> is ...
 
 =head2 is_null
 
+
+
+=head2 is_not_null
+
+SQL: IS NOT NULL
 
 
 =head2 expr_not

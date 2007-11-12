@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 77;
+use Test::More tests => 78;
 use Test::Memory::Cycle;
 
 use DBI qw(SQL_BLOB);
@@ -31,10 +31,16 @@ can_ok('SQL::DB::Row::artists.id_artists.name', qw/
     q_update
     q_delete
     quickdump
+    _column_names
+    _hashref
+    _modified
+    _hashref_modified
 /);
 
 my $new = $class->new_from_arrayref([qw(1 Homer)]);
 isa_ok($new, 'SQL::DB::Row::artists.id_artists.name');
+
+is_deeply([$new->_column_names], [qw/id name/], '_column_names');
 
 is($new->id, 1, 'id');
 
