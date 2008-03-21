@@ -68,6 +68,7 @@ sub connect {
     $self->{sqldb_pass}   = $pass;
     $self->{sqldb_attrs}  = $attrs;
     $self->{sqldb_qcount} = 0;
+    $self->{sqldb_txn}    = 0;
 
     $self->_set_table_types();
 
@@ -305,33 +306,47 @@ sub txn {
     my $subref = shift;
     (ref($subref) && ref($subref) eq 'CODE') || croak 'usage txn($subref)';
 
-    if ($self->{sqldb_txn}) {
-        croak 'Cannot nest transactions';
-    }
-    $self->{sqldb_txn} = 1;
+    $self->{sqldb_txn}++;
 
-    $self->dbh->begin_work;
-    carp 'debug: BEGIN WORK' if($DEBUG);
+    if ($self->{sqldb_txn} == 1) {
+        $self->dbh->begin_work;
+        carp 'debug: BEGIN WORK (txn 1)' if($DEBUG);
+    }
+    else {
+        carp 'debug: Begin Work (txn '.$self->{sqldb_txn}.')' if($DEBUG);
+    }
+
 
     my $result = eval {local $SIG{__DIE__}; &$subref};
 
     if ($@) {
-        if ($@ =~ /Cannot nest transactions/) {
-            croak 'Cannot nest transactions';
-        }
         my $tmp = $@;
-        carp 'debug: ROLLBACK' if($DEBUG);
-        eval {$self->dbh->rollback};
-        delete $self->{sqldb_txn};
+        if ($self->{sqldb_txn} == 1) { # top-most txn
+            carp 'debug: ROLLBACK (txn 1)' if($DEBUG);
+            eval {$self->dbh->rollback};
+        }
+        else { # nested txn - die so the outer txn fails
+            warn 'debug: FAIL Work (txn '.$self->{sqldb_txn}.'): '
+                 . $tmp if($DEBUG);
+            $self->{sqldb_txn}--;
+            die $tmp;
+        }
+        $self->{sqldb_txn}--;
         if (wantarray) {
             return (undef, $tmp);
         }
         return;
     }
 
-    carp 'debug: COMMIT' if($DEBUG);
-    $self->dbh->commit;
-    delete $self->{sqldb_txn};
+    if ($self->{sqldb_txn} == 1) {
+        carp 'debug: COMMIT (txn 1)' if($DEBUG);
+        $self->dbh->commit;
+    }
+    else {
+        carp 'debug: End Work (txn '.$self->{sqldb_txn}.')' if($DEBUG);
+    }
+    $self->{sqldb_txn}--;
+
     if (wantarray) {
         return (1);
     }
@@ -740,14 +755,12 @@ rolled back.
 In scalar context returns true/undef on sucess/failure. In array context
 returns (true/undef, $errstr) on success/failure.
 
-It is not possible to nest transactions with B<SQL::DB>, even if your
-database backend supports this. Hence this method will croak if you
-attempt to do so. Let me know if this is a feature you require.
+This method can be called recursively, but any sub-transaction failure
+will always result in the outer-most transaction also being rolled back.
 
 =head2 qcount
 
 Returns the number of successful queries that have been run.
-
 
 =head2 quickrows(@objs)
 

@@ -25,7 +25,7 @@ sub new {
         my $action = 'st_'.$key;
 
         unless($self->can($action)) {
-            confess "Unknown command: $key";
+            confess "Unknown command: $key. Next is:" .(shift).' '.(shift);
         }
 
         my $val    = shift;
@@ -70,7 +70,6 @@ sub as_string {
         $s .= $self->$stm($val);    
     }
     unless ($self->{is_select}) {
-        $s =~ s/t\d+\.//go;
         $s =~ s/\w+\d+\.//go;
     }
     return $s;
@@ -103,10 +102,6 @@ sub st_where {
 sub sql_where {
     my $self  = shift;
     my $where = shift;
-    if (!$self->{acolumns}) { # !SELECT
-        $where =~ s/t\d+\.//go;
-        $where =~ s/\w+\d+\.//go;
-    }
     return "WHERE\n    " . $where . "\n";
 }
 

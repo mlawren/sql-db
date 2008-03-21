@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 23;
+use Test::More tests => 25;
 use Test::Exception;
 use Test::Memory::Cycle;
 
@@ -80,12 +80,28 @@ is($db->fetch1(
     from   => $artists,
 )->acount,3, 'select 3');
 
-throws_ok(sub {
+($res,$err) = $db->txn(sub {
     $db->txn(sub {
-        $db->txn(sub {
-            insert($a4);
-        });
-    })
-}, qr/Cannot/, 'nested txn');
+        $db->insert($a4);
+    });
+});
+
+ok($res, 'nested transaction insert 4');
 
 memory_cycle_ok($db, 'memory cycle');
+
+($res,$err) = $db->txn(sub {
+    $db->insert($a4);
+});
+ok(!$res, "transaction insert duplicate 4");
+
+my $subref = sub {
+    $db->txn(sub{
+        $db->insert($a4);
+    });
+};
+
+#$SQL::DB::DEBUG=1;
+($res,$err) = $db->txn($subref);
+
+ok(!$res, 'nested transaction insert 4 again');
