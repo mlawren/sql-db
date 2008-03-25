@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 10;
+use Test::More tests => 11;
 
 use_ok('SQL::DB', qw(define_tables max min count coalesce sum));
 require_ok('t/TestLib.pm');
@@ -33,7 +33,7 @@ $db->do(
     delete_from => $track,
 );
 
-$db->do(
+$db->do_nopc(
     delete_from => $cd,
 );
 
@@ -130,6 +130,15 @@ my $q2 =  $db->query(
     union    => $q2,
 );
 
+my @objs2 = $db->fetch_nopc(
+    select   => [ $track->title, $cd->year],
+    from     => [$track, $cd],
+    distinct => 1,
+    where    => ( $track->length > 248 ) & ! ($cd->year < 1997),
+    union    => $q2,
+);
+
+is_deeply(\@objs, \@objs2, 'fetch and fetch_nopc');
 
 my $fan = $db->arow('fans');
 my $link = $db->arow('artists_fans');

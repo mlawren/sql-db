@@ -7,8 +7,9 @@ use Carp qw(croak);
 sub new {
     my $proto = shift;
     my $class = ref($proto) || $proto;
+    my $sth   = shift;
+    my $cl    = shift;
 
-    my ($sth,$cl) = @_;
     ($sth && $cl) || croak 'usage: new($sth,$class)';
 
     my $self = {
@@ -23,6 +24,9 @@ sub new {
 
 sub next {
     my $self = shift;
+    if ($self->{finish}) {
+        croak 'attempt to fetch row from handle that is finished';
+    }
 
     # we don't use fetchrow_arrarref because that always returns the
     # same reference and might overwrite user data.
@@ -39,6 +43,13 @@ sub next {
 
     my $class = $self->{class};
     return $class->new_from_arrayref(\@list)->_inflate;
+}
+
+
+sub _finish {
+    my $self = shift;
+    $self->{sth}->finish();
+    $self->{finish}++;
 }
 
 
@@ -66,7 +77,7 @@ used by the L<SQL::DB> fetch() method, and in user code.
 
 =head1 METHODS
 
-=head2 new($sth)
+=head2 new($sth,$class)
 
 Create a new cursor object. $sth is a DBI statement handle (ie the result
 of a DBI->execute call). $class must be the result of a L<SQL::DB::Row>
@@ -77,13 +88,19 @@ make_class_from() method call.
 Returns the next row from the database as an object of type $class. Returns
 undef when no data is left. Croaks on failure.
 
+=head1 PRIATE METHODS
+
+=head2 _finish
+
+Calls finish() on the DBI statement handle.
+
 =head1 AUTHOR
 
 Mark Lawrence E<lt>nomad@null.netE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2007 Mark Lawrence <nomad@null.net>
+Copyright (C) 2007,2008 Mark Lawrence <nomad@null.net>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

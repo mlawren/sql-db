@@ -150,30 +150,37 @@ sub deploy {
         unshift(@tables, $self->table('sqldb'));
     }
 
-    TABLES: foreach my $table (@tables) {
-        my $sth = $self->dbh->table_info('', '', $table->name, 'TABLE');
-        if (!$sth) {
-            die $DBI::errstr;
-        }
-
-        while (my $x = $sth->fetch) {
-            if ($x->[2] eq $table->name) {
-                carp 'Table '. $table->name .' already exists - not deploying';
-                next TABLES;
+    # Faster to do all of this inside a BEGIN/COMMIT block on
+    # things like SQLite, and better that we deploy all or nothing
+    # anyway.
+    $self->txn(sub{
+        TABLES: foreach my $table (@tables) {
+            my $sth = $self->dbh->table_info('', '', $table->name, 'TABLE');
+            if (!$sth) {
+                die $DBI::errstr;
             }
-        }
 
-        foreach my $action ($table->sql_create) {
-            warn "debug: $action" if($DEBUG);
-            my $res;
-            eval {$res = $self->dbh->do($action);};
-            if (!$res or $@) {
-                die $self->dbh->errstr . ' query: '. $action;
+            while (my $x = $sth->fetch) {
+                if ($x->[2] eq $table->name) {
+                    carp 'Table '. $table->name
+                         .' already exists - not deploying';
+                    next TABLES;
+                }
             }
-        }
 
-        $self->create_seq($table->name);
-    }
+            foreach my $action ($table->sql_create) {
+                warn "debug: $action" if($DEBUG);
+                my $res;
+                eval {$res = $self->dbh->do($action);};
+                if (!$res or $@) {
+                    die $self->dbh->errstr . ' query: '. $action;
+                }
+            }
+
+            $self->create_seq($table->name);
+        }
+    });
+
     return 1;
 }
 
@@ -196,13 +203,14 @@ sub query_as_string {
 }
 
 
-sub do {
-    my $self        = shift;
-    my $query       = $self->query(@_);
+sub _do {
+    my $self    = shift;
+    my $prepare = shift || croak '_do($prepare)';
+    my $query   = $self->query(@_);
     my $rv;
 
     eval {
-        my $sth = $self->dbh->prepare_cached("$query");
+        my $sth = $self->dbh->$prepare("$query");
         my $i = 1;
         foreach my $type ($query->bind_types) {
             if ($type) {
@@ -212,6 +220,7 @@ sub do {
             $i++;
         }
         $rv = $sth->execute($query->bind_values);
+        $sth->finish();
     };
 
     if ($@ or !defined($rv)) {
@@ -227,16 +236,29 @@ sub do {
 }
 
 
-sub fetch {
-    my $self  = shift;
-    my $query = $self->query(@_);
-    my $class = SQL::DB::Row->make_class_from($query->acolumns);
+sub do {
+    my $self = shift;
+    return $self->_do('prepare_cached', @_);
+}
+
+
+sub do_nopc {
+    my $self = shift;
+    return $self->_do('prepare', @_);
+}
+
+
+sub _fetch {
+    my $self    = shift;
+    my $prepare = shift || croak '_fetch($prepare)';
+    my $query   = $self->query(@_);
+    my $class   = SQL::DB::Row->make_class_from($query->acolumns);
 
     my $sth;
     my $rv;
 
     eval {
-        $sth = $self->dbh->prepare("$query");
+        $sth = $self->dbh->$prepare("$query");
         my $i = 1;
         foreach my $type ($query->bind_types) {
             if ($type) {
@@ -276,9 +298,33 @@ sub fetch {
 }
 
 
+sub fetch {
+    my $self = shift;
+    return $self->_fetch('prepare_cached', @_);
+}
+
+
+sub fetch_nopc {
+    my $self = shift;
+    return $self->_fetch('prepare', @_);
+}
+
+
 sub fetch1 {
-    my $self  = shift;
-    return $self->fetch(@_)->next;
+    my $self   = shift;
+    my $cursor = $self->_fetch('prepare_cached', @_);
+    my $obj    = $cursor->next;
+    $cursor->_finish();
+    return $obj;
+}
+
+
+sub fetch1_nopc {
+    my $self   = shift;
+    my $cursor = $self->_fetch('prepare', @_);
+    my $obj    = $cursor->next;
+    $cursor->_finish();
+    return $obj;
 }
 
 
@@ -703,14 +749,22 @@ Constructs a L<SQL::DB::Schema::Query> object as defined by @query and runs
 that query against the connected database.  Croaks if an error occurs.
 This is the method to use for any statement that doesn't retrieve
 values (eg INSERT, UPDATE and DELETE). Returns whatever value the
-underlying L<DBI>->do call returns.
+underlying L<DBI>->do call returns.  This method uses "prepare_cached"
+to prepare the call to the database.
+
+=head2 do_nopc(@query)
+
+Same as for do() but uses "prepare" instead of "prepare_cached" to
+prepare the call to the database. This is really only necessary if you
+tend to be making recursive queries that are exactly the same.
+See L<DBI> for details.
 
 =head2 fetch(@query)
 
 Constructs an L<SQL::DB::Schema::Query> object as defined by @query and runs
 that query against the connected database.  Croaks if an error occurs.
 This method should be used for SELECT-type statements that retrieve
-rows.
+rows. This method uses "prepare_cached" to prepare the call to the database.
 
 When called in array context returns a list of objects based on
 L<SQL::DB::Row>. The objects have accessors for each column in the
@@ -721,11 +775,26 @@ When called in scalar context returns a query cursor (L<SQL::DB::Cursor>)
 (with "next", "all" and "reset" methods) to retrieve dynamically
 constructed objects one at a time.
 
+=head2 fetch_nopc(@query)
+
+Same as for fetch() but uses "prepare" instead of "prepare_cached" to
+prepare the call to the database. This is really only necessary if you
+tend to be making recursive queries that are exactly the same.
+See L<DBI> for details.
+
 =head2 fetch1(@query)
 
 Similar to fetch() but always returns only the first object from
 the result set. All other rows (if any) can not be retrieved.
 You should only use this method if you know/expect one result.
+This method uses "prepare_cached" to prepare the call to the database.
+
+=head2 fetch1_nopc(@query)
+
+Same as for fetch1() but uses "prepare" instead of "prepare_cached" to
+prepare the call to the database. This is really only necessary if you
+tend to be making recursive queries that are exactly the same.
+See L<DBI> for details.
 
 =head2 txn(&coderef)
 
@@ -823,7 +892,7 @@ Mark Lawrence E<lt>nomad@null.netE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2007 Mark Lawrence <nomad@null.net>
+Copyright (C) 2007,2008 Mark Lawrence <nomad@null.net>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
