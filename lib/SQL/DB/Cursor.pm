@@ -24,14 +24,17 @@ sub new {
 sub next {
     my $self = shift;
 
+    # we don't use fetchrow_arrarref because that always returns the
+    # same reference and might overwrite user data.
     my @list;
     eval {@list = $self->{sth}->fetchrow_array;};
 
-    if (!@list) {
-        if (!$@) {
-            return;
-        }
+    if ($@) {
         croak "DBI:fetchrow_array $DBI::errstr. $@";
+    }
+
+    if (!@list) {
+        return;
     }
 
     my $class = $self->{class};

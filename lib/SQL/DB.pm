@@ -10,7 +10,7 @@ use SQL::DB::Row;
 use SQL::DB::Cursor;
 
 
-our $VERSION = '0.11';
+our $VERSION = '0.12';
 our $DEBUG   = 0;
 
 our @EXPORT_OK = @SQL::DB::Schema::EXPORT_OK;
@@ -276,28 +276,9 @@ sub fetch {
 }
 
 
-# FIXME bind parameters in here?
 sub fetch1 {
     my $self  = shift;
-    my $query = $self->query(@_);
-    my $class = SQL::DB::Row->make_class_from($query->acolumns);
-
-    my @list;
-    eval {
-        @list = $self->dbh->selectrow_array("$query", undef,
-                                             $query->bind_values);
-    };
-    if ($@) {
-        croak "$@: Query was:\n"
-            . $self->query_as_string("$query", $query->bind_values);
-    }
-
-    return unless(@list);
-
-    $self->{sqldb_qcount}++;
-    carp 'debug: (Rows: '. scalar @list .') '.
-          $self->query_as_string("$query", $query->bind_values) if($DEBUG);
-    return $class->new_from_arrayref(\@list)->_inflate;
+    return $self->fetch(@_)->next;
 }
 
 
@@ -545,7 +526,7 @@ SQL::DB - Perl interface to SQL Databases
 
 =head1 VERSION
 
-0.11. Development release.
+0.12. Development release.
 
 =head1 SYNOPSIS
 
