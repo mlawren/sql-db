@@ -6,6 +6,7 @@ use base qw(SQL::DB::Schema);
 use Carp qw(carp croak confess);
 use DBI;
 use UNIVERSAL qw(isa);
+use Return::Value;
 use SQL::DB::Row;
 use SQL::DB::Cursor;
 
@@ -359,10 +360,7 @@ sub txn {
             die $tmp;
         }
         $self->{sqldb_txn}--;
-        if (wantarray) {
-            return (undef, $tmp);
-        }
-        return;
+        return failure $tmp;
     }
 
     if ($self->{sqldb_txn} == 1) {
@@ -374,9 +372,6 @@ sub txn {
     }
     $self->{sqldb_txn}--;
 
-    if (wantarray) {
-        return (1);
-    }
     return 1;
 }
 
@@ -686,7 +681,7 @@ expressions, etc. However this package is still quite new, and nowhere
 near complete. Feedback, testing, and (even better) patches are all
 welcome.
 
-For a more complete introduction see L<SQL::DB::Intro>.
+For a more complete introduction see L<SQL::DB::Tutorial>.
 
 =head1 CLASS SUBROUTINES
 
@@ -802,8 +797,8 @@ Runs the code in &coderef as an SQL transaction. If &coderef does not
 raise any exceptions then the transaction is commited, otherwise it is
 rolled back.
 
-In scalar context returns true/undef on sucess/failure. In array context
-returns (true/undef, $errstr) on success/failure.
+Returns true/false on success/failure. The returned value can also be
+printed in the event of failure. See L<Return::Value> for details.
 
 This method can be called recursively, but any sub-transaction failure
 will always result in the outer-most transaction also being rolled back.
@@ -873,6 +868,12 @@ Nearly the same as $db->do($sqlobject->q_delete).
 =head2 insert($sqlobject)
 
 Nearly the same as $db->do($sqlobject->q_insert).
+
+=head1 COMPATABILITY
+
+Version 0.13 changed the return type of the txn() method. Instead of a
+2 value list indicating success/failure and error message, a single
+L<Return::Value> object is returned intead.
 
 =head1 DEBUGGING
 

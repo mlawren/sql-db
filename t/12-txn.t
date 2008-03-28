@@ -48,10 +48,10 @@ is($db->fetch1(
     from   => $artists,
 )->acount,1, 'select 1');
 
-my ($res,$err) = $db->txn(sub {
+my $res = $db->txn(sub {
     $db->insert($a1);
 });
-ok(!$res, "transaction insert duplicate");
+ok(!$res, "transaction insert duplicate:");
 
 is($db->fetch1(
     select => count($artists->id)->as('acount'),
@@ -68,7 +68,7 @@ is($db->fetch1(
     from   => $artists,
 )->acount,1, 'still select 1');
 
-($res,$err) = $db->txn(sub {
+$res = $db->txn(sub {
     $db->insert($a2);
     $db->insert($a3);
 });
@@ -80,7 +80,7 @@ is($db->fetch1(
     from   => $artists,
 )->acount,3, 'select 3');
 
-($res,$err) = $db->txn(sub {
+$res = $db->txn(sub {
     $db->txn(sub {
         $db->insert($a4);
     });
@@ -90,7 +90,7 @@ ok($res, 'nested transaction insert 4');
 
 memory_cycle_ok($db, 'memory cycle');
 
-($res,$err) = $db->txn(sub {
+$res = $db->txn(sub {
     $db->insert($a4);
 });
 ok(!$res, "transaction insert duplicate 4");
@@ -102,6 +102,6 @@ my $subref = sub {
 };
 
 #$SQL::DB::DEBUG=1;
-($res,$err) = $db->txn($subref);
+$res = $db->txn($subref);
 
 ok(!$res, 'nested transaction insert 4 again');

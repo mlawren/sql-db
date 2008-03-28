@@ -8,7 +8,7 @@ Standards-Version: 3.6.1
 
 Package: libsql-db-perl
 Architecture: all
-Depends: ${perl:Depends}, ${misc:Depends}, libclass-accessor-perl, libdbi-perl
+Depends: ${perl:Depends}, ${misc:Depends}, libclass-accessor-perl, libdbi-perl, libreturn-value-perl
 Description:  SQL::DB - Perl interface to SQL databases
  SQL::DB provides a low-level interface to SQL databases using Perl
  objects and logic operators. It is not quite an Object Mapping Layer

@@ -8,6 +8,7 @@ all_from        'lib/SQL/DB.pm';
 requires        'DBI'                   => 0;
 requires        'Scalar::Util'          => 0;
 requires        'Class::Accessor::Fast' => 0;
+requires        'Return::Value'         => 0;
 
 build_requires  'File::Temp'            => 0;
 build_requires  'Test::More'            => 0;
