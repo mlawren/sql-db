@@ -1,8 +1,11 @@
+#!/usr/bin/perl
 use strict;
 use warnings;
-use Test::More tests => 10;
+use lib 't/lib';
+use Test::More tests => 4;
+use SQL::DB qw(define_tables max min count coalesce sum);
+use SQLDBTest;
 
-use_ok('SQL::DB', qw(define_tables max min count coalesce sum));
 require_ok('t/TestLib.pm');
 
 #$SQL::DB::DEBUG = 3;
@@ -12,18 +15,9 @@ require_ok('t/TestLib.pm');
 
 define_tables(TestLib->All);
 
-my $db = SQL::DB->new;
-isa_ok($db, 'SQL::DB');
-
-TestLib::populate();
-
-$db->connect(TestLib->dbi);
-
-ok($db->create_seq('test'), "Sequence test created");
-my $val;
-ok($val = $db->seq('test'), "Sequence test $val");
-ok($val = $db->seq('test'), "Sequence test $val");
-ok($val = $db->seq('test'), "Sequence test $val");
+my $db = SQLDBTest->new;
+$db->test_connect();
+$db->test_populate();
 
 my $track   = $db->arow('tracks');
 my $cd     = $db->arow('cds');

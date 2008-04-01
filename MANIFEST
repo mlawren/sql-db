@@ -31,6 +31,7 @@ MANIFEST
 MANIFEST.SKIP
 META.yml
 README
+t/lib/SQLDBTest.pm
 t/01-column.t
 t/02-table.t
 t/03-schema.t

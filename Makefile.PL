@@ -16,9 +16,13 @@ build_requires  'Test::Exception'       => 0;
 build_requires  'Test::Memory::Cycle'   => 0;
 build_requires  'Test::Pod'             => 0;
 build_requires  'Test::Pod::Coverage'   => 0;
-build_requires  'DBD::SQLite'           => 0;
+build_requires  'DBD::SQLite'           => 1.14;
 
 auto_install;
 
 WriteAll;
 
+sub MY::postamble {'
+testpg:
+	TEST_PG=1 $(MAKE) test
+'}

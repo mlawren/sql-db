@@ -1,37 +1,23 @@
+#!/usr/bin/perl
+use lib 't/lib';
 use strict;
 use warnings;
-use Test::More tests => 25;
+use Test::More tests => 14;
 use Test::Exception;
 use Test::Memory::Cycle;
+use SQLDBTest;
+use SQL::DB qw(define_tables count);
 
-use_ok('SQL::DB', 'define_tables', 'count');
 require_ok('t/TestLib.pm');
 
 define_tables(TestLib->Artist);
 
-my $db = SQL::DB->new();
-isa_ok($db, 'SQL::DB');
-memory_cycle_ok($db, 'memory cycle');
-
-$db->connect(
-    TestLib->dbi,undef,undef,
-#    'dbi:Pg:dbname=test;port=5433', 'rekudos', 'rekudos',
-    {PrintError => 0, RaiseError => 1},
-);
-ok(1, 'connected');
-
+my $db = SQLDBTest->new();
+$db->test_connect;
 $db->deploy;
-ok(1, 'deployed');
 
 ok($db->create_seq('test'), "Sequence test created");
 
-ok($db->seq('test') == 1, 'seq1');
-ok($db->seq('test') == 2, 'seq1');
-ok($db->seq('test') == 3, 'seq1');
-is_deeply([$db->seq('test',2)],[4,5], 'seq2');
-is_deeply([$db->seq('test',5)],[6,7,8,9,10], 'seq5');
-
-memory_cycle_ok($db, 'memory cycle');
 
 my $a1 = Artist->new(id => 1, name => 'artist1');
 my $a2 = Artist->new(id => 2, name => 'artist2');
@@ -73,7 +59,7 @@ $res = $db->txn(sub {
     $db->insert($a3);
 });
 
-ok($res, 'transaction insert 2 and 3');
+ok($res, 'transaction insert 2 and 3 '. $res);
 
 is($db->fetch1(
     select => count($artists->id)->as('acount'),
@@ -86,7 +72,7 @@ $res = $db->txn(sub {
     });
 });
 
-ok($res, 'nested transaction insert 4');
+ok($res, 'nested transaction insert 4'. $res);
 
 memory_cycle_ok($db, 'memory cycle');
 

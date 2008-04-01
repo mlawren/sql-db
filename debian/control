@@ -1,7 +1,7 @@
 Source: libsql-db-perl
 Section: perl
 Priority: optional
-Build-Depends: debhelper (>= 4.0.2), libtest-pod-perl, libtest-pod-coverage-perl, libtest-exception-perl, libtest-memory-cycle-perl
+Build-Depends: debhelper (>= 4.0.2), libtest-pod-perl, libtest-pod-coverage-perl, libtest-exception-perl, libtest-memory-cycle-perl, libdbd-sqlite3-perl (>= 1.14-2)
 Build-Depends-Indep: perl (>= 5.8.0-7)
 Maintainer: Mark Lawrence <nomad@null.net>
 Standards-Version: 3.6.1

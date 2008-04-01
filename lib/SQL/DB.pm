@@ -11,7 +11,7 @@ use SQL::DB::Row;
 use SQL::DB::Cursor;
 
 
-our $VERSION = '0.13';
+our $VERSION = '0.14';
 our $DEBUG   = 0;
 
 our @EXPORT_OK = @SQL::DB::Schema::EXPORT_OK;
@@ -38,6 +38,7 @@ sub _set_table_types {
     foreach my $table ($self->tables) {
         $table->set_db_type($type);
     }
+    return;
 }
 
 
@@ -56,6 +57,8 @@ sub connect {
     my $self = shift;
 
     my ($dbi,$user,$pass,$attrs) = @_;
+    $attrs->{PrintError} = 0;
+    $attrs->{RaiseError} = 1;
 
     if (my $dbh = DBI->connect($dbi,$user,$pass,$attrs)) {
         $self->{sqldb_dbh} = $dbh;
@@ -74,7 +77,7 @@ sub connect {
     $self->_set_table_types();
 
     warn "debug: connected to $dbi" if($DEBUG);
-    return;
+    return $self->{sqldb_dbh};
 }
 
 
@@ -99,7 +102,7 @@ sub connect_cached {
     $self->_set_table_types();
 
     warn "debug: connect_cached to $dbi" if($DEBUG);
-    return;
+    return $self->{sqldb_dbh};
 }
 
 
@@ -154,7 +157,7 @@ sub deploy {
     # Faster to do all of this inside a BEGIN/COMMIT block on
     # things like SQLite, and better that we deploy all or nothing
     # anyway.
-    $self->txn(sub{
+    my $res = $self->txn(sub{
         TABLES: foreach my $table (@tables) {
             my $sth = $self->dbh->table_info('', '', $table->name, 'TABLE');
             if (!$sth) {
@@ -178,13 +181,43 @@ sub deploy {
                 }
             }
 
+        }
+    });
+
+    croak $res unless($res);
+
+    # Do this in a separate transaction because PostgreSQL doesn't believe
+    # the tables exist until the above transaction is committed.
+    $res = $self->txn(sub{
+        foreach my $table (@tables) {
             $self->create_seq($table->name);
         }
     });
 
+    croak $res unless($res);
     return 1;
 }
 
+
+sub _undeploy {
+    my $self = shift;
+    (my $type = lc($self->{sqldb_dbi})) =~ s/^dbi:(.*?):.*/$1/;
+    $type || confess 'bad/missing dbi: definition';
+
+    foreach my $table ($self->tables) {
+        my $res;
+        my $action = 'DROP TABLE '.$table->name.
+            ($type eq 'pgsql' ? ' CASCADE' : '');
+        eval {$res = $self->dbh->do($action);};
+        if (!$res or ($@ and $@ !~ /no such table/i)) {
+            my $err = $self->dbh->errstr;
+            if($err !~ /no such table/i) {
+                croak $err . ' query: '. $action;
+            }
+        }
+    }
+    return 1;
+}
 
 
 sub query_as_string {
@@ -384,16 +417,15 @@ sub create_seq {
 
     my $s = SQL::DB::Schema::ARow::sqldb->new;
 
-    if (eval {
+    eval {
         $self->do(
             insert  => [$s->name, $s->val],
             values  => [$name, 0],
         );
-        }) {
-        return 1;
-    }
-    croak "create_seq: $@";
-    return;
+    };
+        
+    croak "create_seq: $@" if($@);
+    return 1;
 }
 
 
@@ -567,7 +599,7 @@ SQL::DB - Perl interface to SQL Databases
 
 =head1 VERSION
 
-0.13. Development release.
+0.14. Development release.
 
 =head1 SYNOPSIS
 
@@ -705,7 +737,7 @@ define_tables() are known.
 Connect to a database. The parameters are passed directly to
 L<DBI>->connect. This method also informs the internal table/column
 representations what type of database we are connected to, so they
-can set their database-specific features accordingly.
+can set their database-specific features accordingly. Returns the dbh.
 
 =head2 connect_cached($dbi, $user, $pass, $attrs)
 
@@ -714,7 +746,7 @@ The parameters are passed directly to L<DBI>->connect_cached. Useful
 when running under persistent environments.
 This method also informs the internal table/column
 representations what type of database we are connected to, so they
-can set their database-specific features accordingly.
+can set their database-specific features accordingly. Returns the dbh.
 
 =head2 dbh
 
@@ -871,7 +903,7 @@ Nearly the same as $db->do($sqlobject->q_insert).
 
 =head1 COMPATABILITY
 
-Version 0.13 changed the return type of the txn() method. Instead of a
+Version 0.14 changed the return type of the txn() method. Instead of a
 2 value list indicating success/failure and error message, a single
 L<Return::Value> object is returned intead.
 

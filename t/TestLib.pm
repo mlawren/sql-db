@@ -150,7 +150,8 @@ sub All {
 sub populate {
     my $db = SQL::DB->new;
     $db->connect(TestLib->dbi);
-    $db->deploy;
+    $db->_undeploy();
+    $db->deploy();
 
     my $track   = $db->arow('tracks');
     my $cd     = $db->arow('cds');

@@ -1,39 +1,30 @@
+#!/usr/bin/perl
 use strict;
 use warnings;
-use Test::More tests => 14;
+use lib 't/lib';
+use Test::More tests => 15;
 use Test::Memory::Cycle;
-use_ok('SQL::DB');
-require_ok('t/TestLib.pm');
+use_ok('SQL::DB', 'define_tables', 'count');
+use_ok('SQLDBTest');
 
-# FIXME FILL THIS OUT
-can_ok('SQL::DB', qw/
-    new
-    create_seq
-    seq
-/);
+my $db = SQLDBTest->new;
 
-
-my $db = SQL::DB->new();
 isa_ok($db, 'SQL::DB');
 memory_cycle_ok($db, 'memory cycle');
 
-$db->connect(
-    TestLib->dbi,undef,undef,
-#    'dbi:Pg:dbname=test;port=5433', 'rekudos', 'rekudos',
-    {PrintError => 0, RaiseError => 1},
-);
-ok(1, 'connected');
-
-$db->deploy;
-ok(1, 'deployed');
+my $dbh = $db->test_connect;
+isa_ok($dbh, 'DBI::db');
+ok(1, $db->{sqldb_dbi});
+ok($dbh eq $db->dbh, 'same handle');
+ok($db->deploy(), 'deploy');
 
 ok($db->create_seq('test'), "Sequence test created");
 
 ok($db->seq('test') == 1, 'seq1');
-ok($db->seq('test') == 2, 'seq1');
-ok($db->seq('test') == 3, 'seq1');
-is_deeply([$db->seq('test',2)],[4,5], 'seq2');
-is_deeply([$db->seq('test',5)],[6,7,8,9,10], 'seq5');
+ok($db->seq('test') == 2, 'seq2');
+ok($db->seq('test') == 3, 'seq3');
+is_deeply([$db->seq('test',2)],[4,5], 'multiple sequence 1');
+is_deeply([$db->seq('test',5)],[6,7,8,9,10], 'multiple sequence 2');
 
 memory_cycle_ok($db, 'memory cycle');
 
