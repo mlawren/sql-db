@@ -2,11 +2,23 @@
 use lib 't/lib';
 use strict;
 use warnings;
-use Test::More tests => 14;
+use DBD::SQLite;
+use Test::More;
 use Test::Exception;
 use Test::Memory::Cycle;
 use SQLDBTest;
 use SQL::DB qw(define_tables count);
+
+BEGIN {
+    if ($ENV{TEST_PG}
+        or $DBD::SQLite::VERSION > 1.15
+        or -f '/etc/debian_version') {
+        plan tests => 14;
+    }
+    else {
+        plan skip_all => 'SQL::DBD Bug 30558';
+    }
+}
 
 require_ok('t/TestLib.pm');
 
@@ -15,6 +27,10 @@ define_tables(TestLib->Artist);
 my $db = SQLDBTest->new();
 $db->test_connect;
 $db->deploy;
+#$db->dbh->do('PRAGMA parser_trace = ON;');
+#$db->dbh->do('PRAGMA vdbe_trace = ON;');
+#$db->dbh->do('PRAGMA vdbe_listing = ON;');
+#$db->dbh->trace('5|ALL|SQL');
 
 ok($db->create_seq('test'), "Sequence test created");
 
@@ -59,7 +75,7 @@ $res = $db->txn(sub {
     $db->insert($a3);
 });
 
-ok($res, 'transaction insert 2 and 3 '. $res);
+ok($res, 'transaction insert 2 and 3 '. ($res ? '' : $res));
 
 is($db->fetch1(
     select => count($artists->id)->as('acount'),
@@ -72,7 +88,7 @@ $res = $db->txn(sub {
     });
 });
 
-ok($res, 'nested transaction insert 4'. $res);
+ok($res, 'nested transaction insert 4'. ($res ? '' : $res));
 
 memory_cycle_ok($db, 'memory cycle');
 

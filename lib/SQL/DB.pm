@@ -367,10 +367,16 @@ sub txn {
     my $subref = shift;
     (ref($subref) && ref($subref) eq 'CODE') || croak 'usage txn($subref)';
 
+    my $rc;
     $self->{sqldb_txn}++;
 
     if ($self->{sqldb_txn} == 1) {
-        $self->dbh->begin_work;
+        eval {$rc = $self->dbh->begin_work;};
+        if (!$rc) {
+            my $err = $self->dbh->errstr;
+            carp $err;
+            return failure $err;
+        }
         carp 'debug: BEGIN WORK (txn 1)' if($DEBUG);
     }
     else {
@@ -387,7 +393,7 @@ sub txn {
             eval {$self->dbh->rollback};
         }
         else { # nested txn - die so the outer txn fails
-            warn 'debug: FAIL Work (txn '.$self->{sqldb_txn}.'): '
+            carp 'debug: FAIL Work (txn '.$self->{sqldb_txn}.'): '
                  . $tmp if($DEBUG);
             $self->{sqldb_txn}--;
             die $tmp;
@@ -398,7 +404,8 @@ sub txn {
 
     if ($self->{sqldb_txn} == 1) {
         carp 'debug: COMMIT (txn 1)' if($DEBUG);
-        $self->dbh->commit;
+        $rc = $self->dbh->commit;
+        carp $self->dbh->errstr unless($rc);
     }
     else {
         carp 'debug: End Work (txn '.$self->{sqldb_txn}.')' if($DEBUG);
