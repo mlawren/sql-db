@@ -158,12 +158,12 @@ sub expr_binary {
 
     if (isa($e1, __PACKAGE__)) {
         push(@bind, $e1->bind_values);
-        if ( ($op eq 'OR' and $e1->op =~ m/(OR)|(AND)/) or
+        if ($e1->multi or ($op eq 'OR' and $e1->op =~ m/(OR)|(AND)/) or
              ($op eq 'AND' and $e1->op =~ m/OR/)) {
             # always return a new expression, because if we set multi
             # on the current object we screw it up when it is used in
             # other queries.
-            $e1 = $e1->new("$e1", $e1->bind_values);
+            $e1 = __PACKAGE__->new("$e1", $e1->bind_values);
             $e1->multi(1);
         }
     }
@@ -174,10 +174,10 @@ sub expr_binary {
 
     if (isa($e2, __PACKAGE__)) {
         push(@bind, $e2->bind_values);
-        if ( ($op eq 'OR' and $e2->op =~ m/(OR)|(AND)/) or
+        if ($e2->multi or ($op eq 'OR' and $e2->op =~ m/(OR)|(AND)/) or
              ($op eq 'AND' and $e2->op =~ m/OR/)) {
             # same as above
-            $e2 = $e2->new("$e2", $e2->bind_values);
+            $e2 = __PACKAGE__->new("$e2", $e2->bind_values);
             $e2->multi(1);
         }
     }
@@ -277,6 +277,11 @@ sub expr_divide {
     else {
         return expr_binary($_[0],'/',$_[1]);
     }
+}
+
+
+sub like {
+    return expr_binary($_[0],'LIKE',$_[1]);
 }
 
 
@@ -501,13 +506,13 @@ B<SQL::DB::Schema::Expr> is ...
 =head2 expr_not
 
 
+=head2 like
+
 
 =head2 in
 
 
-
 =head2 not_in
-
 
 
 =head2 between
@@ -517,7 +522,6 @@ B<SQL::DB::Schema::Expr> is ...
 
 
 =head1 FILES
-
 
 
 =head1 SEE ALSO
