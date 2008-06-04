@@ -503,7 +503,7 @@ sub make_class_from {
         foreach my $def (@methods) {
             my $key = $def->[0] .($self->[STATUS]->[$i] ? '[m]' : '');
             my $val = $self->[$self->[STATUS]->[$i]]->[$i];
-            if (defined($val) and $val !~ /^[[:print:]]+$/) {
+            if (defined($val) and $val =~ /[^[:graph:][:print:]]/) {
                 $val = '*BINARY DATA*';
             }
             else {

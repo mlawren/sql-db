@@ -39,7 +39,6 @@ sub new {
     bless($self, $class);
 
     $self->{arow_tid} = _getid($self->_table->name);
-#    $self->{arow_tid} = $tcount++;
 
     foreach my $col ($self->_table->columns) {
         my $acol = SQL::DB::Schema::AColumn->new($col, $self);
@@ -67,8 +66,7 @@ sub _table_name {
 
 sub _alias {
     my $self = shift;
-    return $self->_table->name . $self->{arow_tid};
-    return 't'. $self->{arow_tid};
+    return $self->_table->name . ($self->{arow_tid}+1);
 }
 
 

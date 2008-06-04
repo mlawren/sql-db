@@ -14,6 +14,7 @@ while (my $line = <SQL>) {
     while (my $line = <SQL>) {
         $line =~ s/dbi:SQLite:\/tmp\/sqldbtest\.db/$dbi/;
         last if($line =~ m/lives in Springfield/);
+        next if($line =~ m/^\s+print/);
         push(@lines, $line);
     }
     last;

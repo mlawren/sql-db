@@ -112,7 +112,7 @@ sub dbh {
 }
 
 
-sub deploy {
+sub _deploy_order {
     my $self = shift;
 
     # calculate which tables reference which other tables, and plan the
@@ -149,6 +149,26 @@ sub deploy {
             croak 'infinite deployment calculation - reference columns loop?';
         }
     }
+    return \@tables;
+}
+
+
+sub deploy_sql {
+    my $self   = shift;
+    my $sql    = '';
+
+    foreach my $table (@{$self->_deploy_order}) {
+        $sql .= join("\n", $table->sql_create) . "\n";
+    }
+    return $sql;        
+}
+
+
+sub deploy {
+    my $self = shift;
+    $self->dbh || croak 'cannot deploy() before connect()';
+
+    my @tables = @{$self->_deploy_order};
 
     if ($self->table('sqldb')) {
         unshift(@tables, $self->table('sqldb'));
@@ -201,17 +221,19 @@ sub deploy {
 
 sub _undeploy {
     my $self = shift;
+    $self->dbh || croak 'cannot _undeploy() before connect()';
+
     (my $type = lc($self->{sqldb_dbi})) =~ s/^dbi:(.*?):.*/$1/;
     $type || confess 'bad/missing dbi: definition';
 
     foreach my $table ($self->tables) {
         my $res;
         my $action = 'DROP TABLE '.$table->name.
-            ($type eq 'pgsql' ? ' CASCADE' : '');
+            ($type eq 'pg' ? ' CASCADE' : '');
         eval {$res = $self->dbh->do($action);};
-        if (!$res or ($@ and $@ !~ /no such table/i)) {
+        if (!$res or $@) {
             my $err = $self->dbh->errstr;
-            if($err !~ /no such table/i) {
+            if($err !~ /(no such table)|(does not exist)|(Unknown table)/i) {
                 croak $err . ' query: '. $action;
             }
         }
@@ -225,7 +247,7 @@ sub query_as_string {
     my $sql  = shift || croak 'query_as_string requires an argument';
     
     foreach (@_) {
-        if (defined($_) and $_ !~ /^[[:print:]]+$/) {
+        if (defined($_) and $_ =~ /[^[:graph:][:space:]]/) {
             $sql =~ s/\?/*BINARY DATA*/;
         }
         else {
@@ -272,12 +294,14 @@ sub _do {
 
 sub do {
     my $self = shift;
+    $self->dbh || croak 'cannot do before connect()';
     return $self->_do('prepare_cached', @_);
 }
 
 
 sub do_nopc {
     my $self = shift;
+    $self->dbh || croak 'cannot do before connect()';
     return $self->_do('prepare', @_);
 }
 
@@ -334,18 +358,21 @@ sub _fetch {
 
 sub fetch {
     my $self = shift;
+    $self->dbh || croak 'cannot fetch before connect()';
     return $self->_fetch('prepare_cached', @_);
 }
 
 
 sub fetch_nopc {
     my $self = shift;
+    $self->dbh || croak 'cannot fetch before connect()';
     return $self->_fetch('prepare', @_);
 }
 
 
 sub fetch1 {
     my $self   = shift;
+    $self->dbh || croak 'cannot fetch before connect()';
     my $cursor = $self->_fetch('prepare_cached', @_);
     my $obj    = $cursor->next;
     $cursor->_finish();
@@ -355,6 +382,7 @@ sub fetch1 {
 
 sub fetch1_nopc {
     my $self   = shift;
+    $self->dbh || croak 'cannot fetch before connect()';
     my $cursor = $self->_fetch('prepare', @_);
     my $obj    = $cursor->next;
     $cursor->_finish();
@@ -570,7 +598,7 @@ sub quickrows {
         my @print = map {
             !defined($_) ?
             'NULL' :
-            ($_ !~ m/^[[:print:]]*$/ ? '*BINARY*' : $_)
+            ($_ =~ m/[^[:graph:][:print:]]/ ? '*BINARY*' : $_)
         } @values;
 
         $str .= sprintf($c, @print);
@@ -759,12 +787,16 @@ can set their database-specific features accordingly. Returns the dbh.
 
 Returns the L<DBI> database handle we are connected with.
 
+=head2 deploy_sql
+
+Returns a string containing the CREATE TABLE and CREATE INDEX
+statements necessary to build the schema in the database. The statements
+are correctly ordered based on column reference information.
+
 =head2 deploy
 
-Runs the CREATE TABLE and CREATE INDEX statements necessary to
-create the schema in the database. Will warn on any tables that
-already exist. Table creation is automatically ordered based on column
-references.
+Creates the tables and indexes in the database. Will warn on any attempts to
+create tables that already exist.
 
 =head2 query(@query)
 

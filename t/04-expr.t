@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 61;
+use Test::More tests => 62;
 
 use_ok('SQL::DB::Schema::Expr');
 
@@ -74,6 +74,7 @@ foreach (
     [!(!($e1 == $e2) | !($e1 == $e2)), 'NOT (NOT (e1 = e2) OR NOT (e1 = e2))'],
     [(($e1 == $e2) | !($e1 == $e2)) & !(!($e1 == $e2) | !($e1 == $e2)),
       '(e1 = e2 OR NOT (e1 = e2)) AND NOT (NOT (e1 = e2) OR NOT (e1 = e2))'],
+    [$e1 == ($e1 | ($e2 & ($e1 == $e2))), 'e1 = e1 OR (e2 AND e1 = e2)'],
     ) {
 
     is($_->[0], $_->[1], $_->[1]);

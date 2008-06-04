@@ -82,7 +82,7 @@ foreach my $t (
     [sum('length')->as('sum_length'),
         'SUM(length) AS sum_length'],
     [cast($artist->name->as('something')),
-        'CAST(artists0.name AS something)'],
+        'CAST(artists1.name AS something)'],
     [upper('length'),
         'UPPER(length)'],
     [lower('length'),

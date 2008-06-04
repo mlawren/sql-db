@@ -25,7 +25,8 @@ sub new {
         my $action = 'st_'.$key;
 
         unless($self->can($action)) {
-            confess "Unknown command: $key. Next is:" .(shift).' '.(shift);
+            confess "Unknown command: $key. Query so far: ".
+                    $self->as_string ." Next is: " .(shift).' '.(shift);
         }
 
         my $val    = shift;

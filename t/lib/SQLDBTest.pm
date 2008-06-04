@@ -2,8 +2,6 @@ package SQLDBTest;
 use strict;
 use warnings;
 use base qw(SQL::DB);
-#use Test::More tests => 13;
-#use Test::Memory::Cycle;
 use File::Temp qw(tempfile tempdir);
 
 #use DBI qw(SQL_BLOB);
