@@ -303,6 +303,10 @@ sub in {
             push(@exprs, $e);
             push(@bind, $e->bind_values);
         }
+        elsif (ref($e) and ref($e) eq 'ARRAY') {
+            push(@exprs, map {'?'} @$e);
+            push(@bind, @$e);
+        }
         else {
             push(@exprs, '?');
             push(@bind, $e);
@@ -323,6 +327,10 @@ sub not_in {
             push(@exprs, $e);
             push(@bind, $e->bind_values);
         }
+        elsif (ref($e) and ref($e) eq 'ARRAY') {
+            push(@exprs, map {'?'} @$e);
+            push(@bind, @$e);
+        }
         else {
             push(@exprs, '?');
             push(@bind, $e);
@@ -337,6 +345,10 @@ sub between {
     my $expr1 = shift;
     my @bind = $expr1->bind_values;
     my @exprs;
+
+    if (@_ != 2) {
+        croak 'between($a,$b)';
+    }
 
     foreach my $e (@_) {
         if (isa($e, __PACKAGE__)) {
@@ -360,6 +372,10 @@ sub not_between {
     my $expr1 = shift;
     my @bind = $expr1->bind_values;
     my @exprs;
+
+    if (@_ != 2) {
+        croak 'between($a,$b)';
+    }
 
     foreach my $e (@_) {
         if (isa($e, __PACKAGE__)) {
