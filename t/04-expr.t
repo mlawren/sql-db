@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 62;
+use Test::More tests => 66;
 
 use_ok('SQL::DB::Schema::Expr');
 
@@ -29,9 +29,11 @@ foreach (
     [$e1 eq 1, 'e1 = ?'],
     [$e1 != 1, 'e1 != ?'],
     [$e1 ne 1, 'e1 != ?'],
+    [!$e1,     'NOT (e1)'],
     [$e1 & 1,  'e1 AND ?'],
-    [!$e1,        'NOT (e1)'],
     [$e1 | 1,  'e1 OR ?'],
+    [$e1->and(1), 'e1 AND ?'],
+    [$e1->or(1),  'e1 OR ?'],
     [$e1 < 1,  'e1 < ?'],
     [$e1 > 1,  'e1 > ?'],
     [$e1 >= 1, 'e1 >= ?'],
@@ -75,6 +77,9 @@ foreach (
     [(($e1 == $e2) | !($e1 == $e2)) & !(!($e1 == $e2) | !($e1 == $e2)),
       '(e1 = e2 OR NOT (e1 = e2)) AND NOT (NOT (e1 = e2) OR NOT (e1 = e2))'],
     [$e1 == ($e1 | ($e2 & ($e1 == $e2))), 'e1 = e1 OR (e2 AND e1 = e2)'],
+    [$e1 == $e1->or($e2->and($e1 == $e2)), 'e1 = e1 OR (e2 AND e1 = e2)'],
+    [$e1 == $e1->or_not($e2->and_not($e1 == $e2)), 'e1 = e1 OR NOT (e2 AND NOT e1 = e2)'],
+
     ) {
 
     is($_->[0], $_->[1], $_->[1]);

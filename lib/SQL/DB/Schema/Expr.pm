@@ -158,8 +158,9 @@ sub expr_binary {
 
     if (isa($e1, __PACKAGE__)) {
         push(@bind, $e1->bind_values);
-        if ($e1->multi or ($op eq 'OR' and $e1->op =~ m/(OR)|(AND)/) or
-             ($op eq 'AND' and $e1->op =~ m/OR/)) {
+        if ($e1->multi
+            or ($op =~ /^OR/ and $e1->op =~ /^(OR)|(AND)/)
+            or ($op =~ /^AND/ and $e1->op =~ /^OR/)) {
             # always return a new expression, because if we set multi
             # on the current object we screw it up when it is used in
             # other queries.
@@ -174,8 +175,9 @@ sub expr_binary {
 
     if (isa($e2, __PACKAGE__)) {
         push(@bind, $e2->bind_values);
-        if ($e2->multi or ($op eq 'OR' and $e2->op =~ m/(OR)|(AND)/) or
-             ($op eq 'AND' and $e2->op =~ m/OR/)) {
+        if ($e2->multi
+            or ($op =~ /^OR/ and $e2->op =~ /^(OR)|(AND)/)
+            or ($op =~ /^AND/ and $e2->op =~ /^OR/)) {
             # same as above
             $e2 = __PACKAGE__->new("$e2", $e2->bind_values);
             $e2->multi(1);
@@ -205,6 +207,22 @@ sub expr_and {
 
 sub expr_or {
     return expr_binary($_[0],'OR',$_[1]);
+}
+
+sub and {
+    return expr_binary($_[0],'AND',$_[1]);
+}
+
+sub or {
+    return expr_binary($_[0],'OR',$_[1]);
+}
+
+sub and_not {
+    return expr_binary($_[0],'AND NOT',$_[1]);
+}
+
+sub or_not {
+    return expr_binary($_[0],'OR NOT',$_[1]);
 }
 
 sub expr_lt {
@@ -484,9 +502,15 @@ B<SQL::DB::Schema::Expr> is ...
 
 =head2 expr_and
 
-
-
 =head2 expr_or
+
+=head2 and
+
+=head2 or
+
+=head2 and_not
+
+=head2 or_not
 
 
 
