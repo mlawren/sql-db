@@ -452,14 +452,22 @@ sub create_seq {
 
     my $s = SQL::DB::Schema::ARow::sqldb->new;
 
-    eval {
-        $self->do(
-            insert  => [$s->name, $s->val],
-            values  => [$name, 0],
-        );
-    };
+    my $exists = $self->fetch1(
+        select => $s->name,
+        from   => $s,
+        where  => $s->name == $name,
+    );
+
+    if (!$exists) {
+        eval {
+            $self->do(
+                insert  => [$s->name, $s->val],
+                values  => [$name, 0],
+            );
+        };
         
-    croak "create_seq: $@" if($@);
+        croak "create_seq: $@" if($@);
+    }
     return 1;
 }
 
