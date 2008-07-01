@@ -112,44 +112,49 @@ sub dbh {
 }
 
 
+# calculate which tables reference which other tables, and plan the
+# deployment order accordingly.
 sub _deploy_order {
-    my $self = shift;
+    my $self     = shift;
+    my @src      = grep {$_->name ne 'sqldb'} $self->tables;
+    my $deployed = {};
+    my @ordered  = ();
+    my $count    = 0;
+    my $limit    = scalar @src + 1;
 
-    # calculate which tables reference which other tables, and plan the
-    # deployment order accordingly.
-    my @tlist = grep {$_->name ne 'sqldb'} $self->tables;
-    my @tables;
-    my $deployed = {map {$_->name => 0} @tlist};
+    while (@src) {
+    warn "count: $count (limit $limit)";
+    warn "src: ". join(', ',map {$_->name} @src);
+    warn "order: ". join(', ',map {$_->name} @ordered);
+        if ($count++ > $limit) {
+            die 'infinite deployment calculation - reference columns loop?';
+        }
 
-    my $max = 0;
-    while (@tlist) {
-        my @newtlist = ();
-        foreach my $t (@tlist) {
-            my $none = 1;
-            foreach my $c ($t->columns) {
-                if (my $ref = $c->references) {
-                    # check for self reference or already deployed
-                    next if ($ref->table == $t or
-                             $deployed->{$ref->table->name});
-                    $none = 0;
+        my @newsrc = ();
+        foreach my $table (@src) {
+            my $deployable = 1;
+            foreach my $c ($table->columns) {
+                if (my $foreignc = $c->references) {
+                    if ($foreignc->table == $table or # self reference
+                        $deployed->{$foreignc->table->name}) {
+                        next;
+                    }
+                    $deployable = 0;
                 }
             }
         
-            if ($none) { # doesn't reference anyone not already deployed
-                push(@tables, $t);
-                $deployed->{$t->name} = 1;
+            if ($deployable) {
+                push(@ordered, $table);
+                $deployed->{$table->name} = 1;
             }
             else {
-                push(@newtlist, $t);
+                push(@newsrc, $table);
             }
         }
-        @tlist = @newtlist;
+        @src = @newsrc;
 
-        if ($max++ > 2000) {
-            croak 'infinite deployment calculation - reference columns loop?';
-        }
     }
-    return \@tables;
+    return @ordered;
 }
 
 
@@ -157,7 +162,7 @@ sub deploy_sql {
     my $self   = shift;
     my $sql    = '';
 
-    foreach my $table (@{$self->_deploy_order}) {
+    foreach my $table ($self->_deploy_order) {
         $sql .= join("\n", $table->sql_create) . "\n";
     }
     return $sql;        
@@ -168,7 +173,7 @@ sub deploy {
     my $self = shift;
     $self->dbh || croak 'cannot deploy() before connect()';
 
-    my @tables = @{$self->_deploy_order};
+    my @tables = $self->_deploy_order;
 
     if ($self->table('sqldb')) {
         unshift(@tables, $self->table('sqldb'));
