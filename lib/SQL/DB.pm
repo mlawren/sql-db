@@ -12,7 +12,6 @@ use SQL::DB::Cursor;
 
 
 our $VERSION = '0.14';
-our $DEBUG   = 0;
 
 our @EXPORT_OK = @SQL::DB::Schema::EXPORT_OK;
 foreach (@EXPORT_OK) {
@@ -53,6 +52,32 @@ sub new {
 }
 
 
+sub set_debug {
+    my $self = shift;
+    $self->{sqldb_debug} = shift;
+    return;
+}
+
+
+sub debug {
+    my $self = shift;
+    return $self->{sqldb_debug};
+}
+
+
+sub set_sqldebug {
+    my $self = shift;
+    $self->{sqldb_sqldebug} = shift;
+    return;
+}
+
+
+sub sqldebug {
+    my $self = shift;
+    return $self->{sqldb_sqldebug};
+}
+
+
 sub connect {
     my $self = shift;
 
@@ -76,7 +101,7 @@ sub connect {
 
     $self->_set_table_types();
 
-    warn "debug: connected to $dbi" if($DEBUG);
+    warn "debug: connected to $dbi" if($self->{sqldb_debug});
     return $self->{sqldb_dbh};
 }
 
@@ -101,7 +126,7 @@ sub connect_cached {
 
     $self->_set_table_types();
 
-    warn "debug: connect_cached to $dbi" if($DEBUG);
+    warn "debug: connect_cached to $dbi" if($self->{sqldb_debug});
     return $self->{sqldb_dbh};
 }
 
@@ -123,11 +148,8 @@ sub _deploy_order {
     my $limit    = scalar @src + 1;
 
     while (@src) {
-    warn "count: $count (limit $limit)";
-    warn "src: ". join(', ',map {$_->name} @src);
-    warn "order: ". join(', ',map {$_->name} @ordered);
         if ($count++ > $limit) {
-            die 'infinite deployment calculation - reference columns loop?';
+            die 'Long deployment calculation - reference columns loop?';
         }
 
         my @newsrc = ();
@@ -198,7 +220,7 @@ sub deploy {
             }
 
             foreach my $action ($table->sql_create) {
-                warn "debug: $action" if($DEBUG);
+                warn "debug: $action" if($self->{sqldb_sqldebug});
                 my $res;
                 eval {$res = $self->dbh->do($action);};
                 if (!$res or $@) {
@@ -276,7 +298,7 @@ sub _do {
         foreach my $type ($query->bind_types) {
             if ($type) {
                 $sth->bind_param($i, undef, $type);
-                carp 'debug: binding param '.$i.' with '.$type if($DEBUG);
+                carp 'debug: binding param '.$i.' with '.$type if($self->{sqldb_debug});
             }
             $i++;
         }
@@ -290,7 +312,7 @@ sub _do {
     }
 
     carp 'debug: '. $self->query_as_string("$query", $query->bind_values)
-         ." /* Result: $rv */" if($DEBUG);
+         ." /* Result: $rv */" if($self->{sqldb_sqldebug});
 
     $self->{sqldb_qcount}++;
     return $rv;
@@ -349,13 +371,15 @@ sub _fetch {
 
         $self->{sqldb_qcount}++;
         carp 'debug: (Rows: '. scalar @$arrayref .') '.
-              $self->query_as_string("$query", $query->bind_values) if($DEBUG);
+              $self->query_as_string("$query", $query->bind_values)
+              if($self->{sqldb_sqldebug});
         return map {$class->new_from_arrayref($_)->_inflate} @{$arrayref};
     }
 
     $self->{sqldb_qcount}++;
     carp 'debug: (Cursor call) '.
-          $self->query_as_string("$query", $query->bind_values) if($DEBUG);
+          $self->query_as_string("$query", $query->bind_values)
+          if($self->{sqldb_sqldebug});
 
     return SQL::DB::Cursor->new($sth, $class);
 }
@@ -410,10 +434,11 @@ sub txn {
             carp $err;
             return failure $err;
         }
-        carp 'debug: BEGIN WORK (txn 1)' if($DEBUG);
+        carp 'debug: BEGIN WORK (txn 1)' if($self->{sqldb_sqldebug});
     }
     else {
-        carp 'debug: Begin Work (txn '.$self->{sqldb_txn}.')' if($DEBUG);
+        carp 'debug: Begin Work (txn '.$self->{sqldb_txn}.')'
+        if($self->{sqldb_sqldebug});
     }
 
 
@@ -422,12 +447,12 @@ sub txn {
     if ($@) {
         my $tmp = $@;
         if ($self->{sqldb_txn} == 1) { # top-most txn
-            carp 'debug: ROLLBACK (txn 1)' if($DEBUG);
+            carp 'debug: ROLLBACK (txn 1)' if($self->{sqldb_sqldebug});
             eval {$self->dbh->rollback};
         }
         else { # nested txn - die so the outer txn fails
             carp 'debug: FAIL Work (txn '.$self->{sqldb_txn}.'): '
-                 . $tmp if($DEBUG);
+                 . $tmp if($self->{sqldb_sqldebug});
             $self->{sqldb_txn}--;
             die $tmp;
         }
@@ -436,12 +461,13 @@ sub txn {
     }
 
     if ($self->{sqldb_txn} == 1) {
-        carp 'debug: COMMIT (txn 1)' if($DEBUG);
+        carp 'debug: COMMIT (txn 1)' if($self->{sqldb_sqldebug});
         $rc = $self->dbh->commit;
         carp $self->dbh->errstr unless($rc);
     }
     else {
-        carp 'debug: End Work (txn '.$self->{sqldb_txn}.')' if($DEBUG);
+        carp 'debug: End Work (txn '.$self->{sqldb_txn}.')'
+        if($self->{sqldb_sqldebug});
     }
     $self->{sqldb_txn}--;
 
@@ -623,7 +649,7 @@ sub quickrows {
 sub disconnect {
     my $self = shift;
     if ($self->dbh) {
-        warn 'debug: Disconnecting from DBI' if($DEBUG);
+        warn 'debug: Disconnecting from DBI' if($self->{sqldb_debug});
         $self->dbh->disconnect;
         delete $self->{sqldb_dbh};
     }
@@ -780,21 +806,39 @@ Create a new B<SQL::DB> object. The optional @names lists the tables
 that this object is to know about. By default all tables defined by
 define_tables() are known.
 
+=head2 set_debug
+
+Set the debugging status (true/false). With debugging turned on debug
+statements are 'warn'ed.
+
+=head2 debug
+
+Get the debug status.
+
+=head2 set_sqldebug
+
+Set the SQL statement debugging status (true/false). With this turned
+on all SQL statements are 'warn'ed.
+
+=head2 sqldebug
+
+Get the SQL debug status.
+
 =head2 connect($dbi, $user, $pass, $attrs)
 
 Connect to a database. The parameters are passed directly to
 L<DBI>->connect. This method also informs the internal table/column
-representations what type of database we are connected to, so they
-can set their database-specific features accordingly. Returns the dbh.
+representations what type of database we are connected to, so they can
+set their database-specific features accordingly. Returns the dbh.
 
 =head2 connect_cached($dbi, $user, $pass, $attrs)
 
-Connect to a database, potentially reusing an existing connection.
-The parameters are passed directly to L<DBI>->connect_cached. Useful
-when running under persistent environments.
-This method also informs the internal table/column
-representations what type of database we are connected to, so they
-can set their database-specific features accordingly. Returns the dbh.
+Connect to a database, potentially reusing an existing connection.  The
+parameters are passed directly to L<DBI>->connect_cached. Useful when
+running under persistent environments.  This method also informs the
+internal table/column representations what type of database we are
+connected to, so they can set their database-specific features
+accordingly. Returns the dbh.
 
 =head2 dbh
 
