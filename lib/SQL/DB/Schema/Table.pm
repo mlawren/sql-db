@@ -54,7 +54,10 @@ sub new {
     }
     push(@{$isa}, 'SQL::DB::Schema::ARow');
     $aclass->mk_accessors($self->column_names_ordered);
-    ${$aclass .'::TABLE'} = $self;
+    {
+        no warnings 'once';
+        ${$aclass .'::TABLE'} = $self;
+    }
 
     foreach my $colname ($self->column_names_ordered) {
         *{$aclass .'::set_'. $colname} = sub {
