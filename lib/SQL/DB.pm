@@ -1003,11 +1003,6 @@ Version 0.14 changed the return type of the txn() method. Instead of a
 2 value list indicating success/failure and error message, a single
 L<Return::Value> object is returned intead.
 
-=head1 DEBUGGING
-
-If $SQL::DB::DEBUG is set to a true value then SQL
-queries and other important actions are 'warn'ed to STDERR
-
 =head1 SEE ALSO
 
 L<SQL::Abstract>, L<DBIx::Class>, L<Class::DBI>, L<Tangram>
