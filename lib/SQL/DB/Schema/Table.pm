@@ -184,7 +184,7 @@ sub setup_unique_index {
                 foreach my $col (@{$val}) {
                     (my $c = $col) =~ s/\s.*//;
                 if (!exists($self->{column_names}->{$c})) {
-                        croak "Index column $c not in table $self->{name}";
+                        confess "Index column $c not in table $self->{name}";
                     }
                 }
             }
@@ -193,7 +193,7 @@ sub setup_unique_index {
                 foreach my $col (split(m/,\s*/, $val)) {
                     (my $c = $col) =~ s/\s.*//;
                     if (!exists($self->{column_names}->{$c})) {
-                        croak "Index column $c not in table $self->{name}";
+                        confess "Index column $c not in table $self->{name}";
                     }
                     push(@vals, $col);
                 }
@@ -206,7 +206,7 @@ sub setup_unique_index {
             foreach my $col (split(m/,\s*/, $def)) {
                 (my $c = $col) =~ s/\s.*//;
                     if (!exists($self->{column_names}->{$c})) {
-                    croak "Index column $c not in table $self->{name}";
+                    confess "Index column $c not in table $self->{name}";
                 }
                 push(@vals, $col);
             }
@@ -228,7 +228,7 @@ sub setup_index {
                 foreach my $col (@{$val}) {
                     (my $c = $col) =~ s/\s.*//;
                 if (!exists($self->{column_names}->{$c})) {
-                        croak "Index column $c not in table $self->{name}";
+                        confess "Index column $c not in table $self->{name}";
                     }
                 }
             }
@@ -237,7 +237,7 @@ sub setup_index {
                 foreach my $col (split(m/,\s*/, $val)) {
                     (my $c = $col) =~ s/\s.*//;
                     if (!exists($self->{column_names}->{$c})) {
-                        croak "Index column $c not in table $self->{name}";
+                        confess "Index column $c not in table $self->{name}";
                     }
                     push(@vals, $col);
                 }
@@ -250,7 +250,7 @@ sub setup_index {
             foreach my $col (split(m/,\s*/, $def)) {
                 (my $c = $col) =~ s/\s.*//;
                     if (!exists($self->{column_names}->{$c})) {
-                    croak "Index column $c not in table $self->{name}";
+                    confess "Index column $c not in table $self->{name}";
                 }
                 push(@vals, $col);
             }
@@ -313,13 +313,13 @@ sub text2cols {
     if ($text =~ /\s*(.*)\s*\((.*)\)/) {
         my $table;
         unless (eval {$table = $self->{schema}->table($1);1;}) {
-            croak "Table $self->{name}: Foreign table $1 not yet defined.\n".
+            confess "Table $self->{name}: Foreign table $1 not yet defined.\n".
                   "Known tables: " 
                     . join(',', map {$_->name} $self->{schema}->tables);
         }
         foreach my $column_name (split(/,\s*/, $2)) {
             unless($table->column($column_name)) {
-                croak "Table $self->{name}: Foreign table '$1' has no "
+                confess "Table $self->{name}: Foreign table '$1' has no "
                      ."column '$column_name'";
             }
             push(@cols, $table->column($column_name));
@@ -328,13 +328,13 @@ sub text2cols {
     else {
         foreach my $column_name (split(/,\s*/, $text)) {
             unless(exists($self->{column_names}->{$column_name})) {
-                croak "Table $self->{name}: No such column '$column_name'";
+                confess "Table $self->{name}: No such column '$column_name'";
             }
             push(@cols, $self->{column_names}->{$column_name});
         }
     }
     if (!@cols) {
-        croak 'No columns found in text: '. $text;
+        confess 'No columns found in text: '. $text;
     }
     return @cols;
 }
