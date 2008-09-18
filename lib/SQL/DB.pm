@@ -298,7 +298,7 @@ sub _do {
         foreach my $type ($query->bind_types) {
             if ($type) {
                 $sth->bind_param($i, undef, $type);
-                carp 'debug: binding param '.$i.' with '.$type if($self->{sqldb_debug} > 1);
+                carp 'debug: binding param '.$i.' with '.$type if($self->{sqldb_debug} && $self->{sqldb_debug} > 1);
             }
             $i++;
         }
