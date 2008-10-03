@@ -474,7 +474,10 @@ sub txn {
     }
     $self->{sqldb_txn}--;
 
-    return 1;
+    if ($result or (ref($result) && ref($result) eq 'Return::Value')) {
+        return $result;
+    }
+    return success $result;
 }
 
 
