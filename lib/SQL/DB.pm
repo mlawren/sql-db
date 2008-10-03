@@ -3,7 +3,7 @@ use 5.006;
 use strict;
 use warnings;
 use base qw(SQL::DB::Schema);
-use Carp qw(carp croak confess);
+use Carp qw(carp croak confess cluck);
 use DBI;
 use UNIVERSAL qw(isa);
 use Return::Value;
@@ -145,7 +145,7 @@ sub _deploy_order {
     my $deployed = {};
     my @ordered  = ();
     my $count    = 0;
-    my $limit    = scalar @src + 1;
+    my $limit    = scalar @src + 10;
 
     while (@src) {
         if ($count++ > $limit) {
@@ -166,6 +166,7 @@ sub _deploy_order {
             }
         
             if ($deployable) {
+                warn "debug: ".$table->name.' => deploy list ' if($self->{sqldb_sqldebug});
                 push(@ordered, $table);
                 $deployed->{$table->name} = 1;
             }
@@ -271,7 +272,7 @@ sub _undeploy {
 
 sub query_as_string {
     my $self = shift;
-    my $sql  = shift || croak 'query_as_string requires an argument';
+    my $sql  = shift || confess 'query_as_string requires an argument';
     
     foreach (@_) {
         if (defined($_) and $_ =~ /[^[:graph:][:space:]]/) {
@@ -307,6 +308,7 @@ sub _do {
     };
 
     if ($@ or !defined($rv)) {
+        cluck "debug: croaking " if($self->{sqldb_debug});
         croak "$@: Query was:\n"
             . $self->query_as_string("$query", $query->bind_values);
     }
@@ -355,6 +357,7 @@ sub _fetch {
     };
 
     if ($@ or !defined($rv)) {
+        cluck "debug: croaking " if($self->{sqldb_debug});
         croak "$@: Query was:\n"
             . $self->query_as_string("$query", $query->bind_values);
     }
@@ -573,9 +576,7 @@ sub insert {
         }
         my ($arows, @inserts) = $obj->q_insert; # reference hand-holding
         foreach (@inserts) {
-            if (!$self->do(@$_)) {
-                croak 'INSERT for '. ref($obj) . ' object failed';
-            }
+            $self->do(@$_);
         }
     }
     return 1;
@@ -590,9 +591,7 @@ sub update {
         }
         my ($arows, @updates) = $obj->q_update; # reference hand-holding
         foreach (@updates) {
-            if ($self->do(@$_) != 1) {
-                croak 'UPDATE for '. ref($obj) . ' object failed';
-            }
+            $self->do(@$_);
         }
     }
     return 1;
@@ -607,9 +606,7 @@ sub delete {
         }
         my ($arows, @deletes) = $obj->q_delete; # reference hand-holding
         foreach (@deletes) {
-            if ($self->do(@$_) != 1) {
-                croak 'DELETE for '. ref($obj) . ' object failed';
-            }
+            $self->do(@$_);
         }
     }
     return 1;
