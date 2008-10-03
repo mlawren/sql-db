@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 83;
+use Test::More tests => 89;
 use Test::Exception;
 use Test::Memory::Cycle;
 
@@ -18,6 +18,7 @@ can_ok('SQL::DB::Schema', qw/
     max
     min
     sum
+    LENGTH
     cast
     upper
     lower
@@ -35,6 +36,7 @@ SQL::DB::Schema->import(qw/
     max
     min
     sum
+    LENGTH
     cast
     upper
     lower
@@ -81,6 +83,10 @@ foreach my $t (
         'SUM(length)'],
     [sum('length')->as('sum_length'),
         'SUM(length) AS sum_length'],
+    [LENGTH('length'),
+        'LENGTH(length)'],
+    [LENGTH('length')->as('length_length'),
+        'LENGTH(length) AS length_length'],
     [cast($artist->name->as('something')),
         'CAST(artists1.name AS something)'],
     [upper('length'),
