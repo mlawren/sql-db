@@ -279,7 +279,7 @@ sub query_as_string {
             $sql =~ s/\?/*BINARY DATA*/;
         }
         else {
-            my $quote = $self->dbh->quote($_);
+            my $quote = $self->dbh->quote("$_"); # make sure it is a string
             $sql =~ s/\?/$quote/;
         }
     }
@@ -339,7 +339,11 @@ sub _fetch {
     my $self    = shift;
     my $prepare = shift || croak '_fetch($prepare)';
     my $query   = $self->query(@_);
-    my $class   = SQL::DB::Row->make_class_from($query->acolumns);
+    my $class   = eval {SQL::DB::Row->make_class_from($query->acolumns);};
+
+    if ($@) {
+        confess "SQL::DB::Row->make_class_from failed: $@";
+    }
 
     my $sth;
     my $rv;
@@ -357,8 +361,7 @@ sub _fetch {
     };
 
     if ($@ or !defined($rv)) {
-        cluck "debug: croaking " if($self->{sqldb_debug});
-        croak "$@: Query was:\n"
+        confess "$@: Query was:\n"
             . $self->query_as_string("$query", $query->bind_values);
     }
 
