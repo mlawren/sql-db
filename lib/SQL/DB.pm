@@ -279,7 +279,9 @@ sub query_as_string {
             $sql =~ s/\?/*BINARY DATA*/;
         }
         else {
-            my $quote = $self->dbh->quote("$_"); # make sure it is a string
+            my $quote = $self->dbh->quote(
+                defined $_ ? "$_" : undef # make sure it is a string
+            );
             $sql =~ s/\?/$quote/;
         }
     }
