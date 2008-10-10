@@ -10,9 +10,14 @@ use SQLDBTest;
 use SQL::DB qw(define_tables count);
 
 BEGIN {
-    if ($ENV{TEST_PG}
-        or $DBD::SQLite::VERSION > 1.15
-        or -f '/etc/debian_version') {
+    # If testing with Postgres or a good (as of yet unreleased) version
+    # of DBD::SQLite then run the tests.
+    if ($ENV{TEST_PG} or $DBD::SQLite::VERSION > 1.14) {
+        plan tests => 14;
+    }
+    # Check for using Debian's version which is patched properly
+    elsif (-e '/usr/share/doc/libdbd-sqlite3-perl' and
+        $INC{'DBD/SQLite.pm'} eq '/usr/lib/perl5/DBD/SQLite.pm') {
         plan tests => 14;
     }
     else {

@@ -11,7 +11,7 @@ use SQL::DB::Row;
 use SQL::DB::Cursor;
 
 
-our $VERSION = '0.14';
+our $VERSION = '0.15';
 
 our @EXPORT_OK = @SQL::DB::Schema::EXPORT_OK;
 foreach (@EXPORT_OK) {
@@ -678,7 +678,7 @@ SQL::DB - Perl interface to SQL Databases
 
 =head1 VERSION
 
-0.14. Development release.
+0.15. Development release.
 
 =head1 SYNOPSIS
 
@@ -1004,7 +1004,7 @@ Nearly the same as $db->do($sqlobject->q_insert).
 
 =head1 COMPATABILITY
 
-Version 0.14 changed the return type of the txn() method. Instead of a
+Version 0.13 changed the return type of the txn() method. Instead of a
 2 value list indicating success/failure and error message, a single
 L<Return::Value> object is returned intead.
 
