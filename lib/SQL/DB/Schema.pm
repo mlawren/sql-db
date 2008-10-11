@@ -10,7 +10,7 @@ use UNIVERSAL;
 use Exporter;
 
 
-our $VERSION = '0.15';
+our $VERSION = '0.16';
 our $DEBUG;
 
 our @ISA = qw(Exporter);
