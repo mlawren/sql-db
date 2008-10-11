@@ -12,7 +12,7 @@ use SQL::DB qw(define_tables count);
 BEGIN {
     # If testing with Postgres or a good (as of yet unreleased) version
     # of DBD::SQLite then run the tests.
-    if ($ENV{TEST_PG} or $DBD::SQLite::VERSION > 1.14) {
+    if ($ENV{TEST_PG} or $DBD::SQLite::VERSION >= 1.15) {
         plan tests => 14;
     }
     # Check for using Debian's version which is patched properly
@@ -21,7 +21,7 @@ BEGIN {
         plan tests => 14;
     }
     else {
-        plan skip_all => 'SQL::DBD Bug 30558';
+        plan skip_all => 'due to DBD::SQLite Bug #30558';
     }
 }
 
