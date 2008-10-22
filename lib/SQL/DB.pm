@@ -192,15 +192,13 @@ sub deploy_sql {
 }
 
 
-sub deploy {
+sub _create_tables {
     my $self = shift;
-    $self->dbh || croak 'cannot deploy() before connect()';
+    $self->dbh || croak 'cannot _create_tables() before connect()';
 
-    my @tables = $self->_deploy_order;
-
-    if ($self->table('sqldb')) {
-        unshift(@tables, $self->table('sqldb'));
-    }
+    my @tables = @_;
+    warn 'debug: _create_tables '.
+        join(',',map {$_->name} @tables) if($self->{sqldb_debug});
 
     # Faster to do all of this inside a BEGIN/COMMIT block on
     # things like SQLite, and better that we deploy all or nothing
@@ -215,7 +213,7 @@ sub deploy {
             while (my $x = $sth->fetch) {
                 if ($x->[2] eq $table->name) {
                     carp 'Table '. $table->name
-                         .' already exists - not deploying';
+                         .' already exists - not creating';
                     next TABLES;
                 }
             }
@@ -231,11 +229,79 @@ sub deploy {
 
         }
     });
+    return $res;
+}
 
+
+sub create_table {
+    my $self = shift;
+    my $name = shift;
+    $self->dbh || croak 'cannot create_table() before connect()';
+
+    my $res = $self->_create_tables($self->table($name));
+
+    croak($res) unless($res);
+    return $res;
+}
+
+
+sub _drop_tables {
+    my $self = shift;
+    $self->dbh || croak 'cannot _drop_tables() before connect()';
+
+    my @tables = @_;
+    warn 'debug: _drop_tables '.
+        join(',',map {$_->name} @tables) if($self->{sqldb_debug});
+
+    (my $type = lc($self->{sqldb_dbi})) =~ s/^dbi:(.*?):.*/$1/;
+    $type || confess 'bad/missing dbi: definition';
+
+    my $res = $self->txn(sub{
+        foreach my $table (@tables) {
+            my $res;
+            my $action = 'DROP TABLE '.$table->name.
+                ($type eq 'pg' ? ' CASCADE' : '');
+            eval {$res = $self->dbh->do($action);};
+            if (!$res or $@) {
+                my $err = $self->dbh->errstr;
+                if ($err !~ /(no such table)|(does not exist)|(Unknown table)/i) {
+                    die $err . ' query: '. $action;
+                }
+            }
+        }
+    });
+
+    return $res;
+}
+
+
+sub drop_table {
+    my $self = shift;
+    my $name = shift;
+
+    my $res = $self->_drop_tables($self->table($name));
+
+    croak($res) unless($res);
+    return $res;
+}
+
+
+sub deploy {
+    my $self = shift;
+    $self->dbh || croak 'cannot deploy() before connect()';
+
+    my @tables = $self->_deploy_order;
+
+    if ($self->table('sqldb')) {
+        unshift(@tables, $self->table('sqldb'));
+    }
+
+    my $res = $self->_create_tables(@tables);
     croak $res unless($res);
 
     # Do this in a separate transaction because PostgreSQL doesn't believe
     # the tables exist until the above transaction is committed.
+    # FIXME this is probably not the case for recent versions
     $res = $self->txn(sub{
         foreach my $table (@tables) {
             $self->create_seq($table->name);
@@ -254,19 +320,11 @@ sub _undeploy {
     (my $type = lc($self->{sqldb_dbi})) =~ s/^dbi:(.*?):.*/$1/;
     $type || confess 'bad/missing dbi: definition';
 
-    foreach my $table ($self->tables) {
-        my $res;
-        my $action = 'DROP TABLE '.$table->name.
-            ($type eq 'pg' ? ' CASCADE' : '');
-        eval {$res = $self->dbh->do($action);};
-        if (!$res or $@) {
-            my $err = $self->dbh->errstr;
-            if($err !~ /(no such table)|(does not exist)|(Unknown table)/i) {
-                croak $err . ' query: '. $action;
-            }
-        }
-    }
-    return 1;
+    my @tables = reverse $self->_deploy_order, $self->table('sqldb');
+    my $res    = $self->_drop_tables(@tables);
+
+    croak $res unless($res);
+    return $res;
 }
 
 
@@ -855,10 +913,22 @@ Returns a string containing the CREATE TABLE and CREATE INDEX
 statements necessary to build the schema in the database. The statements
 are correctly ordered based on column reference information.
 
+=head2 create_table($name)
+
+Creates the table and indexes in the database as previously defined by
+define_tables for table $name. Will warn on any attempts to create
+tables that already exist.
+
+=head2 drop_table($name)
+
+Drops the table and indexes in the database as previously defined by
+define_tables for table $name. Will warn on any attempts to create
+tables that already exist.
+
 =head2 deploy
 
-Creates the tables and indexes in the database. Will warn on any attempts to
-create tables that already exist.
+Creates all defined tables and indexes in the database. Will warn on
+any attempts to create tables that already exist.
 
 =head2 query(@query)
 
