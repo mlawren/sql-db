@@ -29,6 +29,7 @@ my $col = SQL::DB::Schema::Column->new(
 {    name    => 'testcol',
     type    => 'INTEGER',
     type_pg  => 'PGINTEGER',
+    type_mysql  => 'MYSQLINTEGER',
     null    => 1,
     default => 5,
     unique  => 1,

@@ -73,6 +73,16 @@ sub type_pg {
 }
 
 
+sub type_mysql {
+    my $self = shift;
+    if (@_) {
+        $self->{type_mysql} = shift;
+        return;
+    }
+    croak 'usage: type_mysql($type)';
+}
+
+
 sub bind_type {
     my $self = shift;
     if (@_) {
@@ -98,6 +108,16 @@ sub bind_type_pg {
         return;
     }
     croak 'usage: bind_type_pg($type)';
+}
+
+
+sub bind_type_mysql {
+    my $self = shift;
+    if (@_) {
+        $self->{bind_type_mysql} = shift;
+        return;
+    }
+    croak 'usage: bind_type_mysql($type)';
 }
 
 
@@ -237,10 +257,12 @@ B<SQL::DB::Schema::Column> is ...
 
 =head2 type
 =head2 type_pg
+=head2 type_mysql
 
 
 =head2 bind_type
 =head2 bind_type_pg
+=head2 bind_type_mysql
 
 
 =head2 ref
