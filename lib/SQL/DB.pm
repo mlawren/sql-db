@@ -258,14 +258,22 @@ sub _drop_tables {
 
     my $res = $self->txn(sub{
         foreach my $table (@tables) {
-            my $res;
-            my $action = 'DROP TABLE '.$table->name.
-                ($type eq 'pg' ? ' CASCADE' : '');
-            eval {$res = $self->dbh->do($action);};
-            if (!$res or $@) {
-                my $err = $self->dbh->errstr;
-                if ($err !~ /(no such table)|(does not exist)|(Unknown table)/i) {
-                    die $err . ' query: '. $action;
+            my $sth = $self->dbh->table_info('', '', $table->name, 'TABLE');
+            if (!$sth) {
+                die $DBI::errstr;
+            }
+
+            my $x = $sth->fetch;
+            if ($x and $x->[2] eq $table->name) {
+                my $res;
+                my $action = 'DROP TABLE '.$table->name.
+                    ($type eq 'pg' ? ' CASCADE' : '');
+                eval {$res = $self->dbh->do($action);};
+                if (!$res or $@) {
+                    my $err = $self->dbh->errstr;
+                    if ($err !~ /(no such table)|(does not exist)|(Unknown table)/i) {
+                        die $err . ' query: '. $action;
+                    }
                 }
             }
         }
