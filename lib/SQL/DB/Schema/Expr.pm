@@ -311,6 +311,22 @@ sub expr_not {
 }
 
 
+sub is_null {
+    my $e = shift;
+    my $expr = __PACKAGE__->new($e .' IS NULL', $e->bind_values);
+    $expr->op('IS NULL');
+    return $expr;
+}
+
+
+sub is_not_null {
+    my $e = shift;
+    my $expr = __PACKAGE__->new($e .' IS NOT NULL', $e->bind_values);
+    $expr->op('IS NOT NULL');
+    return $expr;
+}
+
+
 sub in {
     my $expr1 = shift;
     my @bind = $expr1->bind_values;
@@ -544,6 +560,11 @@ B<SQL::DB::Schema::Expr> is ...
 
 
 =head2 expr_not
+
+
+=head2 is_null
+
+=head2 is_not_null
 
 
 =head2 like
