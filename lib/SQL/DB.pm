@@ -664,6 +664,10 @@ sub update {
             croak "Not an updatable object: $obj";
         }
         my ($arows, @updates) = $obj->q_update; # reference hand-holding
+        if (!@updates) {
+            carp "No update for object. Missing PRIMARY KEY?";
+            next;
+        }
         foreach (@updates) {
             $self->do(@$_);
         }
