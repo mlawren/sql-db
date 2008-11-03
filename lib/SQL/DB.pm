@@ -31,11 +31,9 @@ define_tables([
 # Tell each of the tables why type of DBI/Database we are connected to
 sub _set_table_types {
     my $self = shift;
-    (my $type = lc($self->{sqldb_dbi})) =~ s/^dbi:(.*?):.*/$1/;
-    $type || confess 'bad/missing dbi: definition';
 
     foreach my $table ($self->tables) {
-        $table->set_db_type($type);
+        $table->set_db_type($self->{sqldb_dbd});
     }
     return;
 }
@@ -81,27 +79,30 @@ sub sqldebug {
 sub connect {
     my $self = shift;
 
-    my ($dbi,$user,$pass,$attrs) = @_;
+    my ($dsn,$user,$pass,$attrs) = @_;
     $attrs->{PrintError} = 0;
     $attrs->{RaiseError} = 1;
 
-    if (my $dbh = DBI->connect($dbi,$user,$pass,$attrs)) {
+    if (my $dbh = DBI->connect($dsn,$user,$pass,$attrs)) {
         $self->{sqldb_dbh} = $dbh;
     }
     else {
         croak $DBI::errstr;
     }
 
-    $self->{sqldb_dbi}    = $dbi;
+    $self->{sqldb_dsn}    = $dsn;
     $self->{sqldb_user}   = $user;
     $self->{sqldb_pass}   = $pass;
     $self->{sqldb_attrs}  = $attrs;
     $self->{sqldb_qcount} = 0;
     $self->{sqldb_txn}    = 0;
 
+    $dsn =~ /^dbi:(.*):/;
+    $self->{sqldb_dbd} = $1;
+
     $self->_set_table_types();
 
-    warn "debug: connected to $dbi" if($self->{sqldb_debug});
+    warn "debug: connected to $dsn" if($self->{sqldb_debug});
     return $self->{sqldb_dbh};
 }
 
@@ -109,16 +110,16 @@ sub connect {
 sub connect_cached {
     my $self = shift;
 
-    my ($dbi,$user,$pass,$attrs) = @_;
+    my ($dsn,$user,$pass,$attrs) = @_;
 
-    if (my $dbh = DBI->connect_cached($dbi,$user,$pass,$attrs)) {
+    if (my $dbh = DBI->connect_cached($dsn,$user,$pass,$attrs)) {
         $self->{sqldb_dbh} = $dbh;
     }
     else {
         croak $DBI::errstr;
     }
 
-    $self->{sqldb_dbi}    = $dbi;
+    $self->{sqldb_dsn}    = $dsn;
     $self->{sqldb_user}   = $user;
     $self->{sqldb_pass}   = $pass;
     $self->{sqldb_attrs}  = $attrs;
@@ -126,8 +127,15 @@ sub connect_cached {
 
     $self->_set_table_types();
 
-    warn "debug: connect_cached to $dbi" if($self->{sqldb_debug});
+    warn "debug: connect_cached to $dsn" if($self->{sqldb_debug});
     return $self->{sqldb_dbh};
+}
+
+
+sub dbd {
+    my $self = shift;
+    return $self->{sqldb_dbd} if($self->{sqldb_dbh});
+    return;
 }
 
 
@@ -253,9 +261,6 @@ sub _drop_tables {
     warn 'debug: _drop_tables '.
         join(',',map {$_->name} @tables) if($self->{sqldb_debug});
 
-    (my $type = lc($self->{sqldb_dbi})) =~ s/^dbi:(.*?):.*/$1/;
-    $type || confess 'bad/missing dbi: definition';
-
     my $res = $self->txn(sub{
         foreach my $table (@tables) {
             my $sth = $self->dbh->table_info('', '', $table->name, 'TABLE');
@@ -267,7 +272,7 @@ sub _drop_tables {
             if ($x and $x->[2] eq $table->name) {
                 my $res;
                 my $action = 'DROP TABLE '.$table->name.
-                    ($type eq 'pg' ? ' CASCADE' : '');
+                    ($self->{sqldb_dbd} eq 'Pg' ? ' CASCADE' : '');
                 eval {$res = $self->dbh->do($action);};
                 if (!$res or $@) {
                     my $err = $self->dbh->errstr;
@@ -324,9 +329,6 @@ sub deploy {
 sub _undeploy {
     my $self = shift;
     $self->dbh || croak 'cannot _undeploy() before connect()';
-
-    (my $type = lc($self->{sqldb_dbi})) =~ s/^dbi:(.*?):.*/$1/;
-    $type || confess 'bad/missing dbi: definition';
 
     my @tables = reverse $self->_deploy_order, $self->table('sqldb');
     my $res    = $self->_drop_tables(@tables);
@@ -556,7 +558,7 @@ sub create_seq {
     my $self = shift;
     my $name = shift || croak 'usage: $db->create_seq($name)';
 
-    $self->{sqldb_dbi} || croak 'Must be connected before calling create_seq';
+    $self->{sqldb_dsn} || croak 'Must be connected before calling create_seq';
 
     my $s = SQL::DB::Schema::ARow::sqldb->new;
 
@@ -589,7 +591,7 @@ sub seq {
         croak 'you should want the full array of sequences';
     }
 
-    $self->{sqldb_dbi} || croak 'Must be connected before calling seq';
+    $self->{sqldb_dsn} || croak 'Must be connected before calling seq';
 
     my $sqldb = SQL::DB::Schema::ARow::sqldb->new;
     my $seq;
@@ -597,7 +599,7 @@ sub seq {
 
     eval {
         # Aparent MySQL bug - no locking with FOR UPDATE
-        if ($self->{sqldb_dbi} =~ m/mysql/i) {
+        if ($self->{sqldb_dbd} eq 'mysql') {
             $self->dbh->do('LOCK TABLES sqldb WRITE, sqldb AS '.
                                     $sqldb->_alias .' WRITE');
         }
@@ -606,7 +608,7 @@ sub seq {
             select     => [$sqldb->val],
             from       => $sqldb,
             where      => $sqldb->name == $name,
-            for_update => ($self->{sqldb_dbi} !~ m/sqlite/i),
+            for_update => ($self->{sqldb_dsn} !~ m/sqlite/i),
         );
 
         croak "Can't find sequence '$name'" unless($seq);
@@ -616,7 +618,7 @@ sub seq {
             where   => $sqldb->name == $name,
         );
 
-        if ($self->{sqldb_dbi} =~ m/mysql/i) {
+        if ($self->{sqldb_dbd} eq 'mysql') {
             $self->dbh->do('UNLOCK TABLES');
         }
 
@@ -625,7 +627,7 @@ sub seq {
     if ($@ or !$no_updates) {
         my $tmp = $@;
 
-        if ($self->{sqldb_dbi} =~ m/mysql/i) {
+        if ($self->{sqldb_dbd} eq 'mysql') {
             $self->dbh->do('UNLOCK TABLES');
         }
 
@@ -899,14 +901,14 @@ on all SQL statements are 'warn'ed.
 
 Get the SQL debug status.
 
-=head2 connect($dbi, $user, $pass, $attrs)
+=head2 connect($dsn, $user, $pass, $attrs)
 
 Connect to a database. The parameters are passed directly to
 L<DBI>->connect. This method also informs the internal table/column
 representations what type of database we are connected to, so they can
 set their database-specific features accordingly. Returns the dbh.
 
-=head2 connect_cached($dbi, $user, $pass, $attrs)
+=head2 connect_cached($dsn, $user, $pass, $attrs)
 
 Connect to a database, potentially reusing an existing connection.  The
 parameters are passed directly to L<DBI>->connect_cached. Useful when
@@ -914,6 +916,12 @@ running under persistent environments.  This method also informs the
 internal table/column representations what type of database we are
 connected to, so they can set their database-specific features
 accordingly. Returns the dbh.
+
+=head2 dbd
+
+Returns the L<DBD> driver name ('SQLite', 'mysql', 'Pg' etc) for the
+type of database we are connected to. Returns undef if we are not
+connected.
 
 =head2 dbh
 

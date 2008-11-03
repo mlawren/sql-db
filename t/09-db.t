@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use lib 't/lib';
-use Test::More tests => 16;
+use Test::More tests => 18;
 use Test::Memory::Cycle;
 use_ok('SQL::DB', 'define_tables', 'count');
 use_ok('SQLDBTest');
@@ -12,12 +12,16 @@ my $db = SQLDBTest->new;
 isa_ok($db, 'SQL::DB');
 memory_cycle_ok($db, 'memory cycle');
 
+ok(!$db->dbd,'dbd 1');
+
 my $dbh = $db->test_connect;
 isa_ok($dbh, 'DBI::db');
 ok(1, $db->{sqldb_dbi});
 ok($dbh eq $db->dbh, 'same handle');
 ok($db->deploy(), 'deploy');
 ok($db->deploy(), 're-deploy');
+
+ok($db->dbd,'dbd 2');
 
 ok($db->create_seq('test'), "Sequence test created");
 
