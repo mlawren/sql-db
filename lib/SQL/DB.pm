@@ -125,6 +125,9 @@ sub connect_cached {
     $self->{sqldb_attrs}  = $attrs;
     $self->{sqldb_qcount} = 0;
 
+    $dsn =~ /^dbi:(.*):/;
+    $self->{sqldb_dbd} = $1;
+
     $self->_set_table_types();
 
     warn "debug: connect_cached to $dsn" if($self->{sqldb_debug});

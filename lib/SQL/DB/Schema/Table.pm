@@ -409,7 +409,7 @@ sub schema {
 
 sub set_db_type {
     my $self = shift;
-    $self->{db_type} = shift || croak 'usage: set_db_type($type)';
+    $self->{db_type} = shift || confess 'usage: set_db_type($type)';
 }
 
 
