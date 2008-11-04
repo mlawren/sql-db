@@ -47,7 +47,7 @@ sub Btable {
         column => [
             name => 'bincol',
             type => 'BLOB', bind_type => SQL_BLOB,
-            type_pg => 'BYTEA', bind_type_pg => { pg_type => $pg_type },
+            type_Pg => 'BYTEA', bind_type_Pg => { pg_type => $pg_type },
             deflate => sub { return nfreeze($_[0]) },
             inflate => sub { return thaw($_[0]) },
         ],
@@ -65,8 +65,8 @@ sub Default {
         column => [
             name => 'binary',
             type => 'BLOB',
-            type_pg => 'BYTEA',
-            bind_type_pg => 'pg bind type',
+            type_Pg => 'BYTEA',
+            bind_type_Pg => 'Pg bind type',
         ],
     ];
 }

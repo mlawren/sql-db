@@ -63,13 +63,13 @@ sub type {
 }
 
 
-sub type_pg {
+sub type_Pg {
     my $self = shift;
     if (@_) {
-        $self->{type_pg} = shift;
+        $self->{type_Pg} = shift;
         return;
     }
-    croak 'usage: type_pg($type)';
+    croak 'usage: type_Pg($type)';
 }
 
 
@@ -101,13 +101,13 @@ sub bind_type {
 }
 
 
-sub bind_type_pg {
+sub bind_type_Pg {
     my $self = shift;
     if (@_) {
-        $self->{bind_type_pg} = shift;
+        $self->{bind_type_Pg} = shift;
         return;
     }
-    croak 'usage: bind_type_pg($type)';
+    croak 'usage: bind_type_Pg($type)';
 }
 
 
@@ -256,12 +256,12 @@ B<SQL::DB::Schema::Column> is ...
 =head2 primary
 
 =head2 type
-=head2 type_pg
+=head2 type_Pg
 =head2 type_mysql
 
 
 =head2 bind_type
-=head2 bind_type_pg
+=head2 bind_type_Pg
 =head2 bind_type_mysql
 
 

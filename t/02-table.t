@@ -94,7 +94,7 @@ $cd->column('artist')->references($table->column('id'));
 my $default = SQL::DB::Schema::Table->new(@{TestLib->Default});
 is($default->column('binary')->type, 'BLOB', 'column type');
 is($default->column('binary')->bind_type, undef, 'undef bind_column type');
-$default->set_db_type('pg');
+$default->set_db_type('Pg');
 is($default->column('binary')->type, 'BYTEA', 'pg column type');
-is($default->column('binary')->bind_type, 'pg bind type', 'pg bind_column type');
+is($default->column('binary')->bind_type, 'Pg bind type', 'pg bind_column type');
 

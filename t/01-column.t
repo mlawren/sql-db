@@ -12,9 +12,9 @@ can_ok('SQL::DB::Schema::Column', qw(
     table
     name
     type
-    type_pg
+    type_Pg
     bind_type
-    bind_type_pg
+    bind_type_Pg
     null
     default
     unique
@@ -28,7 +28,7 @@ can_ok('SQL::DB::Schema::Column', qw(
 my $col = SQL::DB::Schema::Column->new(
 {    name    => 'testcol',
     type    => 'INTEGER',
-    type_pg  => 'PGINTEGER',
+    type_Pg  => 'PGINTEGER',
     type_mysql  => 'MYSQLINTEGER',
     null    => 1,
     default => 5,
