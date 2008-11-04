@@ -177,7 +177,7 @@ sub _deploy_order {
             }
         
             if ($deployable) {
-                warn "debug: ".$table->name.' => deploy list ' if($self->{sqldb_sqldebug});
+#                warn "debug: ".$table->name.' => deploy list ' if($self->{sqldb_sqldebug});
                 push(@ordered, $table);
                 $deployed->{$table->name} = 1;
             }
@@ -208,8 +208,6 @@ sub _create_tables {
     $self->dbh || croak 'cannot _create_tables() before connect()';
 
     my @tables = @_;
-    warn 'debug: _create_tables '.
-        join(',',map {$_->name} @tables) if($self->{sqldb_debug});
 
     # Faster to do all of this inside a BEGIN/COMMIT block on
     # things like SQLite, and better that we deploy all or nothing
@@ -230,12 +228,12 @@ sub _create_tables {
             }
 
             foreach my $action ($table->sql_create) {
-                warn "debug: $action" if($self->{sqldb_sqldebug});
                 my $res;
                 eval {$res = $self->dbh->do($action);};
                 if (!$res or $@) {
                     die $self->dbh->errstr . ' query: '. $action;
                 }
+                warn "debug: $action" if($self->{sqldb_sqldebug});
             }
 
         }
@@ -261,8 +259,6 @@ sub _drop_tables {
     $self->dbh || croak 'cannot _drop_tables() before connect()';
 
     my @tables = @_;
-    warn 'debug: _drop_tables '.
-        join(',',map {$_->name} @tables) if($self->{sqldb_debug});
 
     my $res = $self->txn(sub{
         foreach my $table (@tables) {
@@ -274,15 +270,13 @@ sub _drop_tables {
             my $x = $sth->fetch;
             if ($x and $x->[2] eq $table->name) {
                 my $res;
-                my $action = 'DROP TABLE '.$table->name.
+                my $action = 'DROP TABLE IF EXISTS '.$table->name.
                     ($self->{sqldb_dbd} eq 'Pg' ? ' CASCADE' : '');
+
                 eval {$res = $self->dbh->do($action);};
-                if (!$res or $@) {
-                    my $err = $self->dbh->errstr;
-                    if ($err !~ /(no such table)|(does not exist)|(Unknown table)/i) {
-                        die $err . ' query: '. $action;
-                    }
-                }
+
+                die $res unless($res);
+                warn 'debug: '.$action if($self->{sqldb_sqldebug});
             }
         }
     });
@@ -312,13 +306,9 @@ sub deploy {
         unshift(@tables, $self->table('sqldb'));
     }
 
-    my $res = $self->_create_tables(@tables);
-    croak $res unless($res);
+    my $res = $self->txn(sub{
+        $self->_create_tables(@tables);
 
-    # Do this in a separate transaction because PostgreSQL doesn't believe
-    # the tables exist until the above transaction is committed.
-    # FIXME this is probably not the case for recent versions
-    $res = $self->txn(sub{
         foreach my $table (@tables) {
             $self->create_seq($table->name);
         }
@@ -333,8 +323,8 @@ sub _undeploy {
     my $self = shift;
     $self->dbh || croak 'cannot _undeploy() before connect()';
 
-    my @tables = reverse $self->_deploy_order, $self->table('sqldb');
-    my $res    = $self->_drop_tables(@tables);
+    my @tables = reverse $self->_deploy_order;
+    my $res    = $self->_drop_tables(@tables, $self->table('sqldb'));
 
     croak $res unless($res);
     return $res;
