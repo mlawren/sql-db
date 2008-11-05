@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 27;
+use Test::More tests => 29;
 use Test::Memory::Cycle;
 
 BEGIN {
@@ -60,6 +60,7 @@ ok($colnames[0] eq 'id', 'First col is id');
 isa_ok($table->column('name'), 'SQL::DB::Schema::Column');
 ok($table->column('name')->name eq 'name', 'Column name is name.');
 
+
 like($table->sql_create_table, qr/CREATE TABLE artists/, 'SQL');
 like($table->sql_create_table, qr/PRIMARY KEY/, 'SQL');
 like($table->sql_create_table, qr/UNIQUE/, 'SQL');
@@ -91,10 +92,21 @@ memory_cycle_ok($table, 'table memory');
 
 $cd->column('artist')->references($table->column('id'));
 
+is($cd->column('artist')->deferrable, 'INITIALLY IMMEDIATE', 'deferrable');
+is($cd->sql_create_table, 'CREATE TABLE cds (
+    id              INTEGER        NOT NULL,
+    title           VARCHAR(255)   NOT NULL,
+    year            INTEGER        NOT NULL,
+    artist          INTEGER        NOT NULL REFERENCES artists(id) DEFERRABLE INITIALLY IMMEDIATE,
+    PRIMARY KEY(id),
+    UNIQUE (title, artist)
+)', 'CD as string');
+
 my $default = SQL::DB::Schema::Table->new(@{TestLib->Default});
 is($default->column('binary')->type, 'BLOB', 'column type');
 is($default->column('binary')->bind_type, undef, 'undef bind_column type');
 $default->set_db_type('Pg');
 is($default->column('binary')->type, 'BYTEA', 'pg column type');
 is($default->column('binary')->bind_type, 'Pg bind type', 'pg bind_column type');
+
 

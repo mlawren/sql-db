@@ -153,6 +153,17 @@ sub references {
 }
 
 
+sub deferrable {
+    my $self = shift;
+
+    if (@_) {
+        $self->{deferrable} = uc(shift);
+    }
+    return $self->{deferrable} if(exists($self->{deferrable}));
+    return;
+}
+
+
 sub inflate {
     my $self = shift;
 
@@ -195,17 +206,30 @@ sub sql_default {
     return " DEFAULT '" . $default ."'";
 }
 
+
 sub sql {
     my $self = shift;
+    my $def = '';
+    if (exists($self->{deferrable})) {
+        if ($self->{deferrable}) {
+            $def = ' DEFERRABLE '.$self->{deferrable};
+        }
+        else {
+            $def = ' NOT DEFERRABLE';
+        }
+    }
+
     return sprintf('%-15s %-15s', $self->name, $self->type)
            . ($self->null ? 'NULL' : 'NOT NULL')
            . $self->sql_default
            . ($self->auto_increment ? ' AUTO_INCREMENT' : '')
            . ($self->unique ? ' UNIQUE' : '')
 #           . ($self->primary ? ' PRIMARY KEY' : '')
-           . ($self->references ? ' REFERENCES '
-               . $self->references->table->name .'('
-               . $self->references->name .')' : '')
+           . ($self->references ? 
+                (' REFERENCES ' . $self->references->table->name .'('
+                 . $self->references->name .')'. $def  
+                ) : ''
+             )
     ;
 }
 
@@ -271,6 +295,7 @@ B<SQL::DB::Schema::Column> is ...
 
 =head2 references
 
+=head2 deferrable
 
 
 =head2 inflate

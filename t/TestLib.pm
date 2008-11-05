@@ -80,7 +80,11 @@ sub CD {
             [name => 'id', type => 'INTEGER', primary => 1],
             [name => 'title', type => 'VARCHAR(255)'],
             [name => 'year', type => 'INTEGER'],
-            [name => 'artist', type => 'INTEGER', references => 'artists(id)'],
+            [   name => 'artist',
+                type => 'INTEGER',
+                references => 'artists(id)',
+                deferrable => 'initially immediate',
+            ],
         ],
         unique  => 'title,artist',
         index   => [
@@ -129,7 +133,8 @@ sub ArtistFan {
         class => 'ArtistFan',
         columns => [
             [name => 'artist', type => 'INTEGER', references => 'artists(id)'],
-            [name => 'fan', type => 'INTEGER', references => 'fans(id)'],
+            [name => 'fan', type => 'INTEGER', references =>
+            'fans(id)', deferrable => undef],
         ],
         unique => 'artist,fan',
         index  => [

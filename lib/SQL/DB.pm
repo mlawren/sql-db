@@ -269,13 +269,14 @@ sub _drop_tables {
 
             my $x = $sth->fetch;
             if ($x and $x->[2] eq $table->name) {
-                my $res;
                 my $action = 'DROP TABLE IF EXISTS '.$table->name.
                     ($self->{sqldb_dbd} eq 'Pg' ? ' CASCADE' : '');
 
+                my $res;
                 eval {$res = $self->dbh->do($action);};
-
-                die $res unless($res);
+                if (!$res or $@) {
+                    die $self->dbh->errstr . ' query: '. $action;
+                }
                 warn 'debug: '.$action if($self->{sqldb_sqldebug});
             }
         }
