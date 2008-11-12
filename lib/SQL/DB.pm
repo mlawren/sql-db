@@ -160,7 +160,7 @@ sub _deploy_order {
 
     while (@src) {
         if ($count++ > $limit) {
-            die 'Long deployment calculation - reference columns loop?';
+            die 'Deployment calculation limit exceeded: circular foreign keys?';
         }
 
         my @newsrc = ();
