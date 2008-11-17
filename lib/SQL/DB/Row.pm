@@ -105,9 +105,20 @@ sub make_class_from {
                     if (!@_) {
                         croak $def->[1] . ' requires an argument';
                     }
-                    my $pos  = ${$class.'::_index_'.$def->[0]};
+                    my $val = shift;
+                    my $pos = ${$class.'::_index_'.$def->[0]};
                     $self->[STATUS]->[$pos] = 1;
-                    $self->[MODIFIED]->[$pos] = shift;
+
+                    if (my $sub = $def->[2]->set) {
+                        $self->[MODIFIED]->[$pos] = eval{&$sub($self,$val)};
+                        if ($@) {
+                            warn $@;
+                            $self->[MODIFIED]->[$pos] = $val;
+                        }
+                    }
+                    else {
+                        $self->[MODIFIED]->[$pos] = $val;
+                    }
                     return;
                 };
             }

@@ -164,6 +164,20 @@ sub deferrable {
 }
 
 
+sub set {
+    my $self = shift;
+
+    if (@_) {
+        my $sub = shift;
+        (CORE::ref($sub) && CORE::ref($sub) eq 'CODE') ||
+            croak 'set requires a CODEREF argument';
+        $self->{set} = $sub;
+    }
+
+    return $self->{set};
+}
+
+
 sub inflate {
     my $self = shift;
 
@@ -296,6 +310,14 @@ B<SQL::DB::Schema::Column> is ...
 =head2 references
 
 =head2 deferrable
+
+
+=head2 set
+
+Takes an object method (subroutine reference) which is run when
+SQL::DB::Row->set_column($val) is called. The subref has access to the
+row object and all of its columns, but must return the value for the
+column and not set it.
 
 
 =head2 inflate

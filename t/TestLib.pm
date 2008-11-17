@@ -30,7 +30,15 @@ sub Artist {
 #            [name => 'name',type => 'VARCHAR(255)',unique => 1],
 #        ],
         column => [name => 'id',  type => 'INTEGER', primary => 1],
-        column => [name => 'name',type => 'VARCHAR(255)',unique => 1],
+        column => [name => 'name',type => 'VARCHAR(255)',unique => 1,
+            set => sub {
+                my $self = shift;
+                my $val  = shift;
+                $self->set_ucname(uc($val));
+                return $val;
+            },
+        ],
+        column => [name => 'ucname',type => 'VARCHAR(255)'],
         unique => 'name',
         index  => [
             columns => 'name',

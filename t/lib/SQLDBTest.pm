@@ -59,8 +59,8 @@ sub test_populate {
 
 1;
 __DATA__
-artists,1,Queen
-artists,2,INXS
+artists,1,Queen,QUEEN
+artists,2,INXS,INXS
 cds,1,A Kind of Magic,1986,1
 cds,2,A Night at the Opera,1978,2
 tracks,1,2,Death on Two Legs (Dedicated to.......),223

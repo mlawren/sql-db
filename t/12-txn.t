@@ -40,22 +40,23 @@ $db->deploy;
 ok($db->create_seq('test'), "Sequence test created");
 
 
-my $a1 = Artist->new(id => 1, name => 'artist1');
-my $a2 = Artist->new(id => 2, name => 'artist2');
-my $a3 = Artist->new(id => 3, name => 'artist3');
-my $a4 = Artist->new(id => 4, name => 'artist4');
+my $a1 = Artist->new(id => 1, name => 'artist1', ucname => 'ARTIST1');
+my $a2 = Artist->new(id => 2, name => 'artist2', ucname => 'ARTIST2');
+my $a3 = Artist->new(id => 3, name => 'artist3', ucname => 'ARTIST3');
+my $a4 = Artist->new(id => 4, name => 'artist4', ucname => 'ARTIST4');
 my $artists = $db->arow('artists');
 
-ok($db->txn(sub {
+my $res = $db->txn(sub {
     $db->insert($a1);
-}), 'transaction insert success');
+});
+ok($res, 'transaction insert: '.$res);
 
 is($db->fetch1(
     select => count($artists->id)->as('acount'),
     from   => $artists,
 )->acount,1, 'select 1');
 
-my $res = $db->txn(sub {
+$res = $db->txn(sub {
     $db->insert($a1);
 });
 ok(!$res, "transaction insert duplicate:");

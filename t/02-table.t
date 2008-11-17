@@ -48,13 +48,13 @@ ok($table->columns, 'columns');
 memory_cycle_ok($table, 'memory ok');
 
 my @cols = $table->columns;
-ok(@cols == 2, '2 columns');
+ok(@cols == 3, '3 columns');
 isa_ok($cols[0], 'SQL::DB::Schema::Column');
 
 my @colnames = $table->column_names;
-ok(@colnames == 2, '2 column names');
+ok(@colnames == 3, '3 column names');
 @colnames = $table->column_names_ordered;
-ok(@colnames == 2, '2 column names');
+ok(@colnames == 3, '3 column names');
 ok($colnames[0] eq 'id', 'First col is id');
 
 isa_ok($table->column('name'), 'SQL::DB::Schema::Column');
@@ -68,6 +68,7 @@ like($table->sql_create_table, qr/UNIQUE/, 'SQL');
 is($table->sql_create_table,'CREATE TABLE artists (
     id              INTEGER        NOT NULL,
     name            VARCHAR(255)   NOT NULL UNIQUE,
+    ucname          VARCHAR(255)   NOT NULL,
     PRIMARY KEY(id),
     UNIQUE (name)
 )', 'create table no database');
@@ -78,6 +79,7 @@ $table->set_db_type('mysql');
 is($table->sql_create_table,'CREATE TABLE artists (
     id              INTEGER        NOT NULL,
     name            VARCHAR(255)   NOT NULL UNIQUE,
+    ucname          VARCHAR(255)   NOT NULL,
     PRIMARY KEY(id),
     UNIQUE (name)
 ) ENGINE=InnoDB', 'create table mysql');
