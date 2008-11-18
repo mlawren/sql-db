@@ -190,6 +190,13 @@ sub make_class_from {
                 else {
                     $original[$i] = $val;
                 }
+
+                # and also preset the incoming values. We do this so
+                # that any set_*() triggers that get called below see
+                # all of the values that were passed in.
+                if (exists($incoming->{$key})) {
+                    $original[$i] = $incoming->{$key};
+                }
             }
         }
 
