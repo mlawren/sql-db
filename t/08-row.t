@@ -233,6 +233,7 @@ my $artists2 = $schema->arow('artists');
 $class = SQL::DB::Row->make_class_from(
         $artists->id,
         $artists->name,
+        $artists->ucname,
         $artists2->id->as('id2'),
         $artists2->name->as('name2'),
 );
@@ -262,6 +263,7 @@ $n->set_name2(1);
 is_deeply($n->_hashref_modified, {
     id        => 1,
     name2     => 1,
+    ucname    => 1,
 }, 'hashref ok');
 
 is_deeply($n->_hashref, {
@@ -269,6 +271,7 @@ is_deeply($n->_hashref, {
     id2       => undef,
     name      => undef,
     name2     => 1,
+    ucname    => 1,
 }, 'hashref ok');
 
 ($arows,@updates) = $n->q_update;
@@ -278,7 +281,7 @@ $query = $schema->query(@{$updates[0]});
 is($query->as_string, 'UPDATE
     artists
 SET
-    id = ?
+    id = ?, ucname = ?
 WHERE
     id = ?
 ', 'query ok');
@@ -288,6 +291,7 @@ is_deeply($n->_hashref_modified, {
     id        => 1,
     id2       => 1,
     name2     => 1,
+    ucname    => 1,
 }, 'hashref ok');
 
 ($arows,@updates) = $n->q_update;
@@ -301,7 +305,7 @@ $query = $schema->query(@{$updates[0]});
 is($query->as_string, 'UPDATE
     artists
 SET
-    id = ?, name = ?
+    id = ?, name = ?, ucname = ?
 WHERE
     id = ?
 ', 'query ok');
@@ -318,6 +322,7 @@ WHERE
 
 is($n->quickdump, 'id[m]        = 1
 name[m]      = 1
+ucname[m]    = 1
 id2[m]       = 1
 name2[m]     = 1
 ', 'dump ok');
@@ -325,6 +330,7 @@ name2[m]     = 1
 is_deeply($n->_hashref, {
     id        => 1,
     name      => 1,
+    ucname    => 1,
     id2       => 1,
     name2     => 1,
 }, 'hashref ok');

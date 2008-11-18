@@ -110,11 +110,7 @@ sub make_class_from {
                     $self->[STATUS]->[$pos] = 1;
 
                     if (my $sub = $def->[2]->set) {
-                        $self->[MODIFIED]->[$pos] = eval{&$sub($self,$val)};
-                        if ($@) {
-                            warn $@;
-                            $self->[MODIFIED]->[$pos] = $val;
-                        }
+                        $self->[MODIFIED]->[$pos] = &$sub($self,$val);
                     }
                     else {
                         $self->[MODIFIED]->[$pos] = $val;
