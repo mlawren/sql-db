@@ -363,7 +363,7 @@ sub make_class_from {
                         }
 
                         $primary->{$groupid} = 1;
-                        if (!$where->{$groupid}) {
+                        if (! defined $where->{$groupid}) {
                             $where->{$groupid} =
                                 ($arows->{$groupid}->$colname ==
                                 $self->[$self->[STATUS]->[$i]]->[$i]);
@@ -406,7 +406,7 @@ sub make_class_from {
                     }
 
                     $primary->{$tname} = 1;
-                    if (!$where->{$tname}) {
+                    if (! defined $where->{$tname}) {
                         $where->{$tname} = ($arows->{$tname}->$colname ==
                             $self->[$self->[STATUS]->[$i]]->[$i]);
                     }
