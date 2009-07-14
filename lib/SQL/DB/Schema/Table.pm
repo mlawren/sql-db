@@ -156,7 +156,7 @@ sub setup_columns {
 sub setup_primary {
     my $self = shift;
     my $def  = shift;
-    push(@{$self->{primary}}, $self->text2cols($def));
+    map {$_->primary(1)} $self->text2cols($def);
 }
 
 
