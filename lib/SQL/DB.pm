@@ -640,50 +640,52 @@ sub seq {
 
 sub insert {
     my $self = shift;
-    foreach my $obj (@_) {
-        unless(ref($obj) and $obj->can('q_update')) {
-            croak "Not an insertable object: $obj";
-        }
-        my ($arows, @inserts) = $obj->q_insert; # reference hand-holding
-        foreach (@inserts) {
-            $self->do(@$_);
-        }
+    my $obj  = shift || croak 'insert($obj)';
+
+    unless(ref($obj) and $obj->can('q_insert')) {
+        croak "Not an insert object: $obj";
     }
-    return 1;
+
+    my ($arows, @insert) = $obj->q_insert; # reference hand-holding
+    if (!@insert) {
+        carp "No insert for object. Missing PRIMARY KEY?";
+        next;
+    }
+    return $self->do(@insert);
 }
 
 
 sub update {
     my $self = shift;
-    foreach my $obj (@_) {
-        unless(ref($obj) and $obj->can('q_update')) {
-            croak "Not an updatable object: $obj";
-        }
-        my ($arows, @updates) = $obj->q_update; # reference hand-holding
-        if (!@updates) {
-            carp "No update for object. Missing PRIMARY KEY?";
-            next;
-        }
-        foreach (@updates) {
-            $self->do(@$_);
-        }
+    my $obj  = shift || croak 'update($obj)';
+
+    unless(ref($obj) and $obj->can('q_update')) {
+        croak "Not an updatable object: $obj";
     }
-    return 1;
+
+    my ($arows, @update) = $obj->q_update; # reference hand-holding
+    if (!@update) {
+        carp "No update for object. Missing PRIMARY KEY?";
+        next;
+    }
+    return $self->do(@update);
 }
 
 
 sub delete {
     my $self = shift;
-    foreach my $obj (@_) {
-        unless(ref($obj) and $obj->can('q_update')) {
-            croak "Not a deletable object: $obj";
-        }
-        my ($arows, @deletes) = $obj->q_delete; # reference hand-holding
-        foreach (@deletes) {
-            $self->do(@$_);
-        }
+    my $obj  = shift || croak 'delete($obj)';
+
+    unless(ref($obj) and $obj->can('q_delete')) {
+        croak "Not an delete object: $obj";
     }
-    return 1;
+
+    my ($arows, @delete) = $obj->q_delete; # reference hand-holding
+    if (!@delete) {
+        carp "No delete for object. Missing PRIMARY KEY?";
+        next;
+    }
+    return $self->do(@delete);
 }
 
 

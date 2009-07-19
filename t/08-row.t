@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 75;
+use Test::More tests => 70;
 use Test::Memory::Cycle;
 
 use DBI qw(SQL_BLOB);
@@ -82,19 +82,16 @@ use Data::Dumper;
 $Data::Dumper::Indent=1;
 #die Dumper($new->q_insert);
 
-my ($arows, @inserts) = $new->q_insert;
-foreach my $insert (@inserts) {
-    memory_cycle_ok($insert, 'memory cycle');
+my ($arows, @insert) = $new->q_insert;
 
-    my $q = $schema->query(@{$insert});
-    isa_ok($q, 'SQL::DB::Schema::Query', 'query insert');
-    is($q, 'INSERT INTO
+my $q = $schema->query(@insert);
+isa_ok($q, 'SQL::DB::Schema::Query', 'query insert');
+is($q, 'INSERT INTO
     artists (id, name, ucname)
 VALUES
     (?, ?, ?)
 ', 'INSERT');
-    memory_cycle_ok($q, 'memory cycle');
-}
+memory_cycle_ok($q, 'memory cycle');
 
 
 $new->set_id(2);
@@ -103,32 +100,28 @@ ok($new->_modified('id'), 'modified');
 is($new->name, 'Homer', 'name');
 ok(!$new->_modified('name'), 'not modified');
 
-my @updates;
-($arows, @updates) = $new->q_update;
-foreach my $update (@updates) {
-    my $q = $schema->query(@{$update});
-    isa_ok($q, 'SQL::DB::Schema::Query', 'query update');
-    is($q, 'UPDATE
+my @update;
+($arows, @update) = $new->q_update;
+$q = $schema->query(@update);
+isa_ok($q, 'SQL::DB::Schema::Query', 'query update');
+is($q, 'UPDATE
     artists
 SET
     id = ?
 WHERE
     id = ?
 ', 'INSERT');
-    memory_cycle_ok($q, 'memory cycle');
-}
+memory_cycle_ok($q, 'memory cycle');
 
-($arows, @updates) = $new->q_delete;
-foreach my $update (@updates) {
-    my $q = $schema->query(@{$update});
-    isa_ok($q, 'SQL::DB::Schema::Query', 'query delete');
-    is($q, 'DELETE FROM
+($arows, @update) = $new->q_delete;
+$q = $schema->query(@update);
+isa_ok($q, 'SQL::DB::Schema::Query', 'query delete');
+is($q, 'DELETE FROM
     artists
 WHERE
     id = ?
 ', 'DELETE');
-    memory_cycle_ok($q, 'memory cycle');
-}
+memory_cycle_ok($q, 'memory cycle');
 
 my $new2 = $class->new({
     id => 2,
@@ -211,15 +204,11 @@ is($new->year2, 2007, 'title');
 use Data::Dumper;
 $Data::Dumper::Maxdepth = 3;
 #warn Dumper($new->q_update);
-($arows,@updates) =  $new->q_update;
-
-
-
-foreach my $update (@updates) {
-    my $q = $schema->query(@{$update});
-    isa_ok($q, 'SQL::DB::Schema::Query', $q->_as_string);
-    memory_cycle_ok($q, 'memory cycle');
-}
+#($arows,@update) =  $new->q_update;
+#
+#$q = $schema->query(@update);
+#isa_ok($q, 'SQL::DB::Schema::Query', $q->_as_string);
+#memory_cycle_ok($q, 'memory cycle');
 
 my $acol = $schema->acol('id');
 $class = SQL::DB::Row->make_class_from($acol);
@@ -239,18 +228,17 @@ $class = SQL::DB::Row->make_class_from(
 );
 
 my $n = $class->new_from_arrayref([]);
-($arows,@updates) = $n->q_update;
-ok(!@updates, 'no updates with no changes');
+($arows,@update) = $n->q_update;
+ok(!@update, 'no updates with no changes');
 
 $n->set_id(1);
 is_deeply($n->_hashref_modified, {
     id        => 1,
 }, 'hashref ok');
 
-($arows,@updates) = $n->q_update;
-is(scalar @updates, 1, 'one change one update');
+($arows,@update) = $n->q_update;
 
-my $query = $schema->query(@{$updates[0]});
+my $query = $schema->query(@update);
 is($query->as_string, 'UPDATE
     artists
 SET
@@ -274,10 +262,9 @@ is_deeply($n->_hashref, {
     ucname    => 1,
 }, 'hashref ok');
 
-($arows,@updates) = $n->q_update;
-is(scalar @updates, 1, 'no second primary key, one update');
+($arows,@update) = $n->q_update;
 
-$query = $schema->query(@{$updates[0]});
+$query = $schema->query(@update);
 is($query->as_string, 'UPDATE
     artists
 SET
@@ -294,49 +281,4 @@ is_deeply($n->_hashref_modified, {
     ucname    => 1,
 }, 'hashref ok');
 
-($arows,@updates) = $n->q_update;
-is(scalar @updates, 2, 'second primary key, two updates');
 
-$n->set_name(1);
-($arows,@updates) = $n->q_update;
-is(scalar @updates, 2, 'second primary key, two updates');
-
-# Not convinced the following tests are good. Who is to say that the
-# order of these two queries is always going to be the same?
-
-if (0) {
-$query = $schema->query(@{$updates[0]});
-is($query->as_string, 'UPDATE
-    artists
-SET
-    id = ?, name = ?
-WHERE
-    id = ?
-', 'query ok');
-
-$query = $schema->query(@{$updates[1]});
-is($query->as_string, 'UPDATE
-    artists
-SET
-    id = ?, name = ?, ucname = ?
-WHERE
-    id = ?
-', 'query ok');
-
-
-is($n->quickdump, 'id[m]        = 1
-name[m]      = 1
-ucname[m]    = 1
-id2[m]       = 1
-name2[m]     = 1
-', 'dump ok');
-
-is_deeply($n->_hashref, {
-    id        => 1,
-    name      => 1,
-    ucname    => 1,
-    id2       => 1,
-    name2     => 1,
-}, 'hashref ok');
-
-}
