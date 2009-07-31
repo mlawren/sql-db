@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 8;
+use Test::More tests => 9;
 use Test::Memory::Cycle;
 
 require 't/TestLib.pm';
@@ -41,7 +41,7 @@ can_ok('SQL::DB::Schema::Query', qw/
 /);
 
 define_tables(TestLib->All);
-my $s = SQL::DB::Schema->new(qw/artists/);
+my $s = SQL::DB::Schema->new(qw/artists cds/);
 
 my $artist = $s->arow('artists');
 
@@ -78,3 +78,5 @@ is($q, 'SELECT
 ', 'select with acol');
 memory_cycle_ok($q, 'memory cycle');
 
+my ($artists,$cds) = $s->arow(qw/artists cds/);
+is($artists->_join($cds), "artists2.id = cds1.artist", '_join');

@@ -82,6 +82,34 @@ sub _column_names {
 }
 
 
+sub _join {
+    my $self = shift;
+    my $arow = shift || croak '_join($arow)';
+
+    my $t1 = $self->_table;
+    my $t2 = $arow->_table;
+
+    foreach my $col ($t1->columns) {
+        my $ref = $col->ref || next;
+        if ($ref->table == $t2) {
+            my $colname  = $col->name;
+            my $rcolname = $ref->name;
+            return ($self->$colname == $arow->$rcolname);
+        }
+    }
+
+    foreach my $col ($t2->columns) {
+        my $ref = $col->ref || next;
+        if ($ref->table == $t1) {
+            my $colname  = $col->name;
+            my $rcolname = $ref->name;
+            return ($self->$rcolname == $arow->$colname);
+        }
+    }
+    return;
+}
+
+
 DESTROY {
     my $self = shift;
     _releaseid($self->_table->name, $self->{arow_tid});
@@ -130,6 +158,22 @@ B<SQL::DB::Schema::ARow> is ...
 =head2 _column_names
 
 
+=head2 _join($arow)
+
+This method takes another B<SQL::DB::Schema::ARow> object and returns
+an L<SQL::DB::Expr> expression suitable for JOINing the two tables
+together based on their foreign key relationships. Eg:
+
+    $db->fetch(
+        select    => [$arow1->_columns],
+        from      => $arow,
+        left_join => $arow2,
+        on        => $arow1->_join($arow2),
+    );
+
+Be aware that if there is no direct foreign key relationship between
+the two 'undef' will be returned and the SQL generated in this example
+would be invalid, producing a DBI/DBD error.
 
 =head1 FILES
 
