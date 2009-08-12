@@ -648,8 +648,7 @@ sub insert {
 
     my ($arows, @insert) = $obj->q_insert; # reference hand-holding
     if (!@insert) {
-        carp "No insert for object. Missing PRIMARY KEY?";
-        next;
+        croak "No insert for object. Missing PRIMARY KEY?";
     }
     return $self->do(@insert);
 }
@@ -665,8 +664,7 @@ sub update {
 
     my ($arows, @update) = $obj->q_update; # reference hand-holding
     if (!@update) {
-        carp "No update for object. Missing PRIMARY KEY?";
-        next;
+        croak "No update for object. Missing PRIMARY KEY?";
     }
     return $self->do(@update);
 }
@@ -682,8 +680,7 @@ sub delete {
 
     my ($arows, @delete) = $obj->q_delete; # reference hand-holding
     if (!@delete) {
-        carp "No delete for object. Missing PRIMARY KEY?";
-        next;
+        croak "No delete for object. Missing PRIMARY KEY?";
     }
     return $self->do(@delete);
 }
