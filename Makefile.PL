@@ -14,8 +14,6 @@ build_requires  'File::Temp'            => 0;
 build_requires  'Test::More'            => 0;
 build_requires  'Test::Exception'       => 0;
 build_requires  'Test::Memory::Cycle'   => 0;
-build_requires  'Test::Pod'             => 0;
-build_requires  'Test::Pod::Coverage'   => 0;
 build_requires  'PadWalker'             => 0;
 build_requires  'DBD::SQLite'           => 1.14;
 
