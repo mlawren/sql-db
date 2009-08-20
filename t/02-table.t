@@ -24,6 +24,7 @@ can_ok('SQL::DB::Schema::Table', qw(
     setup_default_charset_mysql
     setup_default_charset_pg
     setup_tablespace_pg
+    setup_trigger
     name
     class
     columns
@@ -37,6 +38,7 @@ can_ok('SQL::DB::Schema::Table', qw(
     db_type
     sql_create_table
     sql_create_indexes
+    sql_triggers
     sql_create
 ));
 
