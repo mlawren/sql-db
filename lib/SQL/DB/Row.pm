@@ -1,7 +1,7 @@
 package SQL::DB::Row;
 use strict;
 use warnings;
-use Carp qw(croak);
+use Carp qw(croak confess);
 use Scalar::Util qw(refaddr);
 
 use constant ORIGINAL => 0;
@@ -163,6 +163,9 @@ sub make_class_from {
             $incoming = shift;
         }
         else {
+            if (@_ % 2) {
+                confess "Uneven number of arguments";
+            }
             $incoming = {@_};
         }
 
