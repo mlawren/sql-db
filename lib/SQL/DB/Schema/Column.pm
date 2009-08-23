@@ -148,7 +148,7 @@ sub references {
     my @cols = $self->table->text2cols($self->{references});
     $self->{references} = $cols[0];
     weaken($self->{references});
-#   $col->table->has_many($self);
+    $cols[0]->table->ref_by($self->table);
     return $self->{references};
 }
 

@@ -46,6 +46,9 @@ sub new {
     if (!eval {$self->table('sqldb');1;}) {
         $self->associate_table('sqldb');
     }
+
+    # Make sure that SQL::DB::Schema::Table->ref_by works
+    map { $_->ref }  map { $_->columns } $self->tables;
     return $self;
 }
 

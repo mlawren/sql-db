@@ -402,6 +402,17 @@ sub primary_column_names {
 }
 
 
+sub ref_by {
+    my $self = shift;
+    if (@_) {
+        my $table = shift;
+        $self->{ref_by}->{$table->name} = $table;
+        weaken($self->{ref_by}->{$table->name});
+    }
+    return values %{$self->{ref_by}};
+}
+
+
 sub arow {
     my $self   = shift;
     my $class  = 'SQL::DB::Schema::ARow::' . $self->name;
@@ -719,6 +730,12 @@ as primary.
 =head2 primary_column_names
 
 Returns the list of columns names which have been defined as primary.
+
+=head2 ref_by
+
+Returns the list of L<SQL::DB::Schema::Table> objects which have
+foreign keys pointing to this table. Takes a single optional
+L<SQL::DB::Schema::Table> argument to add to the list.
 
 =head2 schema
 
