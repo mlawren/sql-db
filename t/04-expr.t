@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 68;
+use Test::More tests => 69;
 
 use_ok('SQL::DB::Schema::Expr');
 
@@ -62,6 +62,7 @@ foreach (
     [$e1 <= $e2, 'e1 <= e2'],
     [$e1 + $e2,  'e1 + e2'],
     [$e1 - $e2,  'e1 - e2'],
+    [$e1->concat($e2),  'e1 || e2'],
     [$e1->is_null,  'e1 IS NULL'],
     [$e1->is_not_null,  'e1 IS NOT NULL'],
     [$e1->in($e1,$e2),  'e1 IN (e1, e2)'],

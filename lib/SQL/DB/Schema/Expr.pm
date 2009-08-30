@@ -303,6 +303,11 @@ sub like {
 }
 
 
+sub concat {
+    return expr_binary($_[0],'||',$_[1]);
+}
+
+
 sub expr_not {
     my $e1 = shift;
     my $expr = __PACKAGE__->new('NOT ('.$e1.')', $e1->bind_values);
@@ -568,6 +573,10 @@ B<SQL::DB::Schema::Expr> is ...
 
 
 =head2 like
+
+=head2 concat
+
+$e1->concat($e2) eq 'e1 || e2'
 
 
 =head2 in
