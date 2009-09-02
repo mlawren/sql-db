@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 7;
+use Test::More tests => 8;
 use Test::Exception;
 use Test::Memory::Cycle;
 use utf8;
@@ -46,5 +46,5 @@ TODO: {
         );
     };
     ok($new);
-#    is_deeply($bindata, $new->bincol, 'binary data stored and fetched');
+    is_deeply($bindata, $new->bincol, 'binary data stored and fetched');
 }
