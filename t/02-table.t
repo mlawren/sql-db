@@ -95,12 +95,12 @@ memory_cycle_ok($table, 'table memory');
 
 $cd->column('artist')->references($table->column('id'));
 
-is($cd->column('artist')->deferrable, 'INITIALLY IMMEDIATE', 'deferrable');
+ok($cd->column('artist')->deferrable,'deferrable');
 is($cd->sql_create_table, 'CREATE TABLE cds (
     id              INTEGER        NOT NULL,
     title           VARCHAR(255)   NOT NULL,
     year            INTEGER        NOT NULL,
-    artist          INTEGER        NOT NULL REFERENCES artists(id) DEFERRABLE INITIALLY IMMEDIATE,
+    artist          INTEGER        NOT NULL REFERENCES artists(id) DEFERRABLE,
     PRIMARY KEY(id),
     UNIQUE (title, artist)
 )', 'CD as string');

@@ -45,6 +45,26 @@ sub primary {
 }
 
 
+sub _multival {
+    my $self = shift;
+    my $key  = shift;
+
+    if (@_) {
+        $self->{$key} = shift;
+        return;
+    }
+
+    return unless ( exists $self->{$key} );
+
+    if ( ref $self->{$key}  ne 'HASH' ) {
+        return $self->{$key};
+    }
+
+    my $db_type = $self->{table} ? $self->{table}->db_type : 'SQLite';
+    return $self->{$key}->{$db_type};
+}
+
+
 sub type {
     my $self = shift;
     if (@_) {
@@ -154,13 +174,7 @@ sub references {
 
 
 sub deferrable {
-    my $self = shift;
-
-    if (@_) {
-        $self->{deferrable} = uc(shift);
-    }
-    return $self->{deferrable} if(exists($self->{deferrable}));
-    return;
+    return _multival(shift, 'deferrable', @_);
 }
 
 
@@ -221,27 +235,26 @@ sub sql_default {
 }
 
 
+sub sql_deferrable {
+    my $self = shift;
+    my $def  = $self->_multival('deferrable');
+    return '' unless ( defined $def );
+
+    return $def ? ' DEFERRABLE' : ' NOT DEFERRABLE';
+}
+
+
 sub sql {
     my $self = shift;
-    my $def = '';
-    if (exists($self->{deferrable})) {
-        if ($self->{deferrable}) {
-            $def = ' DEFERRABLE '.$self->{deferrable};
-        }
-        else {
-            $def = ' NOT DEFERRABLE';
-        }
-    }
 
     return sprintf('%-15s %-15s', $self->name, $self->type)
            . ($self->null ? 'NULL' : 'NOT NULL')
            . $self->sql_default
            . ($self->auto_increment ? ' AUTO_INCREMENT' : '')
            . ($self->unique ? ' UNIQUE' : '')
-#           . ($self->primary ? ' PRIMARY KEY' : '')
            . ($self->references ? 
                 (' REFERENCES ' . $self->references->table->name .'('
-                 . $self->references->name .')'. $def  
+                 . $self->references->name .')'. $self->sql_deferrable 
                 ) : ''
              )
     ;
@@ -330,6 +343,7 @@ column and not set it.
 
 =head2 sql_default
 
+=head2 sql_deferrable
 
 
 =head2 sql

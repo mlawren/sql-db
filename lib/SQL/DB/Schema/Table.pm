@@ -434,7 +434,7 @@ sub set_db_type {
 
 sub db_type {
     my $self = shift;
-    return $self->{db_type} || '';
+    return $self->{db_type} || 'SQLite';
 }
 
 
