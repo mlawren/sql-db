@@ -1,13 +1,11 @@
 use strict;
 use warnings;
+use lib 't/lib';
 use Test::More tests => 5;
 use Test::Memory::Cycle;
+use SQL::DB::Schema;
+use SQL::DB::Test::Schema;
 
-require 't/TestLib.pm';
-
-use SQL::DB::Schema qw(define_tables);
-
-define_tables(TestLib->All);
 my $s = SQL::DB::Schema->new(qw/artists/);
 
 my $artist = $s->arow('artists');

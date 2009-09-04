@@ -1,12 +1,9 @@
 use strict;
 use warnings;
-use Test::More tests => 29;
+use lib 't/lib';
+use Test::More tests => 27;
 use Test::Memory::Cycle;
-
-BEGIN {
-    use_ok('SQL::DB::Schema::Table');
-}
-require_ok('t/TestLib.pm');
+use SQL::DB::Test::Schema;
 
 
 can_ok('SQL::DB::Schema::Table', qw(
@@ -42,7 +39,9 @@ can_ok('SQL::DB::Schema::Table', qw(
     sql_create
 ));
 
-my $table = SQL::DB::Schema::Table->new(@{TestLib->Artist});
+my $schema = SQL::DB::Schema->new;
+
+my $table = $schema->table('artists');
 isa_ok($table, 'SQL::DB::Schema::Table');
 isa_ok($table->arow, 'SQL::DB::Schema::ARow::artists');
 like($table->name, qr/artists/, 'name');
@@ -86,7 +85,7 @@ is($table->sql_create_table,'CREATE TABLE artists (
     UNIQUE (name)
 ) ENGINE=InnoDB', 'create table mysql');
 
-my $cd = SQL::DB::Schema::Table->new(@{TestLib->CD});
+my $cd = $schema->table('cds');
 $cd->column('artist')->references($table->column('id'));
 
 is($cd->column('artist')->references, $table->column('id'), 'references');
@@ -106,11 +105,11 @@ is($cd->sql_create_table, 'CREATE TABLE cds (
     UNIQUE (title, artist)
 )', 'CD as string');
 
-my $default = SQL::DB::Schema::Table->new(@{TestLib->Default});
-is($default->column('binary')->type, 'BLOB', 'column type');
-is($default->column('binary')->bind_type, undef, 'undef bind_column type');
+my $default = $schema->table('defaults');
+is($default->column('bincol')->type, 'BLOB', 'column type');
+is($default->column('bincol')->bind_type, undef, 'undef bind_column type');
 $default->set_db_type('Pg');
-is($default->column('binary')->type, 'BYTEA', 'pg column type');
-is($default->column('binary')->bind_type, 'Pg bind type', 'pg bind_column type');
+is($default->column('bincol')->type, 'BYTEA', 'pg column type');
+is($default->column('bincol')->bind_type, 'Pg bind type', 'pg bind_column type');
 
 

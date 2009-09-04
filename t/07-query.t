@@ -1,11 +1,10 @@
 use strict;
 use warnings;
+use lib 't/lib';
 use Test::More tests => 9;
 use Test::Memory::Cycle;
-
-require 't/TestLib.pm';
-
 use SQL::DB::Schema qw(define_tables);
+use SQL::DB::Test::Schema;
 
 use_ok('SQL::DB::Schema::Query');
 can_ok('SQL::DB::Schema::Query', qw/
@@ -40,7 +39,6 @@ can_ok('SQL::DB::Schema::Query', qw/
     st_delete_from
 /);
 
-define_tables(TestLib->All);
 my $s = SQL::DB::Schema->new(qw/artists cds/);
 
 my $artist = $s->arow('artists');

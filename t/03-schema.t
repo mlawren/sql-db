@@ -1,12 +1,11 @@
 use strict;
 use warnings;
-use Test::More tests => 89;
+use lib 't/lib';
+use Test::More tests => 87;
 use Test::Exception;
 use Test::Memory::Cycle;
-
-BEGIN { use_ok('SQL::DB::Schema');}
-require_ok('t/TestLib.pm');
-
+use SQL::DB::Test::Schema;
+use SQL::DB::Schema;
 
 # Class and Object methods
 can_ok('SQL::DB::Schema', qw(define_tables new tables table arow acol query));
@@ -53,8 +52,6 @@ throws_ok {
     SQL::DB::Schema->new('unknown');
 } qr/not been defined/;
 
-SQL::DB::Schema->import('define_tables');
-define_tables(TestLib->All);
 
 my $s = SQL::DB::Schema->new('artists');
 isa_ok($s, 'SQL::DB::Schema', '->new empty');

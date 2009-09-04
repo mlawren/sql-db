@@ -1,19 +1,18 @@
 use strict;
 use warnings;
-use Test::More tests => 70;
+use lib 't/lib';
+use Test::More tests => 69;
 use Test::Memory::Cycle;
-
 use DBI qw(SQL_BLOB);
+use SQL::DB::Test::Schema;
+use SQL::DB::Schema;
 
-require_ok('t/TestLib.pm');
 use_ok('SQL::DB::Schema', 'define_tables');
 use_ok('SQL::DB::Row');
 can_ok('SQL::DB::Row', qw/
     make_class_from
 /);
 
-
-define_tables(TestLib->All);
 
 my $schema = SQL::DB::Schema->new(qw/artists cds defaults/);
 
@@ -147,10 +146,12 @@ is($new3->name, 'Skinner', 'name');
 memory_cycle_ok($new3, 'memory cycle');
 
 my $dclass = SQL::DB::Row->make_class_from($schema->table('defaults')->columns);
-is($dclass, 'SQL::DB::Row::defaults.id_defaults.scalar_defaults.sub_defaults.binary', 'default class name');
+is($dclass,
+'SQL::DB::Row::defaults.id_defaults.scalar_defaults.sub_defaults.bincol', 'default class name');
 
 my $def = $dclass->new;
-isa_ok($def, 'SQL::DB::Row::defaults.id_defaults.scalar_defaults.sub_defaults.binary');
+isa_ok($def,
+'SQL::DB::Row::defaults.id_defaults.scalar_defaults.sub_defaults.bincol');
 memory_cycle_ok($def, 'memory cycle');
 is($def->scalar, 1, 'scalar default');
 is($def->sub, 2, 'sub default');
@@ -163,7 +164,7 @@ is($def->sub, 2, 'sub default');
 
 #is($schema->table('defaults')->column(0
 my $adrow = $schema->arow('defaults');
-is($adrow->binary->_column->bind_type, undef, 'bind type undef');
+is($adrow->bincol->_column->bind_type, undef, 'bind type undef');
 
 $class = SQL::DB::Row->make_class_from(
     $schema->table('artists')->columns,

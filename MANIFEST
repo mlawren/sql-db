@@ -26,7 +26,6 @@ MANIFEST
 MANIFEST.SKIP
 META.yml
 README
-t/lib/SQLDBTest.pm
 t/01-column.t
 t/02-table.t
 t/03-schema.t
@@ -35,12 +34,9 @@ t/06-acol.t
 t/07-query.t
 t/07-subquery.t
 t/08-row.t
-t/09-db.t
 t/10-cursor.t
-t/11-synopsis.t
-t/12-txn.t
-t/13-blob.t
-t/live.t
-t/TestLib.pm
 t/pod.t
 t/pod-coverage.t
+t/tests.t
+t/lib/SQL/DB/Test.pm
+t/lib/SQL/DB/Test/Schema.pm
