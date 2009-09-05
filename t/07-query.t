@@ -3,11 +3,15 @@ use warnings;
 use lib 't/lib';
 use Test::More tests => 9;
 use Test::Memory::Cycle;
-use SQL::DB::Schema qw(define_tables);
+use SQL::DB qw/ :default /;
 use SQL::DB::Test::Schema;
 
-use_ok('SQL::DB::Schema::Query');
-can_ok('SQL::DB::Schema::Query', qw/
+Schema('music')->resolve_fk;
+my ($artists,$cds) = Schema('music')->arows(qw/artists cds/);
+is($artists->_join($cds), "artists1.id = cds1.artist", '_join');
+
+use_ok('SQL::DB::Query');
+can_ok('SQL::DB::Query', qw/
     new
     acolumns
     bind_types
@@ -39,9 +43,10 @@ can_ok('SQL::DB::Schema::Query', qw/
     st_delete_from
 /);
 
+
 my $s = SQL::DB::Schema->new(qw/artists cds/);
 
-my $artist = $s->arow('artists');
+my $artist = arow('artists');
 
 my $q;
 
@@ -76,5 +81,3 @@ is($q, 'SELECT
 ', 'select with acol');
 memory_cycle_ok($q, 'memory cycle');
 
-my ($artists,$cds) = $s->arow(qw/artists cds/);
-is($artists->_join($cds), "artists2.id = cds1.artist", '_join');

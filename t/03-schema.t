@@ -1,6 +1,55 @@
 use strict;
 use warnings;
 use lib 't/lib';
+use Test::More tests => 10;
+use Test::Exception;
+use Test::Memory::Cycle;
+use SQL::DB::Schema;
+
+can_ok('SQL::DB::Schema', qw(new add tables table));
+
+my $schema = SQL::DB::Schema->new;
+isa_ok($schema, 'SQL::DB::Schema');
+
+my @table = (
+    table => 'persons',
+    columns => [
+        [ name => 'id', primary => 1, type => 'integer'],
+        [ name => 'name', type => 'varchar'],
+    ],
+);
+
+my @table2 = (
+    table => 'addresses',
+    columns => [
+        [ name => 'id', primary => 1, type => 'integer'],
+        [ name => 'city', type => 'varchar'],
+    ],
+);
+
+my $table = $schema->add(@table);
+isa_ok($table, 'SQL::DB::Table');
+
+ok($schema->add(\@table2));
+
+isa_ok($schema->table('persons'), 'SQL::DB::Table');
+is($schema->table('persons'), $table, 'Table match');
+
+throws_ok {
+    $schema->table('notexist');
+} qr/not associated with/;
+
+is($schema->tables, 2, 'tables size');
+isa_ok(($schema->tables)[0], 'SQL::DB::Table');
+
+memory_cycle_ok($schema, 'memory cycle');
+
+
+__END__
+
+use strict;
+use warnings;
+use lib 't/lib';
 use Test::More tests => 87;
 use Test::Exception;
 use Test::Memory::Cycle;

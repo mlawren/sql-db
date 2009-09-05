@@ -1,41 +1,26 @@
-package SQL::DB::Schema::AColumn;
-use strict;
-use warnings;
-use base qw(SQL::DB::Schema::Expr);
+package SQL::DB::AColumn;
+use Mouse;
 use Carp qw(carp croak confess);
-use Scalar::Util qw(weaken);
 use UNIVERSAL qw(isa);
 
+extends 'SQL::DB::Expr';
 
-sub new {
-    my $proto = shift;
-    my $class = ref($proto) || $proto;
-    my $self  = $class->SUPER::new;
+has '_column' => (
+    is => 'ro',
+    isa => 'SQL::DB::Column',
+    required => 1,
+);
 
-    my $col   = shift;
-    my $arow  = shift;
-    $self->{col}  = $col;  # column definition SQL::DB::Schema::AColumn
-    $self->{arow} = $arow; # abstract representation of a table row
-    weaken($self->{arow});
+has '_arow' => (
+    is => 'ro',
+    isa => 'SQL::DB::ARow',
+    weaken => 1,
+    required => 1,
+);
 
-    $self->{expr_as}   = $col->name; #FIXME shouldn't know about Expr internals
-    $self->set_val($arow->_alias .'.'. $col->name);
-
-
-    bless($self, $class);
-    return $self;
-}
-
-
-sub _column {
+sub BUILD {
     my $self = shift;
-    return $self->{col};
-}
-
-
-sub _arow {
-    my $self = shift;
-    return $self->{arow};
+    $self->_as( $self->_column->name );
 }
 
 
@@ -43,7 +28,9 @@ sub expr_not {is_null(@_);}
 sub is_null {
     my $self     = shift;
     $self        = $self->_clone();
-    $self->set_val($self->{arow}->_alias .'.'. $self->{col}->name .' IS NULL');
+    $self->set_val(
+        $self->_arow->_alias .'.'. $self->_column->name .' IS NULL'
+    );
     return $self;
 }
 
@@ -51,8 +38,9 @@ sub is_null {
 sub is_not_null {
     my $self     = shift;
     $self        = $self->_clone();
-    $self->set_val($self->{arow}->_alias .'.'. $self->{col}->name 
-                   .' IS NOT NULL');
+    $self->set_val(
+        $self->_arow->_alias .'.'. $self->_column->name .' IS NOT NULL'
+    );
     return $self;
 }
 
@@ -61,7 +49,9 @@ sub like {
     my $self     = shift;
     my $like     = shift || croak 'like() requires an argument';
     $self        = $self->_clone();
-    $self->set_val($self->{arow}->_alias .'.'. $self->{col}->name .' LIKE ?');
+    $self->set_val(
+        $self->_arow->_alias .'.'. $self->_column->name .' LIKE ?'
+    );
     $self->push_bind_values($like);
     return $self;
 }
@@ -70,7 +60,9 @@ sub like {
 sub asc {
     my $self     = shift;
     $self        = $self->_clone();
-    $self->set_val($self->{arow}->_alias .'.'. $self->{col}->name .' ASC');
+    $self->set_val(
+        $self->_arow->_alias .'.'. $self->_column->name .' ASC'
+    );
     return $self;
 }
 
@@ -78,7 +70,9 @@ sub asc {
 sub desc {
     my $self     = shift;
     $self        = $self->_clone();
-    $self->set_val($self->{arow}->_alias .'.'. $self->{col}->name .' DESC');
+    $self->set_val(
+        $self->_arow->_alias .'.'. $self->_column->name .' DESC'
+    );
     return $self;
 }
 
@@ -88,13 +82,13 @@ sub set {
     @_ || confess 'set() requires an argument:'. $self;
     my $val      = shift;
     $self        = $self->_clone();
-    if (UNIVERSAL::isa($val, 'SQL::DB::Schema::Expr')) {
-        $self->set_val($self->{col}->name .' = '. $val);
-        $self->push_bind_values($val->bind_values);
+    if (UNIVERSAL::isa($val, 'SQL::DB::Expr')) {
+        $self->set_val( $self->_column->name .' = '. $val );
+        $self->push_bind_values( $val->bind_values );
     }
     else {
-        $self->set_val($self->{col}->name .' = ?');
-        $self->push_bind_values($val);
+        $self->set_val( $self->_column->name .' = ?' );
+        $self->push_bind_values( $val );
     }
     return $self;
 }
@@ -113,15 +107,15 @@ __END__
 
 =head1 NAME
 
-SQL::DB::Schema::AColumn - description
+SQL::DB::AColumn - description
 
 =head1 SYNOPSIS
 
-  use SQL::DB::Schema::AColumn;
+  use SQL::DB::AColumn;
 
 =head1 DESCRIPTION
 
-B<SQL::DB::Schema::AColumn> is ...
+B<SQL::DB::AColumn> is ...
 
 =head1 METHODS
 
@@ -184,7 +178,7 @@ Copyright (C) 2007,2008 Mark Lawrence <nomad@null.net>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
+the Free Software Foundation; either version 3 of the License, or
 (at your option) any later version.
 
 =cut

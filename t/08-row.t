@@ -84,7 +84,7 @@ $Data::Dumper::Indent=1;
 my ($arows, @insert) = $new->q_insert;
 
 my $q = $schema->query(@insert);
-isa_ok($q, 'SQL::DB::Schema::Query', 'query insert');
+isa_ok($q, 'SQL::DB::Query', 'query insert');
 is($q, 'INSERT INTO
     artists (id, name, ucname)
 VALUES
@@ -102,7 +102,7 @@ ok(!$new->_modified('name'), 'not modified');
 my @update;
 ($arows, @update) = $new->q_update;
 $q = $schema->query(@update);
-isa_ok($q, 'SQL::DB::Schema::Query', 'query update');
+isa_ok($q, 'SQL::DB::Query', 'query update');
 is($q, 'UPDATE
     artists
 SET
@@ -114,7 +114,7 @@ memory_cycle_ok($q, 'memory cycle');
 
 ($arows, @update) = $new->q_delete;
 $q = $schema->query(@update);
-isa_ok($q, 'SQL::DB::Schema::Query', 'query delete');
+isa_ok($q, 'SQL::DB::Query', 'query delete');
 is($q, 'DELETE FROM
     artists
 WHERE
@@ -208,7 +208,7 @@ $Data::Dumper::Maxdepth = 3;
 #($arows,@update) =  $new->q_update;
 #
 #$q = $schema->query(@update);
-#isa_ok($q, 'SQL::DB::Schema::Query', $q->_as_string);
+#isa_ok($q, 'SQL::DB::Query', $q->_as_string);
 #memory_cycle_ok($q, 'memory cycle');
 
 my $acol = $schema->acol('id');

@@ -1,96 +1,290 @@
 package SQL::DB::Schema;
-use strict;
-use warnings;
-use base qw(Exporter);
-use Carp qw(carp croak confess);
-use SQL::DB::Schema::Table;
-use SQL::DB::Schema::Query;
-use SQL::DB::Schema::Expr;
-use UNIVERSAL;
-use Exporter;
-
+use Mouse;
+use Carp qw/croak carp/;
+use SQL::DB::Table;
+use SQL::DB::Column;
+use SQL::DB::Index;
+use SQL::DB::FK;
+use SQL::DB::Query;
 
 our $VERSION = '0.18';
-our $DEBUG;
 
-our @ISA = qw(Exporter);
 
-our @EXPORT_OK = qw(
-    define_tables
-    coalesce
-    count
-    max
-    min
-    sum
-    LENGTH
-    cast
-    upper
-    lower
-    case
-    EXISTS
-    now
-    nextval
-    currval
-    setval
+has 'name' => (
+    required => 1,
+    is => 'ro',
+    isa => 'Str',
+);
+
+has 'seqtable' => (
+    is => 'ro',
+    isa => 'Str',
+    lazy => 1,
+    builder => sub {
+        ( my $n = lc( shift->name ) ) =~ s/[^0-9a-zA-Z]/_/;
+        return $n .'_sequences';
+    },
+);
+
+has 'debug' => (
+    is => 'rw',
+    isa => 'Bool',
+    default => 0,
+);
+
+has 'dbd' => (
+    is => 'rw',
+    isa => 'Str',
+    init_arg => undef,
+);
+
+has '_tables' => (
+    is => 'ro',
+    isa => 'HashRef[SQL::DB::Table]',
+    default => sub { {} },
+    init_arg => undef,
+    auto_deref => 1,
+);
+
+has '_fk_resolved' => (
+    is => 'rw',
+    isa => 'Bool',
+    default => 0,
+    init_arg => undef,
 );
 
 
-our %table_names;
-
-sub define_tables {
-    foreach my $def (@_) {
-        unless (ref($def) and ref($def) eq 'ARRAY') {
-            croak 'usage: define_tables($arrayref,...)';
-        }
-
-        my $table = SQL::DB::Schema::Table->new(@{$def});
-
-        if (exists($table_names{$table->name})) {
-            croak "Table ". $table->name ." already defined";
-        }
-
-        warn 'debug: defined table '.$table->name if($DEBUG);
-        $table_names{$table->name} = $table;
-    }
-    return;
-}
-
-
-sub new {
-    my $proto = shift;
-    my $class = ref($proto) || $proto;
-
-    my $self = {
-        sqldbs_tables      => [],
-        sqldbs_table_names => {},
-    };
-    bless($self,$class);
-
-    push(@_, keys %table_names) unless(@_);
-
-    foreach my $name (@_) {
-        $self->associate_table($name);
-    }
-
-    return $self;
-}
-
-
-sub associate_table {
+sub BUILD {
     my $self = shift;
-    my $name = shift || croak 'usage: associate_table($name)';
+    $self->define_table(
+        name => $self->seqtable,
+        columns => [
+            { name => 'name', type => 'varchar(32)', primary => 1 },
+            { name => 'inc', type => 'int', default => 1 },
+            { name => 'val', type => 'int', default => 0 },
+        ],
+    );
+}
 
-    my $table = exists($table_names{$name}) ? $table_names{$name} : undef;
-    if (!$table) {
-        croak "table '$name' has not been defined";
+
+# subroutine not a method.
+sub _text2cols {
+    my $cols = shift;
+    my $text = shift;
+
+    my @cols;
+
+    $text =~ s/(^\s)|(\s$)//;
+    foreach my $name (split(/\s*,\s*/, $text)) {
+        unless( exists $cols->{$name} ) {
+            croak "No such column '$name' "
+                .".\nKnown Columns: ". join( ',', keys %$cols ) ;
+        }
+        push( @cols, $cols->{$name} );
+
     }
 
-    push(@{$self->{sqldbs_tables}}, $table);
-    $self->{sqldbs_table_names}->{$name} = $table;
+    if (!@cols) {
+        confess "No columns found in '$text'";
+    }
+    return @cols;
+}
 
-    warn 'debug: schema associated with table '.$table->name if($DEBUG);
-    $table->setup_schema($self);
-    return;
+
+sub _text2fcols {
+    my $self = shift;
+    my $text = shift;
+    my @cols = ();
+
+    if ($text =~ /\s*(.*)\s*\(\s*(.*)\s*\)/) {
+        my $table;
+        unless ( eval { $table = $self->table( $1 ) } ) {
+            confess  ": Foreign table $1 not yet defined.\n"
+                . "Known tables: "
+                . join(',', $self->tables);
+        }
+        foreach my $column_name (split(/\s*,\s*/, $2)) {
+            unless( eval { $table->column($column_name) } ) {
+                confess "Foreign table $1 has no column '$column_name'";
+            }
+            push( @cols, $table->column( $column_name ) );
+        }
+    }
+
+    if (!@cols) {
+        confess "'$text' is not a valid reference";
+    }
+    return @cols;
+}
+
+
+sub resolve_fk {
+    my $self = shift;
+    return 1 if ($self->_fk_resolved);
+
+    foreach my $table ( $self->tables ) {
+        foreach my $ref ( $table->_foreign ) {
+            my @cols = @{ $ref->{columns} };
+            my @references = $self->_text2fcols( $ref->{references} );
+            $ref->{references} = \@references;
+
+            if (@cols != @references) {
+                croak 'Unmatched/missing reference columns for '
+                    . $table->name .'('. join(',', map {$_->name} @cols) .')';
+            }
+
+            my $i = -1;
+            while ($i++ < $#cols) {
+                $cols[$i]->references( $references[$i] );
+            }
+
+            push ( @{ $table->foreign }, SQL::DB::FK->new( $ref ) );
+        }
+        $table->_foreign([]);
+    }
+
+    $self->_fk_resolved(1);
+}
+
+
+sub define_table {
+    my $self = shift;
+
+#    local %Carp::Internal;
+#    $Carp::Internal{'SQL::DB'}++;
+
+    my $ref; # table reference
+
+    if ( ref $_[0] eq 'ARRAY' ) {
+        return map { $self->define_table( @$_ ) } @_;
+    }
+    elsif ( $_[0] eq 'name' ) {
+        $ref = { @_ };
+    }
+    else {
+        $ref = shift;
+    }
+
+    $ref->{schema} = $self;
+    $ref->{name} || confess "Missing table 'name' definition";
+
+    if ( exists $self->_tables->{ $ref->{name} } ) {
+        warn "Redefining table '". $ref->{name}
+            ."' in schema '".  $self->name ."'";
+    }
+
+    # Save for later
+    my $unique    = delete $ref->{unique};
+    my $primary   = delete $ref->{primary};
+    my $sequences = delete $ref->{sequences};
+    my $indexes   = delete $ref->{indexes};
+    my $foreign   = delete $ref->{foreign};
+
+    # build the columns
+    my @columns;
+    my $_columns = {};
+
+    foreach my $colref ( @{ $ref->{columns} } ) {
+
+        if ( ref $colref eq 'ARRAY' ) {
+            $colref = { @$colref };
+        }
+
+        if ( exists $colref->{ref} ) {
+            croak "'ref' is depreciated in favour of 'references'";
+        }
+
+        $colref->{_references} = delete $colref->{references};
+        if ( $colref->{_references} ) {
+            push( @{ $foreign },
+                {
+                    columns => $colref->{name},
+                    references => $colref->{_references}
+                } 
+            );
+        }
+
+        my $col = SQL::DB::Column->new( $colref );
+
+        push( @columns, $col );
+        $_columns->{ $col->name } = $col;
+
+        if ( $col->unique ) {
+            push( @{ $ref->{unique} }, [ $col ] );
+        }
+
+        if ( $col->primary ) {
+            push( @{ $ref->{primary} }, $col );
+            $ref->{_primary}->{$col->name} = $col;
+        }
+    }
+
+    $ref->{_columns} = $_columns;
+    $ref->{columns}  = \@columns;
+
+    if ( $primary ) {
+        my @cols = _text2cols( $_columns, $primary );
+        push( @{ $ref->{primary} }, @cols );
+        map {
+            $_->primary( 1 );
+            $ref->{_primary}->{$_->name} = $_;
+        } @cols;
+    }
+
+    if ( $unique ) {
+        my @unique = map {
+            ref $_ eq 'HASH'
+                ? [ _text2cols( $_columns, $_->{columns} ) ]
+                : [ _text2cols( $_columns, $_ ) ]
+        } @$unique;
+        push( @{ $ref->{unique} }, @unique );
+    }
+
+    # Everything else need the columns to be attached to a table
+    my $table = SQL::DB::Table->new( $ref );
+    map { $_->table( $table ) } @columns;
+
+#    $table->aclass( SQL::DB::ARow->make_class_from( @columns ) );
+#    $table->class( SQL::DB::Row->make_class_from( @columns ) );
+
+    if ( $indexes ) {
+        my @indexes = map {
+            my $idx = ref $_ eq 'HASH' ? $_ : { columns => $_ };
+            $idx->{columns} = [ _text2cols( $_columns, $idx->{columns} ) ];
+            $idx->{table} = $table;
+            SQL::DB::Index->new( $idx );
+        } @$indexes;
+        $table->indexes( \@indexes );
+    }
+
+    if ( $sequences ) {
+        my @sequences = map {
+            $_->{table} = $table;
+            SQL::DB::Sequences->new( $_ );
+        } @$sequences;
+        $table->sequences( \@sequences );
+    }
+
+    if ( $foreign ) {
+        my @foreign = map {
+            $_->{columns} ||= delete $_->{key};
+            $_->{columns} = [ _text2cols( $_columns, $_->{columns} ) ];
+            $_;
+        } @$foreign;
+        $table->_foreign( \@foreign );
+    }
+
+    $self->_tables->{ $table->name } = $table;
+    $self->_fk_resolved(0);
+
+    warn 'debug: defined '. $self->name .'.'. $table->name if ( $self->debug );
+    return $table;
+}
+
+
+sub tables {
+    my $self = shift;
+    return values %{ $self->_tables };
 }
 
 
@@ -98,215 +292,102 @@ sub table {
     my $self = shift;
     my $name  = shift || croak 'usage: table($name)';
 
-    if (!exists($self->{sqldbs_table_names}->{$name})) {
-        confess "Table '$name' is not associated with the current schema";
+    if (!exists($self->_tables->{$name})) {
+#        carp "Table '$name' does not exist. "
+#            . "Known tables: ". join(', ', keys %{ $self->_tables } );
+        return;
     }
-    return $self->{sqldbs_table_names}->{$name};
+    return $self->_tables->{$name};
 }
 
 
-sub tables {
+# calculate which tables reference which other tables, and plan the
+# deployment order accordingly.
+sub deploy_order {
+    my $self     = shift;
+    my @src      = grep { $_->name ne $self->seqtable } $self->tables;
+    my $deployed = {};
+    my @ordered  = ();
+    my $count    = 0;
+    my $limit    = scalar @src + 10;
+
+    while (@src) {
+        if ($count++ > $limit) {
+            die 'Deployment calculation limit exceeded: circular foreign keys?';
+        }
+
+        my @newsrc = ();
+        foreach my $table (@src) {
+            my $deployable = 1;
+            foreach my $c ($table->columns) {
+                if (my $foreignc = $c->references) {
+                    if ($foreignc->table == $table or # self reference
+                        $deployed->{$foreignc->table->name}) {
+                        next;
+                    }
+                    $deployable = 0;
+                }
+            }
+
+            if ($deployable) {
+#                warn "debug: ".$table->name.' => deploy list ' if($self->{sqldb_sqldebug});
+                push(@ordered, $table);
+                $deployed->{$table->name} = 1;
+            }
+            else {
+                push(@newsrc, $table);
+            }
+        }
+        @src = @newsrc;
+
+    }
+    return $self->table( $self->seqtable ), @ordered;
+}
+
+
+sub as_sql {
     my $self = shift;
-    return @{$self->{sqldbs_tables}};
+    unless ( $self->_fk_resolved ) {
+        croak "Cannot generate schema SQL unless foreign keys resolved";
+    }
+
+    if ( wantarray ) {
+        return map { $_->as_sql } $self->deploy_order;
+    }
+
+    return join(";\n", map { $_->as_sql } $self->deploy_order ). ";\n";
+}
+
+
+sub row {
+    my $self = shift;
+    my $tname = shift || 'Unknown';
+    my $table = $self->table( $tname ) || confess "no such table: $tname";
+    return $table->row( @_ );
 }
 
 
 sub arow {
-    my $self   = shift;
-    if (wantarray) {
-        return (map {$self->table($_)->arow} @_);
-    }
-    return $self->table(shift)->arow;
+    my $self  = shift;
+    my $table = $self->table( $_[0] ) || confess "No such table: $_[0]";
+    return $table->arow;
 }
 
 
-sub acol {
+sub arows {
     my $self = shift;
-    if (wantarray) {
-        return (map {SQL::DB::Schema::Expr->new($_)} @_);
-    }
-    return SQL::DB::Schema::Expr->new(shift);
+    return map { $self->arow( $_ ) } @_;
 }
 
 
 sub query {
     my $self = shift;
-    return SQL::DB::Schema::Query->new(@_);
-}
+    local %Carp::Internal;
+    local %Carp::CarpInternal;
+    $Carp::Internal{'SQL::DB::Schema'}++;
+    $Carp::CarpInternal{'SQL::DB::Schema'}++;
 
-
-#
-# Functions
-#
-
-sub do_function {
-    my $name = shift;
-
-    my @vals;
-    my @bind;
-
-    foreach (@_) {
-        if (UNIVERSAL::isa($_, 'SQL::DB::Schema::Expr')) {
-            push(@vals, $_);
-            push(@bind, $_->bind_values);
-        }
-        else {
-            push(@vals, $_);
-        }
-    }
-    return SQL::DB::Schema::Expr->new($name .'('. join(', ',@vals) .')', @bind);
-
-}
-
-
-# FIXME set a flag somewhere so that SQL::DB::Row doesn't create a
-# modifier method
-sub coalesce {
-    scalar @_ >= 2 || croak 'coalesce() requires at least two argument';
-
-    my $new;
-    if (UNIVERSAL::isa($_[0], 'SQL::DB::Schema::Expr')) {
-        $new = $_[0]->_clone();
-    }
-    else {
-        $new = SQL::DB::Schema::Expr->new;
-    }
-    $new->set_val('COALESCE('. join(', ', @_) .')');
-    return $new;
-}
-
-
-sub count {
-    return do_function('COUNT', @_);
-}
-
-
-sub min {
-    return do_function('MIN', @_);
-}
-
-
-sub max {
-    return do_function('MAX', @_);
-}
-
-
-sub sum {
-    return do_function('SUM', @_);
-}
-
-
-sub LENGTH {
-    return do_function('LENGTH', @_);
-}
-
-
-sub cast {
-    return do_function('CAST', @_);
-}
-
-
-sub upper {
-    return do_function('UPPER', @_);
-}
-
-
-sub lower {
-    return do_function('LOWER', @_);
-}
-
-
-sub EXISTS {
-    return do_function('EXISTS', @_);
-}
-
-
-sub case {
-    @_ || croak 'case([$expr,] when => $expr, then => $val,[else...])';
-
-    my @bind;
-
-    my $str = 'CASE';
-    if ($_[0] !~ /^when$/i) {
-        # FIXME more cleaning? What can be injected here?
-        my $expr = shift;
-        $expr =~ s/\sEND\W.*//gi;
-        $str .= ' '.$expr;
-    }
-
-    UNIVERSAL::isa($_, 'SQL::DB::Schema::Expr') && push(@bind, $_->bind_values);
-
-    my @vals;
-
-    while (my ($p,$v) = splice(@_,0,2)) {
-        ($p =~ m/(^when$)|(^then$)|(^else$)/)
-            || croak 'case($expr, when => $cond, then => $val, [else...])';
-
-        if (UNIVERSAL::isa($v, 'SQL::DB::Schema::Expr')) {
-            $str .= ' '.uc($p).' '.$v;
-            push(@bind, $v->bind_values);
-        }
-        else {
-            $str .= ' '.uc($p).' ?';
-            push(@bind, $v);
-        }
-    }
-
-    @_ && croak 'case($expr, when => $cond, then => $val,...)';
-
-    return SQL::DB::Schema::Expr->new($str. ' END', @bind);
-}
-
-
-sub now {
-    return do_function('NOW');
-}
-
-
-sub do_function_quoted {
-    my $name = shift;
-
-    my @vals;
-    my @bind;
-
-    foreach (@_) {
-        if (UNIVERSAL::isa($_, 'SQL::DB::Schema::Expr')) {
-            push(@vals, "'$_'");
-            push(@bind, $_->bind_values);
-        }
-        else {
-            push(@vals, "'$_'");
-        }
-    }
-    return SQL::DB::Schema::Expr->new($name .'('. join(', ',@vals) .')', @bind);
-
-}
-
-
-sub nextval {
-    return do_function_quoted('nextval', @_);
-}
-
-
-sub currval {
-    return do_function_quoted('currval', @_);
-}
-
-
-sub setval {
-    my $expr = SQL::DB::Schema::Expr->new;
-    if (@_ == 2) {
-        $expr->set_val('setval(\''. $_[0] .'\', '.  $_[1] .')');
-    }
-    elsif (@_ == 3) {
-        $expr->set_val('setval(\''. $_[0] .'\', '.  $_[1] .', '.
-                           ($_[2] ? 'true' : 'false') .')');
-    }
-    else {
-        confess 'setval() takes 2 or 3 arguments';
-    }
-
-    return $expr;
+    return SQL::DB::Query->new( @_ );
 }
 
 
@@ -315,423 +396,142 @@ __END__
 
 =head1 NAME
 
-SQL::DB::Schema - Generate SQL using Perl logic and objects
+SQL::DB::Schema - Database schema model for SQL::DB
 
 =head1 VERSION
 
-0.06. Development release.
+0.18. Development release.
 
 =head1 SYNOPSIS
 
   use SQL::DB::Schema;
-  use DBI;
+  my $schema = SQL::DB::Schema->new( name => 'myschema' );
 
-  my $dbh = DBI->connect("dbi:SQLite:/tmp/sqlite$$.db");
-
-  my $schema = SQL::DB::Schema->new(
-    [
-        table => 'artists',
-        class => 'Artist',
-        columns => [
-            [name => 'id',  type => 'INTEGER', primary => 1],
-            [name => 'name',type => 'VARCHAR(255)',unique => 1],
-        ],
-        unique => 'name',
-        index  => [
-            columns => 'name',
-            unique  => 1,
-        ],
-    ],
-    [
-        table => 'cds',
-        class => 'CD',
-        columns => [
-            [name => 'id', type => 'INTEGER', primary => 1],
-            [name => 'title', type => 'VARCHAR(255)'],
-            [name => 'year', type => 'INTEGER'],
-            [name => 'artist', type => 'INTEGER', references => 'artists(id)'],
-        ],
-        unique  => 'title,artist',
-        index   => [
-            columns => 'title',
-        ],
-        index  => [
-            columns => 'artist',
-        ],
-    ],
+  $schema->define_table(
+      table => $name,
+      columns => [
+          [ name => 'id', type => 'int', primary => 1 ],
+          [ name => 'id', type => 'int', primary => 1 ],
+          [ name => 'id', type => 'int', primary => 1 ],
+      ],
+      indexes => [
+          [ columns => '', unique => 1, using => 'btree' ],
+      ],
+      foreign_keys => [
+           [ columns => 'col1,col2' => reference => 'remote(col1,col2)'],
+      ],
   );
 
+  $schema->resolve_fk();
+
+  # To see the different flavours of SQL
+  foreach my $dbd (qw/Pg SQLite mysql/) {
+      $schema->dbd($dbd);
+      print $schema->as_sql;
+  }
 
   foreach my $t ($schema->tables) {
-    $dbh->do($t->sql);
-    foreach my $index ($t->sql_index) {
-        $dbh->do($index);
-    }
+      # Do something with the SQL::DB::Table object
+      print $t->foreign->[0]->table->primary->[0]->name;
   }
 
-  # CREATE TABLE artists (
-  #     id              INTEGER        NOT NULL,
-  #     name            VARCHAR(255)   NOT NULL UNIQUE,
-  #     PRIMARY KEY(id),
-  #     UNIQUE (name)
-  # )
-  # CREATE TABLE cds (
-  #     id              INTEGER        NOT NULL,
-  #     title           VARCHAR(255)   NOT NULL,
-  #     year            INTEGER        NOT NULL,
-  #     artist          INTEGER        NOT NULL REFERENCES artists(id),
-  #     PRIMARY KEY(id),
-  #     UNIQUE (title, artist)
-  # )
-  # CREATE INDEX cds_title ON cds (title)
-  # CREATE INDEX cds_artist ON cds (artist)
-
-  my $artist = Artist->arow; # or Artist::Abstract->new;
-  my $cd     = CD->arow;     # or CD::Abstract->new;
-
-  my $query  = $schema->query(
-    insert => [$artist->id, $artist->name],
-    values => [1, 'Queen'],
-  );
-
-  $dbh->do($query->sql, undef, $query->bind_values);
-
-  my $query = $schema->select(
-      columns  => [ $track->cd->title, $track->cd->artist->name ],
-      distinct => 1,
-      where    => ( $track->length > 248 ) & ! ($track->cd->year > 1997),
-      order_by => [ $track->cd->year->desc ],
-  );
-
-  print $query,"\n";
-
-  my $sth = $dbi->prepare($query->sql);
-  $sth->execute($query->bind_values);
-
-  foreach ($sth->rows) {
-    ...
-  }
 
 =head1 DESCRIPTION
 
-B<SQL::DB::Schema> is a module for producing SQL statements using a
-combination of Perl objects, methods and logic operators such as '!',
-'&' and '|'.  You can think of B<SQL::DB::Schema> in the same
-category as L<SQL::Builder> and L<SQL::Abstract> but with extra
-abilities.
+L<SQL::DB> provides a low-level interface to SQL databases, using Perl
+objects and logic operators. B<SQL::DB::Schema> is used by L<SQL::DB>
+as a container for L<SQL::DB::Table> objects. Most users will only
+use this module indirectly through L<SQL::DB>.
 
-B<SQL::DB::Schema> doesn't actually do much of the work itself, but
-glues together various other SQL::DB::* modules.
+=head1 CONSTRUCTOR
 
-Because B<SQL::DB::Schema> is very simple it will create what it is asked
-to without knowing or caring if the statements are suitable for the
-target database. If you need to produce SQL which makes use of
-non-portable database specific statements you will need to create your
-own layer above B<SQL::DB::Schema> for that purpose.
+The new() constructor requires the 'name' attribute.
 
-You probably don't want to B<SQL::DB::Schema> directly unless you
-are writing an Object Mapping Layer or need to produce SQL offline.
-If you need to talk to a real database you are much better off
-interfacing with L<SQL::DB>.
+=head1 ATTRIBUTES
 
-=head1 CLASS SUBROUTINES
+=over 4
 
-=head2 define_tables(@table_definitions)
+=item name
 
-Define SQL table definitions. @table_definitions must be a list of
-ARRAY references which are passed directly to L<SQL::DB::Schema::Table>.
+The name of this schema.
+
+=item seqtable
+
+The name of sequence table for this schema. Only used by DBDs that
+don't have native sequence support.
+
+=item debug <-> Bool
+
+General debugging state (true/false). Debug messages are 'warn'ed.
+
+=item dbd
+
+The DBD driver that the schema should map to. This affects the way
+tables and columns present themselves.
+
+=item tables
+
+A list of L<SQL::DB::Table> objects in the schema.
+
+=back
 
 =head1 METHODS
 
-=head2 new(\@schema)
+=over 4
 
-Create a new SQL::DB::Schema object to hold the table schema.
-\@schema (a reference to an ARRAY) must be a list of
-('Table' => {...}) pairs representing tables and their
-column definitions.
+=item define(@table_definition)
 
-    my $def    = ['Users' => {columns => [{name => 'id'}]}];
-    my $schema = SQL::DB::Schema->new($def);
+(Re)Define a table in the schema.
 
-The table definition can include almost anything you can think of
-using when creating a table. The following example (while overkill and
-not accepted by any database) gives a good overview of what is possible.
+=item table($name) -> SQL::DB::Table
 
-Note that there is more than one place to define some items (for example
-PRIMARY KEY and UNIQUE). Which you should use is up to you and
-your database backend.
+Returns the table $name if it exists, undef otherwise.
 
-    'Artist' => {
-        columns => [
-            {   name           => 'id',
-                type           => 'INTEGER',
-                auto_increment => 1,
-                primary        => 1,
-            },
-            {   name => 'name',
-                type => 'VARCHAR(255)',
-                unique => 1,
-            },
-            {   name => 'age',
-                type => 'INTEGER',
-            },
-            {   name => 'label',
-                type => 'VARCHAR(255)',
-            },
-            {   name => 'wife',
-                type => 'INTEGER',
-            },
-        ],
-        primary =>  [qw(id)],
-        unique  =>  [qw(name age)],
-        indexes => [
-            {
-                columns => ['name 10 ASC'],
-            },
-            {
-                columns => [qw(name age)],
-                unique => 1,
-                using => 'BTREE',
-            },
-        ],
-        foreign => [
-            {
-                columns  => [qw(wife)],
-                references  => ['Wives(id)'],
-            },
-            {
-                columns  => [qw(name label)],
-                references  => ['Labels(id,label)'],
-            },
-        ],
-        engine          => 'InnoDB',
-        default_charset => 'utf8',
-    }
+=item resolve_fk
 
-Also note that the order in which the tables are defined matters
-when it comes to foreign keys. See a good SQL book or Google for why.
+Resolves the foreign key relationships, making sure that each foreign
+key refers to a known column in the schema.  It is called automatically
+when the L<SQL::DB> 'schema' attribute is set.
 
-=head2 associate_table($name)
+=item as_sql -> @list | $str
 
-Associates table with name $name with this schema object. Tables that
-are not associated cannot be queried.
+In array context returns a list of SQL CREATE TABLE/INDEX/TRIGGER
+statements.  In scalar context returns a string containing the same
+list of statements joined together by ";\n";
 
-=head2 tables( )
+=item row( $name, @args ) -> SQL::DB::Row::$name
 
-Return a list of objects representing the database
-tables. The CREATE TABLE statements are available via the 'sql' and
-'sql_index' methods, and the bind values (usually only from DEFAULT
-parameters) are returned in a list by the 'bind_values' method. These are
-suitable for using directly in L<DBI> calls.
+Returns a new object representing a single row of the table $name, with
+values as specified by @args.  Such an object can be inserted (or
+potentially updated or deleted) by SQL::DB.
 
-So a typical database installation might go like this:
+=item arow( $name ) -> SQL::DB::ARow::$name
 
-    my $schema = SQL::DB::Schema->new(@schema);
-    my $dbi    = DBI->connect(...);
+Returns an object representing I<any> row of table $name. This
+abstraction object is used with the SQL::DB 'fetch' and 'do' methods.
 
-    foreach my $t ($schema->table) {
-        $dbi->do($t->sql, {}, $t->bind_values);    
-        foreach my $i ($t->sql_index) {
-            $dbi->do($i);    
-        }
-    }
+=item arows( @names ) -> @{ SQL::DB::ARow::$name1, ... }
 
-The returned objects can also be queried for details about the names
-of the columns but is otherwise not very useful. See L<SQL::DB::Schema::Table>
-for more details.
+Returns objects representing any row of a table. These abstraction
+objects are used with the SQL::DB 'fetch' and 'do' methods.
 
-=head2 table('Table')
-
-Returns an object representing the database table 'Table'. Also see
-L<SQL::DB::Schema::Table> for more details.
-
-
-=head2 arow('Table')
-
-Returns an abstract representation of a row from 'Table' for
-use in all query types. This object has methods for each column
-plus a '_columns' method which returns all columns. These objects
-are the workhorse of the whole system.
-
-As an example, if a table 'DVDs' has been defined with columns 'id',
-'title' and 'director' and you create an abstract row using
-
-    my $dvd = $schema->arow('DVDs')
-    
-then the following are equivalent:
-
-    my $q  = $schema->query(
-        select => [$dvd->_columns]
-    );
-    my $q  = $schema->query(
-        select => [$dvd->id, $dvd->title, $dvd->director]
-    );
-
-Now if 'director' happens to have been defined as a foreign key
-for the 'id' column of a 'Directors' table ('id','name') then you can also
-do the following:
-
-    my $q  = $schema->query(
-        select => [$dvd->title],
-        where  => $dvd->director->name == 'Spielberg'
-    );
-
-See L<SQL::DB::Schema::ARow> for more details.
-
-=head2 acol($scalar)
-
-Returns an expression object that can be used anywhere a column
-would be specified. Useful when selecting columns from a nested select.
-
-=head2 query(key => value, key => value, key => value, ...)
-
-Returns an object representing an SQL query and
-its associated bind values. The SQL text is available via the 'sql'
-method, and the bind values are returned in a list by the 'bind_values'
-method. These are then suitable for using directly in L<DBI> methods.
-
-The type of query and its parameters are defined according to the
-key/value pairs as follows.
-
-=head3 INSERT
-
-  insert   => [@columns],       # mandatory
-  values   => [@values]         # mandatory
-
-=head3 SELECT
-
-  select          => [@columns],       # mandatory
-  distinct        => 1 | [@columns],   # optional
-  join            => $arow,             # optional
-  where           => $expression,      # optional
-  order_by        => [@columns],       # optional
-  having          => [@columns]        # optional
-  limit           => [$count, $offset] # optional
-
-=head3 UPDATE
-
-  update   => [@columns],       # mandatory
-  where    => $expression,      # optional (but probably necessary)
-  values   => [@values]         # mandatory
-
-=head3 DELETE
-
-  delete   => [@arows],          # mandatory
-  where    => $expression       # optional (but probably necessary)
-
-Note: 'from' is not needed because the table information is already
-associated with the columns.
-
-See L<SQL::DB::Schema::Query>, L<SQL::DB::Schema::Query::Insert>, L<SQL::DB::Schema::Query::Select>,...
-
-=head1 EXPRESSIONS
-
-The real power of B<SQL::DB::Schema> lies in the way that the WHERE
-$expression is constructed.  Abstract columns and queries are derived
-from an expression class. Using Perl's overload feature they can be
-combined and nested any way to directly map Perl logic to SQL logic.
-
-See L<SQL::DB::Schema::Query> for more details.
-
-=head1 INTERNAL METHODS
-
-These are used internally but are documented here for completeness.
-
-=head2 define('Table' => {..definition...})
-
-Create the representation of table 'Table' according to the schema
-in {...definition...}. Each table can only be defined once.
-
-
-=head1 SQL FUNCTIONS
-
-
-=head2 do_function
-
-
-
-=head2 coalesce
-
-
-
-=head2 count
-
-
-
-=head2 min
-
-
-
-=head2 max
-
-
-
-=head2 sum
-
-
-
-=head2 LENGTH
-
-
-
-=head2 cast
-
-
-
-=head2 upper
-
-
-
-=head2 lower
-
-
-=head2 case($expr...);
-
-case ($expr, when => $x, then => $val);
-case ($expr, when => $x, then => $val, when $y, then > $val2);
-case ($expr, when => $x, then => $val, else => $val2);
-
-
-=head2 now
-
-
-
-=head2 do_function_quoted
-
-
-
-=head2 nextval
-
-
-
-=head2 currval
-
-
-
-=head2 setval
-
-
+=back
 
 =head1 SEE ALSO
 
-L<SQL::Builder>, L<SQL::Abstract>
-
-L<Tangram> has some good examples of the query syntax possible using
-Perl logic operators.
+L<SQL::DB::Table>, L<SQL::DB>
 
 =head1 AUTHOR
 
 Mark Lawrence E<lt>nomad@null.netE<gt>
 
-Feel free to let me know if you find this module useful.
-
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2007,2008 Mark Lawrence <nomad@null.net>
+Copyright 2007-2009 Mark Lawrence <nomad@null.net>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
+the Free Software Foundation; either version 3 of the License, or
 (at your option) any later version.
 
 =cut

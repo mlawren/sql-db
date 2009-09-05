@@ -1,59 +1,50 @@
 use strict;
 use warnings;
+use lib 't/lib';
 use Test::More tests => 15;
 use Test::Memory::Cycle;
+use SQL::DB qw/Schema/;
+use SQL::DB::Column;
+use SQL::DB::Test::Schema;
 
-BEGIN {
-    use_ok('SQL::DB::Schema::Column');
-}
-
-can_ok('SQL::DB::Schema::Column', qw(
+can_ok('SQL::DB::Column', qw(
     new
     table
     name
     type
-    type_Pg
     bind_type
-    bind_type_Pg
+    primary
     null
     default
-    unique
-    primary
-    auto_increment
     references
+    deferrable
+    unique
+    auto_increment
     set
     inflate
     deflate
-    sql_default
-    sql
+    as_sql
 ));
 
-my $col = SQL::DB::Schema::Column->new(
-{    name    => 'testcol',
-    type    => 'INTEGER',
-    type_Pg  => 'PGINTEGER',
-    type_mysql  => 'MYSQLINTEGER',
-    null    => 1,
-    default => 5,
-    unique  => 1,
-    set     => sub{1},
-    inflate => sub{1},
-    deflate => sub{1},
-    primary => 1,
-});
+Schema('music')->dbd('SQLite');
+my $col = Schema('music')->table('btable')->column('bincol');
 
-isa_ok($col, 'SQL::DB::Schema::Column');
-is($col->name, 'testcol', 'name');
-is($col->type, 'INTEGER', 'type');
-ok($col->null == 1, 'null');
-ok($col->default == 5, 'default');
-ok($col->unique == 1, 'unique');
-ok($col->primary == 1, 'primary');
-like($col->set, qr/CODE/, 'set');
+isa_ok($col, 'SQL::DB::Column');
+is($col->name, 'bincol', 'name');
+
+is($col->type, 'blob', 'type');
+Schema('music')->dbd('Pg');
+is($col->type, 'BYTEA', 'type');
+
+ok(!$col->null, 'null');
+#ok($col->default == 5, 'default');
+#ok($col->unique == 1, 'unique');
+#ok($col->primary == 1, 'primary');
+#like($col->set, qr/CODE/, 'set');
 like($col->inflate, qr/CODE/, 'inflate');
 like($col->deflate, qr/CODE/, 'deflate');
-ok(!defined($col->auto_increment), 'auto_increment');
-like($col->sql, qr/testcol\s+INTEGER\s+NULL DEFAULT 5 UNIQUE/, 'SQL');
+ok(! $col->auto_increment, 'auto_increment');
+like($col->as_sql, qr/^bincol\s+BYTEA\s+NOT NULL$/, 'SQL');
 
 memory_cycle_ok($col);
 

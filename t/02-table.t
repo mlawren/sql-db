@@ -6,7 +6,7 @@ use Test::Memory::Cycle;
 use SQL::DB::Test::Schema;
 
 
-can_ok('SQL::DB::Schema::Table', qw(
+can_ok('SQL::DB::Table', qw(
     new
     setup_schema
     setup_table
@@ -42,15 +42,15 @@ can_ok('SQL::DB::Schema::Table', qw(
 my $schema = SQL::DB::Schema->new;
 
 my $table = $schema->table('artists');
-isa_ok($table, 'SQL::DB::Schema::Table');
-isa_ok($table->arow, 'SQL::DB::Schema::ARow::artists');
+isa_ok($table, 'SQL::DB::Table');
+isa_ok($table->arow, 'SQL::DB::ARow::artists');
 like($table->name, qr/artists/, 'name');
 ok($table->columns, 'columns');
 memory_cycle_ok($table, 'memory ok');
 
 my @cols = $table->columns;
 ok(@cols == 3, '3 columns');
-isa_ok($cols[0], 'SQL::DB::Schema::Column');
+isa_ok($cols[0], 'SQL::DB::Column');
 
 my @colnames = $table->column_names;
 ok(@colnames == 3, '3 column names');
@@ -58,7 +58,7 @@ ok(@colnames == 3, '3 column names');
 ok(@colnames == 3, '3 column names');
 ok($colnames[0] eq 'id', 'First col is id');
 
-isa_ok($table->column('name'), 'SQL::DB::Schema::Column');
+isa_ok($table->column('name'), 'SQL::DB::Column');
 ok($table->column('name')->name eq 'name', 'Column name is name.');
 
 

@@ -5,6 +5,7 @@ name            'SQL-DB';
 license         'GPL';
 all_from        'lib/SQL/DB.pm';
 
+requires        'Mouse'                 => 0;
 requires        'DBI'                   => 0;
 requires        'Scalar::Util'          => 0;
 requires        'Class::Accessor::Fast' => 0;

@@ -1,7 +1,7 @@
 package SQL::DB::Row;
 use strict;
 use warnings;
-use Carp qw(croak confess);
+use Carp qw(carp croak confess);
 use Scalar::Util qw(refaddr);
 
 use constant ORIGINAL => 0;
@@ -16,6 +16,7 @@ sub make_class_from {
     my @methods;
     my @tablecolumns;
     my $arows = {};
+    my $schema = '';
 
     my $i = 0;
     foreach my $obj (@_) {
@@ -25,15 +26,15 @@ sub make_class_from {
             ($method = $obj->_as) =~ s/(^t\d+\.)|(^\w+\d+\.)//go;
             $set_method = 'set_'. $method;
             push(@methods, [$method, $set_method, $obj->_column]);
-            push(@tablecolumns, $obj->_column->table->name .'.'.
-                                $obj->_column->name);
+            push(@tablecolumns, $obj->_column->name);
             push(@{$arows->{refaddr($obj->_arow)}}, [$i,$obj->_column]);
         }
         elsif (UNIVERSAL::can($obj, 'table')) {      # Column
+            $schema ||= ($obj->table->schema->name .'::');
             $method = $obj->name;
             $set_method = 'set_'. $method;
             push(@methods, [$method, $set_method, $obj]);
-            push(@tablecolumns, $obj->table->name .'.'. $obj->name);
+            push(@tablecolumns, $obj->name);
         }
         elsif (UNIVERSAL::can($obj, '_as')) {         # Expr
             $method = $obj->_as || $obj->as_string;
@@ -47,12 +48,12 @@ sub make_class_from {
         $i++;
     }
 
-    my $class = $proto .'::'. join('_', @tablecolumns);
+    my $class = $proto ."::$schema". join('_', @tablecolumns);
 
     no strict 'refs';
     my $isa = \@{$class . '::ISA'};
     if (defined @{$isa}) {
-        return $class;
+        return $class; # already defined
     }
     push(@{$isa}, $proto);
 
@@ -66,7 +67,7 @@ sub make_class_from {
         ${$class.'::_index_'.$def->[0]} = $i;
         push(@{$class.'::_columns'}, $def->[2]);
 
-        if (UNIVERSAL::isa($def->[2], 'SQL::DB::Schema::Column')) {
+        if (UNIVERSAL::isa($def->[2], 'SQL::DB::Column')) {
             if ($def->[2]->inflate) {
                 push(@{$class.'::_inflate_indexes'}, $i);
                 *{$class.'::_inflate'.$i} = $def->[2]->inflate;
@@ -81,8 +82,10 @@ sub make_class_from {
         }
 
         if (defined(&{$class.'::'.$def->[0]})) {
-            croak 'Attempt to define column "'.$def->[0].'" twice. '
-                  .'You cannot fetch two columns with the same name';
+            confess "Attempt to define column '".$def->[0]."' twice.\n"
+                  ."You cannot fetch two columns with the same name.\n"
+                  ."Class: $class\n"
+                  ."Column names: ". join(',', map {$_->[0]} @methods);
         }
 
         push(@{$class.'::_column_names'}, $def->[0]);
@@ -139,9 +142,9 @@ sub make_class_from {
         my $finalclass = ref($proto) || $proto;
 
         my $valref = shift ||
-            croak 'new_from_arrayref requires ARRAYREF argument';
+            confess 'new_from_arrayref requires ARRAYREF argument';
         ref($valref) eq 'ARRAY' ||
-            croak 'new_from_arrayref requires ARRAYREF argument';
+            confess 'new_from_arrayref requires ARRAYREF argument';
 
         my $self  = [
             $valref,                   # ORIGINAL
@@ -331,7 +334,7 @@ sub make_class_from {
         # to their ARow. This method returns AColumns to the caller, but
         # is the only holder of a strong reference to the ARows belonging
         # to those AColumns. So if we didn't return the ARow as well then
-        # AColumn->_arow is undefined and SQL::DB::Schema::Query barfs.
+        # AColumn->_arow is undefined and SQL::DB::Query barfs.
         return ($arows, @queries ? @{$queries[0]} : ());
     };
 
@@ -443,7 +446,7 @@ sub make_class_from {
         # to their ARow. This method returns AColumns to the caller, but
         # is the only holder of a strong reference to the ARows belonging
         # to those AColumns. So if we didn't return the ARow as well then
-        # AColumn->_arow is undefined and SQL::DB::Schema::Query barfs.
+        # AColumn->_arow is undefined and SQL::DB::Query barfs.
         return ($arows, @queries ? @{$queries[0]} : ());
     };
 
@@ -504,7 +507,7 @@ sub make_class_from {
         # to their ARow. This method returns AColumns to the caller, but
         # is the only holder of a strong reference to the ARows belonging
         # to those AColumns. So if we didn't return the ARow as well then
-        # AColumn->_arow is undefined and SQL::DB::Schema::Query barfs.
+        # AColumn->_arow is undefined and SQL::DB::Query barfs.
         return ($arows, @queries ? @{$queries[0]} : ());
     };
 
@@ -536,52 +539,113 @@ sub make_class_from {
 1;
 __END__
 
-
 =head1 NAME
 
-SQL::DB::Row - description
+SQL::DB::Row - Perl representation of an SQL table/query row
 
 =head1 SYNOPSIS
 
   use SQL::DB::Row;
 
+  # Define/create a new class
+  my $class = SQL::DB::Row->make_class_from(
+    @SQL::DB::Column,
+    @SQL::DB::AColumn,
+    @SQL::DB::Expr,
+  );
+
+  # Create new objects
+  my $row1 = $class->new( key => $val );
+  my $row2 = $class->new_from_array_ref( \@values );
+
+  # manipulate/interrogate objects
+  $row1->set_col1( $newval ); # setter
+  $row2->col2;                # getter
+  $row2->_column_names;
+  $row2->_hashref;
+  $row2->_modified('col1');
+  $row2->_hashref_modified;
+  $row2->_inflate;
+  $row2->_deflate;
+  $row2->q_insert;
+  $row2->q_update;
+  $row2->q_delete;
+  $row2->quickdump;
+
 =head1 DESCRIPTION
 
-B<SQL::DB::Row> is ...
+L<SQL::DB> provides a low-level interface to SQL databases, using Perl
+objects and logic operators. B<SQL::DB::Row> based objects are returned
+by L<SQL::DB> after a successful fetch() from a database. They are also
+returned by the L<SQL::DB::Table> row() method when creating new
+objects to insert. Most users will not use this module directly.
+
+L<SQL::DB::Row> has only a single class method make_class_from() which
+takes a list containing L<SQL::DB::Column>, L<SQL::DB::Acolumn>, or
+L<SQL::DB::Expr> objects and returns the new class name. The rest of
+this pod/documentation refers to the generated class.
+
+=head1 CONSTRUCTORS
+
+Objects from the new class are arrayref-based (not hashref-based) and
+can be instantiated via the new() or new_from_array_ref() constructors.
 
 =head1 METHODS
 
-=head2 make_class_from
+Objects from the new class have standard accessors (->column) and
+modifiers (->set_column) in addition to the following:
 
+=over 4
 
-=head2 new_from_arrayref
+=item column_names -> @names
 
-Create a new object from values contained a reference to an ARRAY. The
-array values must be in the same order as the definition of the class.
+List of column names.
 
-=head2 new
+=item _hashref -> \%hash
 
+The object as a hashref.
 
-=head2 _hashref
+=item _modified('col') -> Bool
 
-Returns a reference to a hash containing the keys and values of the object.
+If the column has been modified.
 
+=item _hashref_modified -> FIXME
 
-=head2 _inflate
+FIXME
 
+=item _inflate -> \CODE
 
+The 'inflate' coderef from the original column definition.
 
-=head2 _deflate
+=item _deflate -> \CODE
 
+The 'deflate' coderef from the original column definition.
 
+=item q_insert -> @query
 
-=head1 FILES
+An array suitable for constructing an L<SQL::DB::Query> to insert the
+object.
 
+=item q_update -> @query
 
+An array suitable for constructing an L<SQL::DB::Query> to update the
+object.
+
+=item q_delete -> @query
+
+An array suitable for constructing an L<SQL::DB::Query> to delete the
+object.
+
+=item quickdump -> $text
+
+A nicely formatted object dump.
+
+=back
 
 =head1 SEE ALSO
 
-L<Other>
+L<SQL::DB>, L<SQL::DB::Table>, L<SQL::DB::Column>, L<SQL::DB::AColumn>,
+L<SQL::DB::Expr>
 
 =head1 AUTHOR
 
@@ -589,13 +653,15 @@ Mark Lawrence E<lt>nomad@null.netE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2007,2008 Mark Lawrence <nomad@null.net>
+Copyright 2007-2009 Mark Lawrence <nomad@null.net>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
+the Free Software Foundation; either version 3 of the License, or
 (at your option) any later version.
+
 
 =cut
 
 # vim: set tabstop=4 expandtab:
+

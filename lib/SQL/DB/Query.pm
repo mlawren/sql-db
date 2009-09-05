@@ -1,7 +1,7 @@
-package SQL::DB::Schema::Query;
+package SQL::DB::Query;
 use strict;
 use warnings;
-use base qw(SQL::DB::Schema::Expr);
+use base qw(SQL::DB::Expr);
 use Carp qw(carp croak confess);
 use UNIVERSAL qw(isa);
 
@@ -14,7 +14,10 @@ sub new {
     my $class = ref($proto) || $proto;
     @_ || confess "usage: ". __PACKAGE__ ."->new(\@statements)";
 
-    my $self = $proto->SUPER::new; # Get an Expr-based object
+    local %Carp::Internal;
+    $Carp::Internal{'SQL::DB::Query'}++;
+
+    my $self = SQL::DB::Expr->new( val => '' );
     bless($self, $class);
 
     $self->{is_select} = $_[0] =~ m/^select/i;
@@ -58,7 +61,10 @@ sub bind_types {
 
 sub exists {
     my $self = shift;
-    return SQL::DB::Schema::Expr->new('EXISTS ('. $self .')', $self->bind_values);
+    return SQL::DB::Expr->new(
+        val => 'EXISTS ('. $self .')',
+        bind_values => [ $self->bind_values ],
+    );
 }
 
 
@@ -80,7 +86,7 @@ sub as_string {
 sub _alias {
     my $self = shift;
     if (!$self->{tid}) {
-        $self->{tid} = $SQL::DB::Schema::ARow::tcount->{Query}++;
+        $self->{tid} = $SQL::DB::ARow::tcount->{Query}++;
     }
     return 't'.$self->{tid};
 }
@@ -94,7 +100,11 @@ sub st_where {
     my $self  = shift;
     my $where = shift;
 
-    return unless(defined $where);
+    return unless( defined $where );
+    croak "where clause must be an SQL::DB::Expr, not '$where'.".
+        "Query so far: ". $self
+        unless ( ref $where && $where->isa( 'SQL::DB::Expr' ) );
+
     push(@{$self->{query}}, 'sql_where', $where);
     $self->push_bind_values($where->bind_values);
     return;
@@ -171,7 +181,7 @@ sub st_update {
     @items || croak 'update requires values';
 
     foreach (@items) {
-        if (UNIVERSAL::isa($_, 'SQL::DB::Schema::Expr')) {
+        if (UNIVERSAL::isa($_, 'SQL::DB::Expr')) {
             $self->push_bind_values($_->bind_values);
             if ($_->can('_column')) {
                 push(@{$self->{bind_types}}, $_->_column->bind_type);
@@ -214,9 +224,9 @@ sub st_select {
     my $ref  = shift;
 
     my @items    = ref($ref) eq 'ARRAY' ? @{$ref} : $ref;
-    my @acolumns = map {UNIVERSAL::isa($_, 'SQL::DB::Schema::ARow') ? $_->_columns : $_} @items;
+    my @acolumns = map {UNIVERSAL::isa($_, 'SQL::DB::ARow') ? $_->_columns : $_} @items;
 
-    $self->push_bind_values(map {UNIVERSAL::isa($_, 'SQL::DB::Schema::Expr') ? $_->bind_values : ()} @acolumns);
+    $self->push_bind_values(map {UNIVERSAL::isa($_, 'SQL::DB::Expr') ? $_->bind_values : ()} @acolumns);
 
     push(@{$self->{acolumns}}, @acolumns);
     push(@{$self->{query}}, 'sql_select', undef);
@@ -284,11 +294,11 @@ sub st_from {
 
     if (UNIVERSAL::isa($ref, 'ARRAY')) {
         foreach (@{$ref}) {
-            if (UNIVERSAL::isa($_, 'SQL::DB::Schema::AColumn')) {
+            if (UNIVERSAL::isa($_, 'SQL::DB::AColumn')) {
                 push(@acols, $_->_reference->_table_name .' AS '.
                              $_->_reference->_alias);
             }
-            elsif (UNIVERSAL::isa($_, 'SQL::DB::Schema::ARow')) {
+            elsif (UNIVERSAL::isa($_, 'SQL::DB::ARow')) {
                 push(@acols, $_->_table_name .' AS '. $_->_alias);
             }
             elsif (UNIVERSAL::isa($_, __PACKAGE__)) {
@@ -302,10 +312,10 @@ sub st_from {
             }
         }
     }
-    elsif (UNIVERSAL::isa($ref, 'SQL::DB::Schema::AColumn')) {
+    elsif (UNIVERSAL::isa($ref, 'SQL::DB::AColumn')) {
         push(@acols, $ref->_arow->_table_name .' AS '. $ref->_arow->_alias);
     }
-    elsif (UNIVERSAL::isa($ref, 'SQL::DB::Schema::ARow')) {
+    elsif (UNIVERSAL::isa($ref, 'SQL::DB::ARow')) {
         push(@acols, $ref->_table_name .' AS '. $ref->_alias);
     }
     elsif (UNIVERSAL::isa($ref, __PACKAGE__)) {
@@ -366,7 +376,7 @@ sub st_left_outer_join {st_left_join(@_)};
 sub st_left_join {
     my $self = shift;
     my $arow  = shift;
-    UNIVERSAL::isa($arow, 'SQL::DB::Schema::ARow') || confess "join only with ARow";
+    UNIVERSAL::isa($arow, 'SQL::DB::ARow') || confess "join only with ARow";
     push(@{$self->{query}}, 'sql_left_join', $arow);
     return;
 }
@@ -430,8 +440,8 @@ sub sql_cross_join {
 sub st_union {
     my $self = shift;
     my $ref  = shift;
-    unless(UNIVERSAL::isa($ref, 'SQL::DB::Schema::Expr')) {
-        confess "Select UNION must be based on SQL::DB::Schema::Expr";
+    unless(UNIVERSAL::isa($ref, 'SQL::DB::Expr')) {
+        confess "Select UNION must be based on SQL::DB::Expr";
     }
     push(@{$self->{query}}, 'sql_union', $ref);
     $self->push_bind_values($ref->bind_values);
@@ -449,8 +459,8 @@ sub sql_union {
 sub st_intersect {
     my $self = shift;
     my $ref  = shift;
-    unless(UNIVERSAL::isa($ref, 'SQL::DB::Schema::Expr')) {
-        confess "Select INTERSECT must be based on SQL::DB::Schema::Expr";
+    unless(UNIVERSAL::isa($ref, 'SQL::DB::Expr')) {
+        confess "Select INTERSECT must be based on SQL::DB::Expr";
     }
     push(@{$self->{query}}, 'sql_intersect', $ref);
     $self->push_bind_values($ref->bind_values);
@@ -543,8 +553,8 @@ sub sql_offset {
 sub st_delete {
     my $self = shift;
     my $arow = shift;
-    UNIVERSAL::isa($arow, 'SQL::DB::Schema::ARow') ||
-        confess "Can only delete type SQL::DB::Schema::ARow";
+    UNIVERSAL::isa($arow, 'SQL::DB::ARow') ||
+        confess "Can only delete type SQL::DB::ARow";
     push(@{$self->{query}}, 'sql_delete', $arow);
     return;
 }
@@ -567,15 +577,15 @@ __END__
 
 =head1 NAME
 
-SQL::DB::Schema::Query - description
+SQL::DB::Query - description
 
 =head1 SYNOPSIS
 
-  use SQL::DB::Schema::Query;
+  use SQL::DB::Query;
 
 =head1 DESCRIPTION
 
-B<SQL::DB::Schema::Query> is ...
+B<SQL::DB::Query> is ...
 
 =head1 METHODS
 
@@ -813,7 +823,7 @@ Copyright (C) 2007,2008 Mark Lawrence <nomad@null.net>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
+the Free Software Foundation; either version 3 of the License, or
 (at your option) any later version.
 
 =cut
