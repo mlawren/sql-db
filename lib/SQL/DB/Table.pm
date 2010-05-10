@@ -145,7 +145,7 @@ sub default_charset { _multival(shift, 'default_charset', @_ ) };
 
 has '_triggers' => (
     is => 'ro',
-    isa => 'ArrayRef[HashRef]',
+    isa => 'ArrayRef',
     default => sub { [] },
     init_arg => 'triggers',
     auto_deref => 1,
@@ -154,12 +154,22 @@ has '_triggers' => (
 sub triggers {
     my $self = shift;
 
-    if ( wantarray ) {
-        my $dbd = $self->schema->dbd;
-        return map { exists $_->{$dbd} ? $_->{$dbd} : () } $self->_triggers;
+    if ( @_ ) {
+        $self->_triggers( @_ );
     }
 
-    return $self->_triggers( @_ );
+    if ( wantarray ) {
+        my $dbd = $self->schema->dbd;
+
+        return map {
+            if ( ref( $_) eq 'HASH' ) {
+                return exists $_->{$dbd} ? $_->{$dbd} : ();
+            }
+            return $_;
+        } $self->_triggers;
+    }
+
+    return $self->_triggers;
 }
 
 
