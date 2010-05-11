@@ -168,7 +168,7 @@ sub connect {
         return failure( $DBI::errstr );
     }
 
-    $dsn =~ /^dbi:(.*):/;
+    $dsn =~ /^dbi:(.*?):/;
     $self->dbd( $1 );
     $self->schema->dbd( $self->dbd );
     $self->dbh( $dbh );
