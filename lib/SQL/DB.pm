@@ -203,7 +203,7 @@ sub _create_tables {
 
         TABLES: foreach my $table ( @tables ) {
             warn 'debug: create table '. $table->name if ( $self->debug );
-            my $sth = $dbh->table_info('', '', $table->name, 'TABLE');
+            my $sth = $dbh->table_info(undef, undef, $table->name, 'TABLE');
             if (!$sth) {
                 die $DBI::errstr;
             }
@@ -258,7 +258,7 @@ sub _drop_tables {
 
     foreach my $table ( @tables ) {
         warn 'debug: drop table '. $table->name if ( $self->debug );
-        my $sth = $dbh->table_info('', '', $table->name, 'TABLE');
+        my $sth = $dbh->table_info(undef, undef, $table->name, 'TABLE');
         if (!$sth) {
             die $DBI::errstr;
         }
@@ -682,7 +682,7 @@ sub drop_sequence {
         );
     } catch {
         my $err = $_;
-        my $sth = $self->dbh->table_info('', '',
+        my $sth = $self->dbh->table_info(undef, undef,
             $self->schema->seqtable, 'TABLE');
 
         if (!$sth) {
