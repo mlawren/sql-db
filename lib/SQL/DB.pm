@@ -464,7 +464,6 @@ sub txn {
     my $subref = shift;
     (ref($subref) && ref($subref) eq 'CODE') || croak 'usage txn($subref)';
     my $catch = shift;
-    ($catch ? ref($catch) eq 'CODE' : 1) || croak 'usage txn($subref)';
 
     local %Carp::Internal;
     $Carp::Internal{'Try::Tiny'}++;
@@ -505,7 +504,7 @@ sub txn {
                 croak $err.'. ROLLBACK (txn 1) FAILED: ' .$_;
             };
             if ( $catch ) {
-                @result = $catch->( $err );
+                @result = ${$catch}->( $err ); # Actually a Try::Tiny::Catch
             }
         }
         else { # nested txn - die so the outer txn fails
