@@ -218,8 +218,8 @@ sub _create_tables {
 
             foreach my $action ( $table->as_sql ) {
                 try {
-                    $dbh->do( $action );
                     warn "debug: $action" if ( $self->sqldebug );
+                    $dbh->do( $action );
 
                 } catch {
                     die $_;# . '. Query: '. $action;
@@ -279,6 +279,9 @@ sub _drop_tables {
             }, catch {
                 die $_;
             });
+        }
+        else {
+            warn 'debug: table doesnt exist: '. $table->name if ( $self->debug );
         }
     }
 }

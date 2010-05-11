@@ -248,11 +248,21 @@ sub expr_ne {
 }
 
 sub expr_bitand {
+    local %Carp::Internal;
+    $Carp::Internal{'SQL::DB::Expr'}++;
+    $Carp::Internal{'SQL::DB::Row'}++;
+    $Carp::Internal{'SQL::DB'}++;
+    $Carp::Internal{'Try::Tiny'}++;
     carp "Use of '&' for AND is depreciated.";
     return expr_binary($_[0],'AND',$_[1]);
 }
 
 sub expr_bitor {
+    local %Carp::Internal;
+    $Carp::Internal{'SQL::DB::Expr'}++;
+    $Carp::Internal{'SQL::DB::Row'}++;
+    $Carp::Internal{'SQL::DB'}++;
+    $Carp::Internal{'Try::Tiny'}++;
     carp "Use of '|' for OR is depreciated.";
     return expr_binary($_[0],'OR',$_[1]);
 }

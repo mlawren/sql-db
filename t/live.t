@@ -18,6 +18,7 @@ if ( @handles > 1 ) {
         $tests->{$h->dbd}->connect($h->dsn, $h->username, $h->password);
 
         $subs->{$h->dbd} = sub {
+            diag('DSN: '. $h->dsn);
             $tests->{$h->dbd}->runtests;
         };
     }
