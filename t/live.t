@@ -37,7 +37,7 @@ testers to be using Test::Database.
 EOF
 }
 else {
-    my $dsn = 'dbi:SQLite:t/test.sqlite';
+    my $dsn = 'dbi:SQLite:dbname=:memory:';
     diag('DSN: '. $dsn);
     my $t = SQL::DB::Test->new;
     $t->connect($dsn);
