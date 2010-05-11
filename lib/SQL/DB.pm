@@ -153,7 +153,7 @@ sub connect {
     $newattrs = {} unless ( $newattrs );
 
     my $attrs = {
-        unicode           => 1,
+        sqlite_unicode    => 1,
         mysql_enable_utf8 => 1,
         pg_enable_utf8    => 1,
         PrintError        => 0,
