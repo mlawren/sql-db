@@ -996,7 +996,7 @@ SQL::DB - Perl interface to SQL Databases
 
 =head1 SYNOPSIS
 
-  use SQL::DB;
+  use SQL::DB qw/sql_count/;
 
   define_table(
       name  => 'authors',

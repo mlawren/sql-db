@@ -35,6 +35,7 @@ t/07-query.t
 t/07-subquery.t
 t/08-row.t
 t/10-cursor.t
+t/20-synopsis.t
 t/pod.t
 t/pod-coverage.t
 t/tests.t
