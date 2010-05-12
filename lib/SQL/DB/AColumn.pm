@@ -14,7 +14,7 @@ has '_column' => (
 has '_arow' => (
     is => 'ro',
     isa => 'SQL::DB::ARow',
-    weaken => 1,
+    weak_ref => 1,
     required => 1,
 );
 

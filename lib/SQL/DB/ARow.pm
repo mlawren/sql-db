@@ -4,7 +4,6 @@ use warnings;
 use base qw(Class::Accessor);
 use Carp qw(carp croak confess cluck);
 use SQL::DB::AColumn;
-use Scalar::Util qw(weaken);
 
 
 our $DEBUG;

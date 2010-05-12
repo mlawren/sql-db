@@ -20,7 +20,6 @@ has 'references' => (
     isa => 'ArrayRef',
     required => 1,
     auto_deref => 1,
-    weaken => 1,
 );
 
 has 'deferrable' => (

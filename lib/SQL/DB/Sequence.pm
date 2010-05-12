@@ -6,7 +6,7 @@ our $VERSION = '0.18';
 has 'table' => (
     is => 'ro',
     isa => 'SQL::DB::Table',
-    weaken => 1,
+    weak_ref => 1,
 );
 
 has 'name' => (
