@@ -1,7 +1,5 @@
 build-stamp
 install-stamp
-debian/files
-debian/libsql-db-perl
 Makefile$
 MANIFEST.bak
 .git

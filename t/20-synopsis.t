@@ -2,22 +2,30 @@ use strict;
 use warnings;
 use Test::More tests => 1;
 use File::Slurp;
-use SQL::DB; # this doesn't export @EXPORT_DEFAULT when eval'd. Why?
+use SQL::DB;
 
 unlink "sqldbtest$$.db";
 
-my $perl = read_file( 'lib/SQL/DB.pm');
+my $perl = read_file('lib/SQL/DB.pm');
 
 $perl =~ s/.*=head1 SYNOPSIS//s;
 $perl =~ s/=head1 DESCRIPTION.*//s;
 
-eval 'use strict; use warnings; '. $perl;
+$perl = "use strict; use warnings; \n" . $perl;
+
+eval $perl;
 
 my $err = $@;
 
 unlink "sqldbtest$$.db";
 
-die $err if ( $err ); # die here so we see test output
+if ($err) {
+    my $i = 1;
+    foreach my $line ( split( /\n/, $perl ) ) {
+        printf( "%-03s %s\n", $i++, $line );
+    }
+    die $err;
+}
 
-ok( 1 );
+ok(1);
 

@@ -1,338 +1,178 @@
 package SQL::DB;
-use Mouse;
-use Return::Value;
-use Try::Tiny;
-use DBI;
-use Carp qw/croak carp cluck/;
-use Exporter qw/ import /;
-
-use SQL::DB::Schema;
-use SQL::DB::Row;
+use strict;
+use warnings;
+use Moo;
+use DBIx::Connector;
+use Carp qw/croak carp cluck confess/;
 use SQL::DB::Cursor;
-use SQL::DB::Sequence;
-use SQL::DB::Expr;
+use SQL::DB::Expr qw/:all/;
+use Sub::Exporter -setup => {
+    exports => [
+        qw/
+          query
+          /,
+    ],
+    groups => {
+        default => [
+            qw/
+              /
+        ],
+    },
+};
 
-
-our $VERSION = '0.18';
-
-# AND and OR are re-exported from SQL::DB::Expr
-our @EXPORT_DEFAULT = (qw/
-    define_table
-    row
-    arow
-    arows
-    AND
-    OR
-    catch
-    Schema
-/);
-
-our @EXPORT_SQLFUNCS = (qw/
-        sql_coalesce
-        sql_count
-        sql_max
-        sql_min
-        sql_sum
-        sql_length
-        sql_cast
-        sql_upper
-        sql_lower
-        sql_case
-        sql_exists
-        sql_now
-        sql_nextval
-        sql_currval
-        sql_setval
-/);
-
-our %EXPORT_TAGS = (
-    default  => \@EXPORT_DEFAULT,
-    sqlfuncs => \@EXPORT_SQLFUNCS,
-    all      => [ @EXPORT_DEFAULT, @EXPORT_SQLFUNCS ],
-);
-
-our @EXPORT    = @EXPORT_DEFAULT;
-our @EXPORT_OK = ( qw/ :default :sqlfuncs :all /, @{ $EXPORT_TAGS{all} } );
-
-
-
-our %schemas = (
-    default => SQL::DB::Schema->new( name => 'default' ),
-);
-
-
-# CLASS subroutines
-sub Schema {
-    my $name  = shift || 'default';
-    local %Carp::Internal;
-    $Carp::Internal{'SQL::DB'}++;
-
-    if ( ! exists $schemas{$name} ) {
-        $schemas{$name} = SQL::DB::Schema->new( name => $name );
-    }
-
-    return $schemas{$name};
-}
-
-sub define_table {
-    local %Carp::Internal;
-    $Carp::Internal{'SQL::DB'}++;
-    $schemas{default}->define_table( @_ );
-}
-    
-sub arow {
-    local %Carp::Internal;
-    $Carp::Internal{'SQL::DB'}++;
-    $schemas{default}->arow( @_ );
-}
-    
-sub arows {
-    local %Carp::Internal;
-    $Carp::Internal{'SQL::DB'}++;
-    $schemas{default}->arows( @_ );
-}
-    
-sub row {
-    local %Carp::Internal;
-    $Carp::Internal{'SQL::DB'}++;
-    $schemas{default}->row( @_ );
-}
-    
+our $VERSION = '0.19_3';
 
 # Instance attributes
 
+has 'verbose' => (
+    is      => 'rw',
+    default => 0,
+);
+
 has 'debug' => (
-    is => 'rw',
-    isa => 'Bool',
+    is      => 'rw',
     default => 0,
 );
 
-has 'sdebug' => (
-    is => 'rw',
-    isa => 'Bool',
-    default => 0,
+has 'dsn' => ( is => 'rw', );
+
+has 'dbuser' => ( is => 'rw', );
+
+has 'dbpass' => ( is => 'rw', );
+
+has 'dbattrs' => (
+    is      => 'rw',
+    default => sub { {} },
 );
 
-has 'dbh' => (
-    is => 'rw',
-    isa => 'Undef|DBI::db',
-);
+has 'conn' => ( is => 'rw', );
 
 has 'dbd' => (
-    is => 'rw',
-    isa => 'Str',
+    is       => 'rw',
     init_arg => undef,
 );
 
-has 'qcount' => (
-    is => 'rw',
-    isa => 'Int',
-    default => 0,
-    init_arg => undef,
+has 'prepare_mode' => (
+    is  => 'rw',
+    isa => sub {
+        die "prepare_mode must be 'prepare|prepare_cached'"
+          unless $_[0] =~ m/^(prepare)|(prepare_cached)$/;
+    },
+    default => sub { 'prepare_cached' },
 );
 
-has 'schema' => (
-    is => 'rw',
-    isa => 'SQL::DB::Schema',
-    handles => [ qw/ query / ],
-    default => sub { $schemas{default}->resolve_fk; $schemas{default} },
-    trigger => sub { $_[1]->resolve_fk; $_[1]->dbd( $_[0]->dbd ) },
-);
+has 'dry_run' => ( is => 'rw' );
 
-has '_txn' => (
-    is => 'rw',
-    isa => 'Int',
-    default => 0,
-    init_arg => undef,
-);
+has '_current_timestamp' => ( is => 'rw' );
 
-
-sub connect {
+sub BUILD {
     my $self = shift;
-    my ( $dsn, $user, $pass, $newattrs ) = @_;
-    $newattrs = {} unless ( $newattrs );
+
+    ( my $dsn = $self->dsn ) =~ /^dbi:(.*?):/;
+    my $dbd = $1 || die "Invalid DSN: " . $self->dsn;
+    $self->dbd($dbd);
 
     my $attrs = {
-        sqlite_unicode    => 1,
-        mysql_enable_utf8 => 1,
-        pg_enable_utf8    => 1,
-        PrintError        => 0,
-        %$newattrs,
-        RaiseError        => 1,
-        AutoCommit        => 1,
+        PrintError => 0,
+        ChopBlanks => 1,
+        $dbd eq 'Pg'     ? ( pg_enable_utf8    => 1 ) : (),
+        $dbd eq 'SQLite' ? ( sqlite_unicode    => 1 ) : (),
+        $dbd eq 'mysql'  ? ( mysql_enable_utf8 => 1 ) : (),
+        %{ $self->dbattrs },
+        RaiseError => 1,
+        AutoCommit => 1,
+        Callbacks  => {
+            connected => sub {
+                my $h = shift;
+                if ( $dbd eq 'Pg' ) {
+                    $h->do('SET client_min_messages = WARNING;');
+
+                    #                    $h->do("SET TIMEZONE TO 'UTC';");
+                }
+                elsif ( $dbd eq 'SQLite' ) {
+                    $h->do('PRAGMA foreign_key = ON;');
+                }
+                return;
+            },
+        }
     };
 
-    my $dbh = DBI->connect_cached( $dsn, $user, $pass, $attrs );
+    $self->conn(
+        DBIx::Connector->new( $dsn, $self->dbuser, $self->dbpass, $attrs ) );
 
-    if ( !$dbh ) {
-        return failure( $DBI::errstr );
-    }
-
-    $dsn =~ /^dbi:(.*?):/;
-    $self->dbd( $1 );
-    $self->schema->dbd( $self->dbd );
-    $self->dbh( $dbh );
-    $self->qcount(0);
-    $self->_txn(0);
-
-    if ($self->dbd eq 'Pg') {
-        $dbh->do('SET client_min_messages = WARNING;');
-    }
-    elsif ($self->dbd eq 'SQLite') {
-        $dbh->do('PRAGMA foreign_key = ON;');
-    }
-
-    warn "debug: connected to $dsn" if($self->debug);
-
-    return success;
+    $self->conn->mode('fixup');
+    return $self;
 }
 
-
-sub _create_tables {
+sub create_sequence {
     my $self = shift;
-    $self->dbh || croak 'cannot _create_tables() before connect()';
+    my $arg  = shift;
 
-    my @tables = @_;
-
-    # Faster to do all of this inside a BEGIN/COMMIT block on
-    # things like SQLite, and better that we deploy all or nothing
-    # anyway.
-    return $self->txn( sub {
-        my $dbh = $self->dbh;
-#        $self->schema->dbd( $self->dbd );
-
-        TABLES: foreach my $table ( @tables ) {
-            warn 'debug: create table '. $table->name if ( $self->debug );
-            my $sth = $dbh->table_info(undef, undef, $table->name, 'TABLE');
-            if (!$sth) {
-                die $DBI::errstr;
-            }
-
-            while ( my $x = $sth->fetch ) {
-                if ( $x->[2] eq $table->name ) {
-                    croak 'Table '. $table->name
-                         .' already exists - not creating';
-                    next TABLES;
-                }
-            }
-
-            foreach my $action ( $table->as_sql ) {
-                try {
-                    warn "debug: $action" if ( $self->sqldebug );
-                    $dbh->do( $action );
-
-                } catch {
-                    die $_;# . '. Query: '. $action;
-                };
-            }
-
-            $self->create_sequence( name => $table->name );
-            if ( $self->dbd ne 'Pg' ) {
-                map { $self->_create_sequence( $_ ) } $table->sequences;
-            }
-        }
-        return 1;
-    }, catch {
-        croak $_;
-    });
-}
-
-
-sub create_table {
-    my $self = shift;
-    my $name = shift;
-    $self->dbh || croak 'cannot create_table() before connect()';
-
-    return $self->_create_tables( $self->schema->table( $name ) );
-}
-
-
-sub _drop_tables {
-    my $self = shift;
-    $self->dbh || croak 'cannot _drop_tables() before connect()';
-
-    my @tables = @_;
-
-    my $dbh = $self->dbh;
-    $self->schema->dbd( $self->dbd );
-
-    foreach my $table ( @tables ) {
-        warn 'debug: drop table '. $table->name if ( $self->debug );
-        my $sth = $dbh->table_info(undef, undef, $table->name, 'TABLE');
-        if (!$sth) {
-            die $DBI::errstr;
-        }
-
-        my $x = $sth->fetch;
-        if ( $x and $x->[2] eq $table->name ) {
-            my $action = 'DROP TABLE IF EXISTS '.$table->name.
-                ($self->dbd eq 'Pg' ? ' CASCADE' : '');
-
-            $self->txn( sub {
-                map { $self->_drop_sequence( $_ ) } $table->sequences;
-                unless ( $table->name eq $self->schema->seqtable ) {
-                    $self->drop_sequence( $table->name )
-                }
-
-                warn "debug: $action" if( $self->sqldebug );
-                $dbh->do( $action );
-            }, catch {
-                die $_;
-            });
-        }
-        else {
-            warn 'debug: table doesnt exist: '. $table->name if ( $self->debug );
-        }
+    if ( $self->dbd eq 'SQLite' ) {
+        my $dsn = $self->dsn . '.seq';
+        my $dbh = DBI->connect($dsn);
+        $dbh->do( 'CREATE TABLE sequence_' 
+              . $arg . ' ('
+              . 'seq INTEGER PRIMARY KEY, mtime TIMESTAMP )' );
+    }
+    else {
+        die "Sequence support not implemented for " . $self->dbd;
     }
 }
 
-
-sub drop_table {
+sub nextval {
     my $self = shift;
-    my $name = shift;
+    my $arg  = shift;
 
-    return $self->_drop_tables( $self->schema->table( $name ) );
+    if ( $self->dbd eq 'SQLite' ) {
+        my $dsn = $self->dsn . '.seq';
+        my $dbh = DBI->connect($dsn);
+        $dbh->do( 'INSERT INTO sequence_' 
+              . $arg
+              . '(mtime) VALUES(CURRENT_TIMESTAMP)' );
+        return $dbh->sqlite_last_insert_rowid();
+    }
+    else {
+        die "Sequence support not implemented for " . $self->dbd;
+    }
 }
 
+sub query {
+    return $_[0] if ( @_ == 1 and ref $_[0] eq 'SQL::DB::Expr' );
+    my @statements;
+    foreach my $item (@_) {
+        if ( ref $item eq '' ) {
+            ( my $tmp = $item ) =~ s/_/ /g;
+            push( @statements, uc $tmp . "\n" );
+        }
+        elsif ( ref $item eq 'ARRAY' ) {
+            push( @statements, '    ', _bexpr_join( ",\n    ", @$item ), "\n" );
 
-sub deploy {
-    my $self = shift;
-    $self->dbh || croak 'cannot deploy() before connect()';
-    carp 'debug: deploy' if ( $self->debug );
+         #FIXME
+         #            push(@statements, '    ', query(",\n    ", @$item), "\n");
+        }
+        elsif ( $item->isa('SQL::DB::Expr') ) {
+            push( @statements, '    ', $item, "\n" );
+        }
+    }
 
-    local %Carp::Internal;
-    $Carp::Internal{'Try::Tiny'}++;
-
-    my @tables = $self->schema->deploy_order;
-    return $self->_create_tables( @tables );
+    my $e = _expr_join( '', @statements );
+    $e->{_txt} .= "\n" unless ( $e->{_txt} =~ /\n$/ );
+    return $e;
 }
-
-
-sub _undeploy {
-    my $self = shift;
-    $self->dbh || croak 'cannot _undeploy() before connect()';
-    carp 'debug: _undeploy' if ( $self->debug );
-
-    local %Carp::Internal;
-    $Carp::Internal{'Try::Tiny'}++;
-
-    my @tables = reverse $self->schema->deploy_order;
-    return $self->_drop_tables( @tables );
-}
-
 
 sub query_as_string {
     my $self = shift;
-    my $sql  = shift || confess 'query_as_string requires an argument';
-    my $dbh  = $self->dbh;
-    
+    my $sql  = shift || confess 'usage: query_as_string($sql,@values)';
+    my $dbh  = $self->conn->dbh;
+
     foreach (@_) {
-        if (defined($_) and $_ =~ /[^[:graph:][:space:]]/) {
+        if ( defined($_) and $_ =~ /[^[:graph:][:space:]]/ ) {
             $sql =~ s/\?/*BINARY DATA*/;
         }
         else {
             my $quote = $dbh->quote(
-                defined $_ ? "$_" : undef # make sure it is a string
+                defined $_ ? "$_" : undef    # make sure it is a string
             );
             $sql =~ s/\?/$quote/;
         }
@@ -340,648 +180,195 @@ sub query_as_string {
     return $sql;
 }
 
+sub current_timestamp {
+    my $self = shift;
+    return $self->_current_timestamp if $self->_current_timestamp;
 
-sub _do {
+    my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) = gmtime;
+    $mon  += 1;
+    $year += 1900;
+    return sprintf( '%04d-%02d-%02d %02d:%02d:%02d',
+        $year, $mon, $mday, $hour, $min, $sec );
+}
+
+sub txn {
+    my $wantarray = wantarray;
+
+    my $self          = shift;
+    my $set_timestamp = !$self->_current_timestamp;
+
+    if ($set_timestamp) {
+        $self->_current_timestamp( $self->current_timestamp );
+    }
+
+    my @ret = $self->conn->txn(@_);
+
+    if ($set_timestamp) {
+        $self->_current_timestamp(undef);
+    }
+
+    return $wantarray ? @ret : $ret[0];
+}
+
+sub do {
     my $self    = shift;
-    my $prepare = shift || croak '_do($prepare)';
-    $self->dbh || confess 'cannot do before connect()';
-    my $query   = eval { $self->query( @_ ) };
+    my $prepare = $self->prepare_mode;
+    my $query   = eval { query(@_) };
 
-    if ( ! defined $query ) {
+    if ( !defined $query ) {
         confess "Bad Query: $@";
     }
 
-    local $Carp::Internal{'Try::Tiny'};
-    $Carp::Internal{'Try::Tiny'}++;
+    print $self->query_as_string( "$query", @{ $query->_bvalues } ) . "\n"
+      if $self->verbose;
 
-    return try {
-        my $sth   = $self->dbh->$prepare("$query");
-        my $i = 1;
-        foreach my $type ($query->bind_types) {
-            if ($type) {
-                $sth->bind_param($i, undef, $type);
-                carp 'debug: binding param '.$i.' with '.$type
-                    if( $self->debug && $self->debug > 1 );
+    return if $self->dry_run;
+
+    return $self->conn->run(
+        no_ping => sub {
+            my $dbh = $_;
+            my $sth = $dbh->$prepare("$query");
+
+            my $i = 0;
+            foreach my $ref ( @{ $query->_btypes } ) {
+                $i++;
+                next unless $ref;
+                my $type = $ref->{ $self->dbd } || $ref->{default};
+                $sth->bind_param( $i, undef, eval "$type" );
+                carp 'binding param ' . $i . ' with ' . $type
+                  if ( $self->debug && $self->debug > 1 );
             }
-            $i++;
+            my $rv = $sth->execute( @{ $query->_bvalues } );
+            $sth->finish();
+            carp ''
+              . $self->query_as_string( "$query", @{ $query->_bvalues } )
+              . " /* Result: $rv */"
+              if ( $self->debug );
+            return $rv;
+        },
+        sub {
+            die $_ if ( $self->verbose );
+            die $self->query_as_string( "$query", @{ $query->_bvalues } )
+              . "\n$_";
         }
-        my $rv = $sth->execute($query->bind_values);
-        $sth->finish();
-        $self->qcount( $self->qcount + 1 );
-        carp 'debug: '. $self->query_as_string("$query", $query->bind_values)
-            ." /* Result: $rv */" if($self->sqldebug);
-        return $rv;
-    } catch {
-        croak "$_: Query was:\n"
-            . $self->query_as_string( "$query", $query->bind_values );
-    };
+    );
 }
 
-
-sub do {
-    my $self = shift;
-    return $self->_do('prepare_cached', @_);
-}
-
-
-sub do_nopc {
-    my $self = shift;
-    return $self->_do('prepare', @_);
-}
-
-
-sub _fetch {
+sub sth {
     my $self    = shift;
-    my $prepare = shift || croak '_fetch($prepare)';
-    $self->dbh || confess 'cannot fetch before connect()';
-    my $query   = $self->query( @_ );
+    my $prepare = $self->prepare_mode;
+    my $query   = eval { query(@_) };
+
+    if ( !defined $query ) {
+        confess "Bad Query: $@";
+    }
+
+    print $self->query_as_string( "$query", @{ $query->_bvalues } ) . "\n"
+      if $self->verbose;
+
+    return if $self->dry_run;
 
     my $wantarray = wantarray;
-    local $Carp::Internal{'Try::Tiny'};
-    $Carp::Internal{'Try::Tiny'}++;
 
-    try {
-        my $class   = SQL::DB::Row->make_class_from( $query->acolumns );
-        my $rv;
+    return $self->conn->run(
+        no_ping => sub {
+            my $dbh = $_;
+            my $sth = $dbh->$prepare("$query");
 
-        my $sth = $self->dbh->$prepare("$query");
-        my $i = 1;
-        foreach my $type ( $query->bind_types ) {
-            $sth->bind_param( $i, undef, $type ) if ( defined $type);
-            $i++;
+            my $i = 0;
+            foreach my $ref ( @{ $query->_btypes } ) {
+                $i++;
+                next unless $ref;
+                my $type = $ref->{ $self->dbd } || $ref->{default};
+                $sth->bind_param( $i, undef, eval "$type" );
+                carp 'binding param ' . $i . ' with ' . $type
+                  if ( $self->debug && $self->debug > 1 );
+            }
+            my $rv = $sth->execute( @{ $query->_bvalues } );
+            carp ''
+              . $self->query_as_string( "$query", @{ $query->_bvalues } )
+              . " /* Result: $rv */"
+              if ( $self->debug );
+            return $wantarray ? ( $sth, $rv ) : $sth;
+        },
+        sub {
+            die $_ if ( $self->verbose );
+            die $self->query_as_string( "$query", @{ $query->_bvalues } )
+              . "\n$_";
         }
-        $rv = $sth->execute($query->bind_values);
-        $self->qcount( $self->qcount + 1 );
-
-        if ( $wantarray ) {
-            my $arrayref = $sth->fetchall_arrayref();
-            carp 'debug: (Rows: '. scalar @$arrayref .') '.
-                $self->query_as_string("$query", $query->bind_values)
-                if($self->sqldebug);
-
-            return map { $class->new_from_arrayref( $_ )->_inflate }
-                @{$arrayref};
-        }
-
-        carp 'debug: (Cursor call) '.
-            $self->query_as_string( "$query", $query->bind_values )
-            if ( $self->sqldebug );
-
-        return SQL::DB::Cursor->new( $sth, $class );
-
-    } catch {
-        croak "$_: Query was:\n"
-            . $self->query_as_string( "$query", $query->bind_values );
-    };
+    );
 }
 
+sub cursor {
+    my $self  = shift;
+    my $query = query(@_);
+    my $sth   = $self->sth($query);
+
+    return SQL::DB::Cursor->new(
+        db    => $self,
+        query => $query,
+        sth   => $sth,
+    );
+}
 
 sub fetch {
     my $self = shift;
-    return $self->_fetch( 'prepare_cached', @_ );
+    return $self->cursor(@_)->all;
 }
-
-
-sub fetch_nopc {
-    my $self = shift;
-    return $self->_fetch( 'prepare', @_ );
-}
-
 
 sub fetch1 {
-    my $self    = shift;
-    my @results = $self->_fetch( 'prepare_cached', @_ );
-    return $results[0];
-}
-
-
-sub fetch1_nopc {
     my $self   = shift;
-    my @results = $self->_fetch( 'prepare', @_ );
-    return $results[0];
+    my $cursor = $self->cursor(@_);
+    my $first  = $cursor->next;
+
+    $cursor->finish;
+    return $first;
 }
-
-
-sub txn {
-    my $self = shift;
-    my $subref = shift;
-    (ref($subref) && ref($subref) eq 'CODE') || croak 'usage txn($subref)';
-    my $catch = shift;
-
-    local %Carp::Internal;
-    $Carp::Internal{'Try::Tiny'}++;
-
-    my $dbh = $self->dbh;
-    my $wantarray = wantarray;
-    my @result;
-
-    $self->_txn( $self->_txn + 1 );
-    carp 'debug: TXN ('. $self->_txn .')' if( $self->sqldebug );
-
-    try {
-        if ( $self->_txn == 1 ) {
-            $dbh->begin_work || die $dbh->errstr;
-        }
-        carp 'debug: BEGIN (txn '. $self->_txn .')'
-            if( $self->sqldebug );
-
-        { local $SIG{__DIE__}; @result = &$subref };
-
-        if ( $self->_txn == 1 ) {
-            $dbh->commit || die $dbh->errstr;
-        }
-        carp 'debug: COMMIT (txn '. $self->_txn .')'
-            if( $self->sqldebug );
-
-    } catch {
-        my $err = $_;
-        carp 'debug: FAIL Work (txn '. $self->_txn .'): ' . $err
-            if ( $self->sqldebug );
-
-        if ( $self->_txn == 1 ) { # top-most txn
-            try {
-                $dbh->rollback;
-                carp 'debug: ROLLBACK (txn 1)' if ( $self->sqldebug );
-            } catch {
-                $self->_txn( $self->_txn - 1 );
-                croak $err.'. ROLLBACK (txn 1) FAILED: ' .$_;
-            };
-            if ( $catch ) {
-                @result = ${$catch}->( $err ); # Actually a Try::Tiny::Catch
-            }
-        }
-        else { # nested txn - die so the outer txn fails
-            $self->_txn( $self->_txn - 1 );
-            croak $err;
-        }
-    };
-
-    $self->_txn( $self->_txn - 1 );
-
-    if ( $wantarray ) {
-        return @result;
-    }
-    return $result[0];
-}
-
-
-sub create_sequence {
-    my $self = shift;
-    ( @_ >= 2 ) || confess 'usage: create_sequence( name => $name )';
-    return $self->_create_sequence( SQL::DB::Sequence->new( @_ ) );
-}
-
-
-sub _create_sequence {
-    my $self = shift;
-    my $seq  = shift;
-
-#    $self->schema->dbd( $self->dbd );
-# FIXME handle real Pg sequences.
-
-    warn 'debug: create sequence '. $seq->name if ( $self->debug );
-    my $sequences = $self->schema->arow( $self->schema->seqtable );
-    my $existing = $self->fetch1(
-        select => $sequences->name,
-        from   => $sequences,
-        where  => $sequences->name == $seq->name,
-    );
-    
-    if ( $existing ) {
-        confess "Sequence ".$seq->name." already exists";
-    }
-
-    return $self->insert(
-        $self->schema->row( $self->schema->seqtable,
-            name => $seq->name,
-            inc  => $seq->inc,
-            val  => $seq->start - $seq->inc,
-        )
-    );
-}
-
-
-sub seq {nextval(@_)};
-
-=for comment
---
--- create the table holding all sequences
---
-CREATE TABLE sequence (
-  name CHAR(10) PRIMARY KEY,
-  last_val INT UNSIGNED NOT NULL
-);
---
--- initialize (create) a sequence, starting with 42
---
-INSERT INTO sequence (name, last_val) VALUES ('foo', 41);
---
--- get a new number from sequence 'foo'
---
-UPDATE sequence SET last_val=@val:=last_val+1 WHERE name='foo';
---
--- use the value
---
-SELECT @val;
-INSERT INTO bar (id, stuff) VALUES (@val, 'baz');
-=cut
-
-
-sub nextval {
-    my $self  = shift;
-    my $name  = shift || croak 'usage: nextval( $name, $count )';
-    my $count = shift || 1;
-
-    if ($count> 1 and !wantarray) {
-        croak 'you should want the full array of sequences';
-    }
-
-    my $sequences = $self->schema->arow( $self->schema->seqtable );
-    my $seq;
-    my $no_updates;
-
-    eval {
-        # Aparent MySQL bug - no locking with FOR UPDATE
-        if ($self->dbd eq 'mysql') {
-            $self->dbh->do('LOCK TABLES '. $self->schema->seqtable
-                . ' WRITE, '. $self->schema->seqtable . ' AS '.
-                                    $sequences->_alias .' WRITE'
-            );
-        }
-
-        $seq = $self->fetch1(
-            select     => [
-                $sequences->val,
-                $sequences->inc,
-            ],
-            from       => $sequences,
-            where      => $sequences->name == $name,
-            for_update => ($self->dbd ne 'SQLite'),
-        );
-
-        croak "Can't find sequence '$name'" unless($seq);
-
-        $no_updates = $self->do(
-            update  => [
-                $sequences->set_val($seq->val + ( $count * $seq->inc ) )
-            ],
-            where   => $sequences->name == $name,
-        );
-
-        if ($self->dbd eq 'mysql') {
-            $self->dbh->do('UNLOCK TABLES');
-        }
-
-    };
-
-    if ($@ or !$no_updates) {
-        my $tmp = $@;
-
-        if ($self->dbd eq 'mysql') {
-            $self->dbh->do('UNLOCK TABLES');
-        }
-
-        croak "seq: $tmp";
-    }
-
-
-    if (wantarray) {
-        my $start = $seq->val + $seq->inc;
-        my $stop  = $start + ( $count * $seq->inc ) - $seq->inc;
-        return ($start..$stop);
-    }
-    return $seq->val + ( $count * $seq->inc );
-}
-
-
-sub setval {
-    my $self  = shift;
-    my $name  = shift || croak 'usage: setval( $name, $val )';
-    my $val   = shift || croak 'usage: setval( $name, $val )';
-
-    my $sequences = $self->schema->arow( $self->schema->seqtable );
-    return $self->do(
-        update => [
-            $sequences->set_val( $val ),
-        ],
-        where => $sequences->name == $name,
-    );
-}
-
-
-sub drop_sequence {
-    my $self = shift;
-    my $name = shift || croak 'usage: drop_sequence( $name )';
-
-# FIXME handle real Pg sequences.
-
-    warn 'debug: drop sequence '. $name if ( $self->debug );
-    my $sequences = $self->schema->arow( $self->schema->seqtable );
-
-    return try {
-        $self->do(
-            delete_from => $sequences,
-            where       => $sequences->name == $name,
-        );
-    } catch {
-        my $err = $_;
-        my $sth = $self->dbh->table_info(undef, undef,
-            $self->schema->seqtable, 'TABLE');
-
-        if (!$sth) {
-            die $err ."\n". $DBI::errstr;
-        }
-
-        if ( ! $sth->fetch ) { # sequences table doesn't exist so ignore
-            return 1;
-        }
-        die $err;
-    }
-}
-
-
-sub _drop_sequence {
-    my $self = shift;
-    my $seq  = shift;
-    return $self->drop_sequence( $seq->name );
-}
-
-
 
 sub insert {
     my $self = shift;
-    my $obj  = shift || croak 'insert($obj)';
+    my $obj = shift || croak 'insert($obj)';
 
-    unless(ref($obj) and $obj->can('q_insert')) {
+    unless ( ref($obj) and $obj->can('q_insert') ) {
         croak "Not an insert object: $obj";
     }
 
-    my ($arows, @insert) = $obj->q_insert; # reference hand-holding
-    if (!@insert) {
+    my ( $arows, @insert ) = $obj->q_insert;    # reference hand-holding
+    if ( !@insert ) {
         croak "No insert for object. Missing PRIMARY KEY?";
     }
     return $self->do(@insert);
 }
 
-
 sub update {
     my $self = shift;
-    my $obj  = shift || croak 'update($obj)';
+    my $obj = shift || croak 'update($obj)';
 
-    unless(ref($obj) and $obj->can('q_update')) {
+    unless ( ref($obj) and $obj->can('q_update') ) {
         croak "Not an updatable object: $obj";
     }
 
-    my ($arows, @update) = $obj->q_update; # reference hand-holding
-    if (!@update) {
+    my ( $arows, @update ) = $obj->q_update;    # reference hand-holding
+    if ( !@update ) {
         croak "No update for object. Missing PRIMARY KEY?";
     }
     return $self->do(@update);
 }
 
-
 sub delete {
     my $self = shift;
-    my $obj  = shift || croak 'delete($obj)';
+    my $obj = shift || croak 'delete($obj)';
 
-    unless(ref($obj) and $obj->can('q_delete')) {
+    unless ( ref($obj) and $obj->can('q_delete') ) {
         croak "Not an delete object: $obj";
     }
 
-    my ($arows, @delete) = $obj->q_delete; # reference hand-holding
-    if (!@delete) {
+    my ( $arows, @delete ) = $obj->q_delete;    # reference hand-holding
+    if ( !@delete ) {
         croak "No delete for object. Missing PRIMARY KEY?";
     }
     return $self->do(@delete);
 }
-
-
-sub quickrows {
-    my $self = shift;
-    return unless(@_);
-
-    my @keys = $_[0]->_column_names;
-    my $c = join(' ', map {'%-'.(length($_)+ 2).'.'
-                           .(length($_)+ 2).'s'} @keys) . "\n";
-
-    my $str = sprintf($c, @keys);
-
-    foreach my $row (@_) {
-        my @values = map {$row->$_} @keys;
-        my @print = map {
-            !defined($_) ?
-            'NULL' :
-            ($_ =~ m/[^[:graph:][:print:]]/ ? '*BINARY*' : $_)
-        } @values;
-
-        $str .= sprintf($c, @print);
-    }
-    return $str;
-}
-    
-
-sub disconnect {
-    my $self = shift;
-    if ( $self->dbh ) {
-        warn 'debug: Disconnecting from DBI' if ( $self->debug );
-        $self->dbh->disconnect;
-        $self->dbh( undef );
-        $self->dbd( '' );
-    }
-    return;
-}
-
-
-#
-# Functions
-#
-
-sub do_function {
-    my $name = uc( shift );
-
-    my @vals;
-    my @bind;
-
-    foreach (@_) {
-        if (UNIVERSAL::isa($_, 'SQL::DB::Expr')) {
-            push(@vals, $_);
-            push(@bind, $_->bind_values);
-        }
-        else {
-            push(@vals, $_);
-        }
-    }
-    return SQL::DB::Expr->new(
-        val => $name .'('. join(', ',@vals) .')',
-        bind_values => \@bind,
-    );
-
-}
-
-
-# FIXME set a flag somewhere so that SQL::DB::Row doesn't create a
-# modifier method
-sub coalesce {
-    scalar @_ >= 2 || croak 'coalesce() requires at least two argument';
-
-    my $new;
-    if (UNIVERSAL::isa($_[0], 'SQL::DB::Expr')) {
-        $new = $_[0]->_clone();
-    }
-    else {
-        $new = SQL::DB::Expr->new;
-    }
-    $new->set_val('COALESCE('. join(', ', @_) .')');
-    return $new;
-}
-
-
-sub sql_count {
-    return do_function('COUNT', @_);
-}
-
-
-sub sql_min {
-    return do_function('MIN', @_);
-}
-
-
-sub sql_max {
-    return do_function('MAX', @_);
-}
-
-
-sub sql_sum {
-    return do_function('SUM', @_);
-}
-
-
-sub sql_length {
-    return do_function('LENGTH', @_);
-}
-
-
-sub sql_cast {
-    return do_function('CAST', @_);
-}
-
-
-sub sql_upper {
-    return do_function('UPPER', @_);
-}
-
-
-sub sql_lower {
-    return do_function('LOWER', @_);
-}
-
-
-sub sql_exists {
-    return do_function('EXISTS', @_);
-}
-
-
-sub sql_case {
-    @_ || croak 'case([$expr,] when => $expr, then => $val,[else...])';
-
-    my @bind;
-
-    my $str = 'CASE';
-    if ($_[0] !~ /^when$/i) {
-        # FIXME more cleaning? What can be injected here?
-        my $expr = shift;
-        $expr =~ s/\sEND\W.*//gi;
-        $str .= ' '.$expr;
-    }
-
-    UNIVERSAL::isa($_, 'SQL::DB::Expr') && push(@bind, $_->bind_values);
-
-    my @vals;
-
-    while (my ($p,$v) = splice(@_,0,2)) {
-        ($p =~ m/(^when$)|(^then$)|(^else$)/)
-            || croak 'case($expr, when => $cond, then => $val, [else...])';
-
-        if (UNIVERSAL::isa($v, 'SQL::DB::Expr')) {
-            $str .= ' '.uc($p).' '.$v;
-            push(@bind, $v->bind_values);
-        }
-        else {
-            $str .= ' '.uc($p).' ?';
-            push(@bind, $v);
-        }
-    }
-
-    @_ && croak 'case($expr, when => $cond, then => $val,...)';
-
-    return SQL::DB::Expr->new(
-        val => $str. ' END',
-        bind_values => \@bind
-    );
-}
-
-
-sub sql_now {
-    return do_function('NOW');
-}
-
-
-sub do_function_quoted {
-    my $name = shift;
-
-    my @vals;
-    my @bind;
-
-    foreach (@_) {
-        if (UNIVERSAL::isa($_, 'SQL::DB::Expr')) {
-            push(@vals, "'$_'");
-            push(@bind, $_->bind_values);
-        }
-        else {
-            push(@vals, "'$_'");
-        }
-    }
-    return SQL::DB::Expr->new(
-        val => $name .'('. join(', ',@vals) .')',
-        bind_values => \@bind
-    );
-
-}
-
-
-sub sql_nextval {
-    return do_function_quoted('nextval', @_);
-}
-
-
-sub sql_currval {
-    return do_function_quoted('currval', @_);
-}
-
-
-sub sql_setval {
-    my $expr = SQL::DB::Expr->new;
-    if (@_ == 2) {
-        $expr->set_val('setval(\''. $_[0] .'\', '.  $_[1] .')');
-    }
-    elsif (@_ == 3) {
-        $expr->set_val('setval(\''. $_[0] .'\', '.  $_[1] .', '.
-                           ($_[2] ? 'true' : 'false') .')');
-    }
-    else {
-        confess 'setval() takes 2 or 3 arguments';
-    }
-
-    return $expr;
-}
-
-
-# Backwards Compatability Methods
-sub set_debug    { sdebug(@_) };
-sub sqldebug     { sdebug(@_) };
-sub set_sqldebug { sdebug(@_) };
-
-no Mouse;
 
 1;
 __END__
@@ -992,88 +379,228 @@ SQL::DB - Perl interface to SQL Databases
 
 =head1 VERSION
 
-0.18. Development release.
+0.19. Development release.
 
 =head1 SYNOPSIS
 
-  use SQL::DB qw/sql_count/;
+    use SQL::DB;
+    use SQL::DB::Schema;
 
-  define_table(
-      name  => 'authors',
-      columns => [
-        { name => 'id',   type => 'int', primary => 1 },
-        { name => 'name', type => 'varchar(255)' },
-        { name => 'age',  type => 'int', null => 1 },
-      ],
-      indexes => [
-        { columns => 'name' },
-      ],
-  );
+    table 'authors' => (
+        { col => 'id' },
+        { col => 'name' },
+        { col => 'birth' },
+        { col => 'death' },
+        { col => 'photo',
+            btype => 'SQL_BLOB',
+            btype_Pg => '{ pg_type => DBD::Pg::PG_BYTEA }' },
+    );
 
-  define_table(
-      name  => 'books',
-      columns => [
-        { name => 'id',     type => 'int', primary => 1 },
-        { name => 'title',  type => 'varchar(255)' },
-        { name => 'author', type => 'int', references => 'authors(id)' },
-      ],
-      unique => [
-        { columns => 'title,author' },
-      ],
-  );
+    end_schema();
 
-  my $db = SQL::DB->new();
+    my $db = SQL::DB->new(
+        dsn => "dbi:SQLite:sqldbtest$$.db",
+        dbuser => 'user',
+        dbpass => 'pass' 
+    );
 
-  $db->connect( "dbi:SQLite:sqldbtest$$.db", 'user', 'pass' );
-  $db->deploy;
+    $db->conn->dbh->do("
+        CREATE TABLE authors (
+            id INTEGER PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            birth INTEGER NOT NULL,
+            death INTEGER NOT NULL,
+            photo BYTEA
+        );
+    ");
 
-  my $author1 = row( 'authors',
-      name => 'Leo Tolstoy',
-      age  => 75,
-      id   => $db->nextval( 'authors' ),
-  );
+    $db->txn( sub{            # Commit all or nothing please
+        $db->do(
+            insert_into => authors(qw/ id birth death name /),
+            sql_values(1, 1828, 1910, 'Leo Tolstoy'),
+        );
 
-  my $book1 = row( 'books',
-      title  => "A Tramp Abroard",
-      author => $author1->id,
-      id     => $db->nextval( 'books' ),
-  );
 
-  $db->txn( sub{                  # Commit all or nothing please
-      $db->insert( $author1 );
-      $db->insert( $book1 );
-  }, catch {
-      die "Error : $_";
-  });
+  #    $db->insert( 'books',
+  #        title  => "A Tramp Abroard",
+  #        author => $author1->id,
+  #        id     => $db->nextval( 'books' ),
+  #    );
+
+
+  #    $db->do(
+  #        insert_into => authors('col1', 'col2'),
+  #        values(1, 3, sql_func('CURRENT_TIMESTAMP')),
+  #    );
+  #
+  #    $db->do(
+  #        insert_into => $authors('col1', 'col2'),
+  #        select      => [ $t->col1, $t->col2 ],
+  #        from        => $t,
+  #        where       => ...
+  #    );
+  ##
+
+  #    $db->do(
+  #        delete_from => $t,
+  #        where       => $t->blue->is_null .AND. $t->green->between(3,5)
+  #    );
+  #
+  #    $db->do(
+  #        update  => $t,
+  #        set     => $t->green(1), $t->blue(2),
+  #        where   => $t->green == 2;
+  #    );
+  #
+  #    $db->fetch(
+  #        select      => [ $t->green, $t->blue ],
+  #        from        => $t,
+  #        left_join   => $j,
+  #        on          => $t->id == $j->parent,
+  #        where       => $t->id > 32,
+  #    );
+
+  #    $db->insert( 'authors', %values );
+
+    }, sub {
+        die "Error : $_";
+    });
+
+
+    my ($this_year) = (localtime)[5]+1900;
+    warn $this_year;
+
+    my $authors = srow(qw/authors/);
+    my $cursor = $db->cursor(
+        select    => [
+            $authors->id,
+            $authors->name,
+            ($authors->death - $authors->birth)->as('age'),
+  #            sql_count( $books->id )->as( 'bookcount' ),
+  #           case => $authors->death,
+  #           when => undef, then => $authors->death - $authors->birth,
+  #           when => undef, then =>
+  #           else => -1,
+  #           'end', as => 'age',
+
+        ],
+        from      => $authors,
+  #        left_join => $books,
+  #        on        => $books->author == $authors->id,
+  #        where     => $authors->year->is_not_null .AND.
+  #                      $books->title->like( '%Tramp%' ),
+        order_by  => $authors->birth->asc,
+          limit     => 10,
+    );
+
+    my $row = $db->fetch1(
+        select    => [
+            $authors->id,
+            $authors->name,
+            ($authors->death - $authors->birth)->as('age'),
+        ],
+        from      => $authors,
+        where     => $authors->id == 1,
+    );
+    printf( "%s lived %d years\n", $row->name, $row->age );
+
+    foreach my $row  ( $cursor->all ) {
+  #        printf( "%s %d\n",  $row->name, $row->bookcount );
+        printf( "%s lived %d years\n",  $row->name, $row->age );
+        # Mark Twain 1
+    }
+    while ( my $row = $cursor->next ) {
+  #        printf( "%s %d\n",  $row->name, $row->bookcount );
+        printf( "%s lived %d years\n",  $row->name, $row->age );
+        # Mark Twain 1
+    }
+
 
   # Woops - we got the author wrong, fix it using SQL
-  my ( $authors, $books ) = arows( qw/ authors books / );
-  $db->do(
-      update => [
-          $authors->set_name( 'Mark Twain' ),
-      ],
-      where  => $authors->id == $author1->id,
-  );
+  #  my ( $authors, $books ) = arows( qw/ authors books / );
+  #  $db->do(
+  #      update => $authors->set_name( 'Mark Twain' ),
+  #      where  => $authors->id == $author1->id,
+  #  );
 
   # Now give me some data
-  my $cursor = $db->fetch(
-      select    => [
-          $authors->name,
-          sql_count( $books->id )->as( 'bookcount' ),
-      ],
-      from      => $authors,
-      left_join => $books,
-      on        => $books->author == $authors->id,
-      where     => $authors->age->is_not_null .AND.
-                    $books->title->like( '%Tramp%' ),
-      order_by  => $authors->age->desc,
-      limit     => 10,
-  );
+  #  my $cursor = $db->fetch(
+  #      select    => [
+  #          $authors->name,
+  #          sql_count( $books->id )->as( 'bookcount' ),
+  #      ],
+  #      from      => $authors,
+  #      left_join => $books,
+  #      on        => $books->author == $authors->id,
+  #      where     => $authors->age->is_not_null .AND.
+  #                    $books->title->like( '%Tramp%' ),
+  #      order_by  => $authors->age->desc,
+  #      limit     => 10,
+  #  );
 
-  while ( my $row = $cursor->next ) {
-      printf( "%s %d\n",  $row->name, $row->bookcount );
-      # Mark Twain 1
-  }
+  #  while ( my $row = $cursor->next ) {
+  #      printf( "%s %d\n",  $row->name, $row->bookcount );
+  #      # Mark Twain 1
+  #  }
+
+  #    my $c = $db->cursor(
+  #        select => [
+  #            $t1->col,
+  #        ],
+  #        from => $t1,
+  #        where => $t1->id != 4,
+  #    );
+
+  #    $db->insert(
+  #        into => 'authors',
+  #        values =>
+  ##        row( 'authors',
+  #            title => 'this title',
+  #            id => 'lksjdf dsj',
+  ##        ),
+  #    );
+
+  #    update authors set col=1,col2=2 where blah.
+
+  #    $db->update( $t1,
+  #    $db->do(
+  #        update => $t1,
+  #        set => {
+  #            title => 'this title',
+  #            id => 'lksjdf dsj',
+  #        },
+  #        where => $t1->lksdfl sdflkj dslfkj lskdjf dl
+  #    );
+
+  #    $db->delete(
+  #        from => $table,
+  #        where => $table->column == $value,
+  #    );
+
+  #    $db->do(
+  #        delete_from => $t1,
+  #        where => $t1->junk == lksjdlksjd,
+  #    )
+
+  #    $db->update( $t1, {
+  #            title => 'this title',
+  #            id => 'lksjdf dsj',
+  #        }, where => $t1->lksdfl sdflkj dslfkj lskdjf dl
+  #    );
+
+  #    $db->do(
+  #        update => [
+  #            $t1->set_title(lksjdf),
+  ##            $t1->set_id(39),
+  #        ],
+  #        where => $t1->lksdfl sdflkj dslfkj lskdjf dl
+  #    );
+
+  #    $db->do(
+  #        insert_into => $t1,
+  #        values => $t1lksjdlksjd
+  #    )
+
 
 =head1 DESCRIPTION
 
@@ -1365,14 +892,6 @@ To be documented.
 
 =head1 CLASS METHODS
 
-=over 4
-
-=item Schema($name) -> SQL::DB::Schema
-
-If the optional $name is given a new schema will be created (if
-necessary) and returned. Otherwise the default schema is returned.
-
-=back
 
 =head1 CONSTRUCTOR
 
@@ -1395,14 +914,6 @@ SQL statement debugging (true/false). SQL statements are 'warn'ed.
 
 The L<DBI> handle connecting the database.
 
-=item qcount -> Int
-
-The number of successful queries made against the current connection.
-
-=item schema <-> SQL::DB::Schema
-
-The schema associated with this instance.
-
 =item dbd -> Str
 
 The L<DBD> driver name ('SQLite', 'mysql', 'Pg' etc) for the type of
@@ -1414,6 +925,11 @@ attribute is actually provided by L<SQL::DBD::Schema>.
 =head1 METHODS
 
 =over 4
+
+=item BUILD
+
+Documented here for completeness. This is used by the Moo object system
+at instantiation time.
 
 =item connect($dsn, $user, $pass, $attrs)
 
@@ -1428,15 +944,6 @@ Creates the table $name and associated indexes and sequences in the
 database.  Will warn and skip on any attempts to create tables that
 already exist.
 
-=item deploy
-
-Calls create_table() for all tables in the current schema, inside a
-transaction.
-
-=item drop_table($name)
-
-Drops $name and associated indexes and sequences in the database.
-
 =item do(@query)
 
 Constructs a L<SQL::DB::Query> object as defined by @query and runs
@@ -1446,60 +953,55 @@ values (eg INSERT, UPDATE and DELETE). Returns whatever value the
 underlying L<DBI>->do call returns.  This method uses "prepare_cached"
 to prepare the call to the database.
 
-=item do_nopc(@query)
-
-Same as for do() but uses "prepare" instead of "prepare_cached" to
-prepare the call to the database. This is really only necessary if you
-tend to be making recursive queries that are exactly the same.
-See L<DBI> for details.
-
 =item fetch(@query) -> SQL::DB::Cursor | @SQL::DB::Row
 
 Constructs an L<SQL::DB::Query> object as defined by @query and runs
 that query against the connected database.  Croaks if an error occurs.
 This method should be used for SELECT-type statements that retrieve
-rows. This method uses "prepare_cached" to prepare the call to the database.
+rows. This method uses "prepare_cached" to prepare the call to the
+database.
 
 When called in array context returns a list of L<SQL::DB::Row> based
 objects. The objects have accessors for each column in the query. Be
 aware that this can consume large amounts of memory if there are lots
 of rows retrieved.
 
-When called in scalar context returns a query cursor (L<SQL::DB::Cursor>)
-(with "next", "all" and "reset" methods) to retrieve dynamically
-constructed objects one at a time.
-
-=item fetch_nopc(@query) -> SQL::DB::Cursor | @SQL::DB::Row
-
-Same as for fetch() but uses "prepare" instead of "prepare_cached" to
-prepare the call to the database. This is really only necessary if you
-tend to be making recursive queries that are exactly the same.
-See L<DBI> for details.
+When called in scalar context returns a query cursor
+(L<SQL::DB::Cursor>) (with "next", "all" and "reset" methods) to
+retrieve dynamically constructed objects one at a time.
 
 =item fetch1(@query) -> SQL::DB::Row
 
-Similar to fetch() but always returns only the first object from
-the result set. All other rows (if any) can not be retrieved.
-You should only use this method if you know/expect one result.
-This method uses "prepare_cached" to prepare the call to the database.
-
-=item fetch1_nopc(@query) -> SQL::DB::Row
-
-Same as for fetch1() but uses "prepare" instead of "prepare_cached" to
-prepare the call to the database. This is really only necessary if you
-tend to be making recursive queries that are exactly the same.
-See L<DBI> for details.
+Similar to fetch() but always returns only the first object from the
+result set. All other rows (if any) can not be retrieved. You should
+only use this method if you know/expect one result. This method uses
+"prepare_cached" to prepare the call to the database.
 
 =item query(@query)
 
-Return an L<SQL::DB::Query> object as defined by @query. This method
-is useful when creating nested SELECTs, UNIONs, or you can print the
+Return an L<SQL::DB::Query> object as defined by @query. This method is
+useful when creating nested SELECTs, UNIONs, or you can print the
 returned object if you just want to see what the SQL looks like.
 
 =item query_as_string($sql, @bind_values)
 
 An internal function for pretty printing SQL queries by inserting the
 bind values into the SQL itself. Returns a string.
+
+=item current_timestamp
+
+The current date and time (as a string) that remains fixed within a
+transaction.
+
+=item cursor( @query )
+
+Runs a query and returns a L<SQL::DB::Cursor> object. You can call
+next() and all() methods on this object to obtain data.
+
+=item sth( @query )
+
+Runs a query and returns a L<DBI::st> statement handle. You can call
+fetchrow_array() and other L<DBI> method on this handle.
 
 =item insert($row)
 
@@ -1522,19 +1024,9 @@ Runs the code in &coderef as an SQL transaction. If &coderef does not
 raise any exceptions then the transaction is commited, otherwise it is
 rolled back.
 
-Returns true/false on success/failure. The returned value can also be
-printed in the event of failure. See L<Return::Value> for details.
-
 This method can be called recursively, but any sub-transaction failure
-will always result in the outer-most transaction also being rolled back.
-
-=item quickrows(@objs)
-
-Returns a string containing the column values of @objs in a tabular
-format. Useful for having a quick look at what the database has returned:
-
-    my @objs = $db->fetch(....);
-    warn $db->quickrows(@objs);
+will always result in the outer-most transaction also being rolled
+back.
 
 =item create_sequence( @sequence )
 
@@ -1558,13 +1050,15 @@ Reset the sequence counter value.
 
 Drops sequence $name from the database.
 
-=item disconnect
-
-Disconnect from the database. Effectively DBI->disconnect.
-
 =back
 
 =head1 COMPATABILITY
+
+All SQL::DB releases have so far been DEVELOPMENT!
+
+Version 0.19 was a complete rewrite based on Moo. Lots of things were
+simplified, modules deleted, dependencies removed, etc. The API has
+changed completely.
 
 Version 0.13 changed the return type of the txn() method. Instead of a
 2 value list indicating success/failure and error message, a single
@@ -1572,7 +1066,8 @@ L<Return::Value> object is returned intead.
 
 =head1 SEE ALSO
 
-L<SQL::Abstract>, L<DBIx::Class>, L<Class::DBI>, L<Tangram>
+L<DBIx::Connector>, L<SQL::DB::Expr>, L<SQL::DB::Cursor>,
+L<SQL::DB::Schema>
 
 =head1 SUPPORT
 
@@ -1597,13 +1092,37 @@ Mark Lawrence E<lt>nomad@null.netE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2007-2009 Mark Lawrence <nomad@null.net>
+Copyright (C) 2007-2011 Mark Lawrence <nomad@null.net>
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 3 of the License, or
-(at your option) any later version.
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 3 of the License, or (at your
+option) any later version.
 
 =cut
 
+=head1 CLASS FUNCTIONS
+
+All of the following functions are automatically exported.
+
+=over 4
+
+=item expr( @statements )
+
+Create a new expression based on @statements. This is a very dumb
+function. All plain string statements are uppercased with all
+occurences of '_' converted to spaces.
+
+=back
+
+=head1 BUGS
+
+Using B<SQL::DB::Expr> objects with the Perl "join" command does not
+work as expected, apparently because join does not trigger either the
+'.' or '.=' overload methods. The work around is to use the _expr_join
+subroutine.
+
 # vim: set tabstop=4 expandtab:
+
+
+

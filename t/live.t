@@ -4,45 +4,26 @@ use warnings;
 use lib 't/lib';
 use Test::More;
 use Test::Database;
-use SQL::DB::Test;
-use Benchmark qw(:all);
+use SQL::DB;
 
 my $subs;
-my $tests;
 
-my @handles = Test::Database->handles( qw/ SQLite Pg mysql / );
+my @handles = Test::Database->handles(qw/ SQLite Pg mysql /);
 
-if ( @handles > 1 ) {
-    foreach my $h ( @handles ) {
-        $tests->{$h->dbd} = SQL::DB::Test->new;
-        $tests->{$h->dbd}->connect($h->dsn, $h->username, $h->password);
+plan tests => 1 * @handles;
 
-        $subs->{$h->dbd} = sub {
-            diag('DSN: '. $h->dsn);
-            $tests->{$h->dbd}->runtests;
-        };
-    }
+foreach my $handle (@handles) {
+    my ( $dsn, $user, $pass ) = $handle->connection_info;
 
-    my $results = timethese( 1, $subs, 'none' );
-    cmpthese( $results );
+    my $db = SQL::DB->new(
+        dsn    => $dsn,
+        dbuser => $user,
+        dbpass => $pass,
+    );
 
-    diag <<EOF;
-
-The above benchmark results are RUBBISH unless you increase the count
-in the test file to something reasonable, and are aware of the various
-parts of your environment that affect such test results and are aware
-that most of these tests drop and deploy tables each run. I inserted
-the Benchmark test output mostly to see how common it is for CPAN
-testers to be using Test::Database.
-
-EOF
+    isa_ok( $db, 'SQL::DB' );
 }
-else {
-    my $dsn = 'dbi:SQLite:dbname=:memory:';
-    diag('DSN: '. $dsn);
-    my $t = SQL::DB::Test->new;
-    $t->connect($dsn);
-    $t->runtests;
-}
+
+done_testing();
 
 1;

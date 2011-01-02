@@ -1,402 +1,407 @@
 package SQL::DB::Schema;
-use Mouse;
-use Carp qw/croak carp/;
-use SQL::DB::Table;
-use SQL::DB::Column;
-use SQL::DB::Index;
-use SQL::DB::FK;
-use SQL::DB::Query;
+use strict;
+use warnings;
+use Carp qw/croak carp confess/;
+use SQL::DB::Expr ':all';
+use Sub::Install qw/install_sub/;
 
-our $VERSION = '0.18';
+use constant SQL_FUNCTIONS => qw/
+  AND
+  OR
+  sql_coalesce
+  sql_length
+  sql_cast
+  sql_upper
+  sql_lower
+  sql_case
+  sql_concat
+  sql_exists
+  sql_sum
+  sql_min
+  sql_max
+  sql_count
+  sql_values
+  sql_func
+  /;
 
+#    sql_now
+#    sql_nextval
+#    sql_currval
+#    sql_setval
 
-has 'name' => (
-    required => 1,
-    is => 'ro',
-    isa => 'Str',
-);
+use Sub::Exporter -setup => {
+    exports => [
+        qw/
+          table
+          end_schema
+          /,
+        SQL_FUNCTIONS
+    ],
+    groups => {
+        default => [
+            qw/
+              table
+              end_schema
+              /,
 
-has 'seqtable' => (
-    is => 'ro',
-    isa => 'Str',
-    lazy => 1,
-    builder => sub {
-        ( my $n = lc( shift->name ) ) =~ s/[^0-9a-zA-Z]/_/;
-        return $n .'_sequences';
-    },
-);
-
-has 'debug' => (
-    is => 'rw',
-    isa => 'Bool',
-    default => 0,
-);
-
-has 'dbd' => (
-    is => 'rw',
-    isa => 'Str',
-    init_arg => undef,
-);
-
-has '_tables' => (
-    is => 'ro',
-    isa => 'HashRef[SQL::DB::Table]',
-    default => sub { {} },
-    init_arg => undef,
-    auto_deref => 1,
-);
-
-has '_fk_resolved' => (
-    is => 'rw',
-    isa => 'Bool',
-    default => 0,
-    init_arg => undef,
-);
-
-
-sub BUILD {
-    my $self = shift;
-    $self->define_table(
-        name => $self->seqtable,
-        columns => [
-            { name => 'name', type => 'varchar(32)', primary => 1 },
-            { name => 'inc', type => 'int', default => 1 },
-            { name => 'val', type => 'int', default => 0 },
+            #            @sql_functions,
+            SQL_FUNCTIONS
         ],
+    },
+};
+
+our $VERSION = '0.19_3';
+
+sub _getglob { no strict 'refs'; \*{ $_[0] } }
+
+my @tables;
+
+sub table {
+    my ( $caller, $file, $line ) = caller;
+    my $table = shift;
+
+    # now SELECT and UPDATE/DELETE types
+
+    my $srow = $caller . '::Srow::' . $table;
+    my $urow = $caller . '::Urow::' . $table;
+
+    @{ *{ _getglob( $srow . '::ISA' ) }{ARRAY} } = ('SQL::DB::Expr');
+    @{ *{ _getglob( $urow . '::ISA' ) }{ARRAY} } = ('SQL::DB::Expr');
+
+    my @columns;
+
+    foreach my $def (@_) {
+        my $col = $def;
+        my $btype;
+
+        if ( ref $def ) {
+            $col = delete $def->{col};
+            while ( my ( $key, $val ) = each %$def ) {
+                if ( $key eq 'btype' ) {
+                    $btype->{default} = $val;
+                }
+                elsif ( $key =~ s/^btype_(.*)/$1/ ) {
+                    $btype->{$key} = $val;
+                }
+                else {
+                    die "Unknown column parameter: $key";
+                }
+            }
+        }
+
+        install_sub(
+            {
+                code => sub {
+                    my $table_expr = shift;
+                    SQL::DB::Expr->new(
+                        _txt   => $table_expr->_alias . '.' . $col,
+                        _btype => $btype,
+                    );
+                },
+                into => $srow,
+                as   => $col,
+            }
+        );
+
+        install_sub(
+            {
+                code => sub {
+                    my $table_expr = shift;
+
+                    if (@_) {
+                        my $val = shift;
+                        return SQL::DB::Expr->new(
+                            _txt     => $col . ' = ?',
+                            _btype   => $btype,
+                            _bvalues => [$val],
+                        );
+                    }
+
+                    return SQL::DB::Expr->new(
+                        _txt   => $col,
+                        _btype => $btype,
+                    );
+                },
+                into => $urow,
+                as   => $col,
+            }
+        );
+
+        push( @columns, $col );
+    }
+
+    install_sub(
+        {
+            code => sub {
+                my $table_expr = shift;
+                return map { $table_expr->$_ } @columns;
+            },
+            into => $urow,
+            as   => '_columns',
+        }
+    );
+    install_sub(
+        {
+            code => sub {
+                my $table_expr = shift;
+                return map { $table_expr->$_ } @columns;
+            },
+            into => $srow,
+            as   => '_columns',
+        }
+    );
+
+    push( @tables, $table );
+
+}
+
+sub end_schema {
+    my ( $caller, $file, $line ) = caller;
+
+    #    use Data::Dumper; $Data::Dumper::Indent = 1;
+    #    $Data::Dumper::Maxdepth=2;
+
+    foreach my $table (@tables) {
+        install_sub(
+            {
+                code => _build_insert( undef, $table ),
+                into => $caller,
+                as   => $table,
+            }
+        );
+    }
+
+    install_sub(
+        {
+            code => _build_srow( $caller, 'srow' ),
+            into => $caller,
+            as   => 'srow',
+        }
+    );
+    install_sub(
+        {
+            code => _build_urow( $caller, 'urow' ),
+            into => $caller,
+            as   => 'urow',
+        }
+    );
+
+    # FIXME Make this export dependent upon an argument to end_schema;
+    # end_schema( export => 1 );
+    # Or else on import as in 'use SQL::DB::Schema qw/-reexport/'
+    Sub::Exporter::setup_exporter(
+        {
+            into    => $caller,
+            exports => [
+
+               # FIXME do these need to be built?? Or do the subs above suffice?
+                srow => \&_build_srow,
+                urow => \&_build_urow,
+                ( map { $_ => \&_build_insert } @tables ),
+                SQL_FUNCTIONS,
+            ],
+            groups => {
+                default => [qw/ srow urow /],
+                tables  => \@tables,
+                sql     => [SQL_FUNCTIONS],
+            },
+        }
     );
 }
 
+sub _build_srow {
+    my ( $class, $name, $arg ) = @_;
 
-# subroutine not a method.
-sub _text2cols {
-    my $cols = shift;
-    my $text = shift;
-
-    my @cols;
-
-    $text =~ s/(^\s)|(\s$)//;
-    foreach my $name (split(/\s*,\s*/, $text)) {
-        unless( exists $cols->{$name} ) {
-            croak "No such column '$name' "
-                .".\nKnown Columns: ". join( ',', keys %$cols ) ;
-        }
-        push( @cols, $cols->{$name} );
-
-    }
-
-    if (!@cols) {
-        confess "No columns found in '$text'";
-    }
-    return @cols;
-}
-
-
-sub _text2fcols {
-    my $self = shift;
-    my $text = shift;
-    my @cols = ();
-
-    if ($text =~ /\s*(.*)\s*\(\s*(.*)\s*\)/) {
-        my $table;
-        unless ( eval { $table = $self->table( $1 ) } ) {
-            confess  ": Foreign table $1 not yet defined.\n"
-                . "Known tables: "
-                . join(',', $self->tables);
-        }
-        foreach my $column_name (split(/\s*,\s*/, $2)) {
-            unless( eval { $table->column($column_name) } ) {
-                confess "Foreign table $1 has no column '$column_name'";
-            }
-            push( @cols, $table->column( $column_name ) );
-        }
-    }
-
-    if (!@cols) {
-        confess "'$text' is not a valid reference";
-    }
-    return @cols;
-}
-
-
-sub resolve_fk {
-    my $self = shift;
-    return 1 if ($self->_fk_resolved);
-
-    foreach my $table ( $self->tables ) {
-        foreach my $ref ( $table->_foreign ) {
-            my @cols = @{ $ref->{columns} };
-            my @references = $self->_text2fcols( $ref->{references} );
-            $ref->{references} = \@references;
-
-            if (@cols != @references) {
-                croak 'Unmatched/missing reference columns for '
-                    . $table->name .'('. join(',', map {$_->name} @cols) .')';
-            }
-
-            my $i = -1;
-            while ($i++ < $#cols) {
-                $cols[$i]->references( $references[$i] );
-            }
-
-            push ( @{ $table->foreign }, SQL::DB::FK->new( $ref ) );
-        }
-        $table->_foreign([]);
-    }
-
-    $self->_fk_resolved(1);
-}
-
-
-sub define_table {
-    my $self = shift;
-
-#    local %Carp::Internal;
-#    $Carp::Internal{'SQL::DB'}++;
-
-    my $ref; # table reference
-
-    if ( ref $_[0] eq 'ARRAY' ) {
-        return map { $self->define_table( @$_ ) } @_;
-    }
-    elsif ( $_[0] eq 'name' ) {
-        $ref = { @_ };
-    }
-    else {
-        $ref = shift;
-    }
-
-    $ref->{schema} = $self;
-    $ref->{name} || confess "Missing table 'name' definition";
-
-    if ( exists $self->_tables->{ $ref->{name} } ) {
-        warn "Redefining table '". $ref->{name}
-            ."' in schema '".  $self->name ."'";
-    }
-
-    # Save for later
-    my $unique    = delete $ref->{unique};
-    my $primary   = delete $ref->{primary};
-    my $sequences = delete $ref->{sequences};
-    my $indexes   = delete $ref->{indexes};
-    my $foreign   = delete $ref->{foreign};
-
-    # build the columns
-    my @columns;
-    my $_columns = {};
-
-    foreach my $colref ( @{ $ref->{columns} } ) {
-
-        if ( ref $colref eq 'ARRAY' ) {
-            $colref = { @$colref };
+    return sub {
+        my $srow = $class . '::Srow::';
+        foreach my $try (@_) {
+            die "Table '$try' not defined" unless grep( /^$try$/, @tables );
         }
 
-        if ( exists $colref->{ref} ) {
-            croak "'ref' is depreciated in favour of 'references'";
-        }
-
-        $colref->{_references} = delete $colref->{references};
-        if ( $colref->{_references} ) {
-            push( @{ $foreign },
-                {
-                    columns => $colref->{name},
-                    references => $colref->{_references}
-                } 
+        my @ret;
+        foreach my $table (@_) {
+            my $x = bless(
+                SQL::DB::Expr->new(
+                    _txt   => 'junk',
+                    _alias => $table,
+                ),
+                $srow . $table
             );
+            $x->_set_txt( $table . ' AS ' . $x->_alias );
+            return $x unless (wantarray);
+            push( @ret, $x );
+        }
+        return @ret;
+      }
+}
+
+sub _build_urow {
+    my ( $class, $name, $arg ) = @_;
+
+    return sub {
+        my $urow = $class . '::Urow::';
+        foreach my $try (@_) {
+            die "Table '$try' not defined" unless grep( /^$try$/, @tables );
         }
 
-        my $col = SQL::DB::Column->new( $colref );
-
-        push( @columns, $col );
-        $_columns->{ $col->name } = $col;
-
-        if ( $col->unique ) {
-            push( @{ $ref->{unique} }, [ $col ] );
+        if (wantarray) {
+            return
+              map { bless( SQL::DB::Expr->new( _txt => $_, ), $urow . $_ ); }
+              @_;
         }
+        return bless( SQL::DB::Expr->new( _txt => $_[0], ), $urow . $_[0] );
+      }
+}
 
-        if ( $col->primary ) {
-            push( @{ $ref->{primary} }, $col );
-            $ref->{_primary}->{$col->name} = $col;
+sub _build_insert {
+    my ( $class, $name, $arg ) = @_;
+
+    return sub {
+        return SQL::DB::Expr->new( _txt => $name . '(' . join( ',', @_ ) . ') ',
+        );
+      }
+}
+
+sub sql_concat { _expr_binary( '||', $_[0], $_[1] ) }
+sub sql_exists { 'EXISTS (' . expr(@_) . ')' }
+sub sql_sum    { 'SUM(' . _bexpr(shift) . ')' }
+sub sql_min    { 'MIN(' . _bexpr(shift) . ')' }
+sub sql_max    { 'MAX(' . _bexpr(shift) . ')' }
+sub sql_count  { 'COUNT(' . _bexpr(shift) . ')' }
+
+sub sql_values {
+    ( VALUES => '(' . _expr_join( ', ', map { _bexpr($_) } @_ ) . ')' );
+}
+
+sub sql_func {
+    my $func = shift;
+
+    my $last = pop @_;
+    my $args = SQL::DB::Expr->new( _txt => $func . '(' );
+    map { $args .= _bexpr($_) . ', ' } @_;
+    $args .= $last . ')';
+    return $args;
+}
+
+# FIXME replace all calls to this to  sql_func above
+sub _do_function {
+    my $name = uc(shift);
+
+    my @vals;
+    my @bind;
+
+    foreach (@_) {
+        if ( UNIVERSAL::isa( $_, 'SQL::DB::Expr' ) ) {
+            push( @vals, $_ );
+            push( @bind, $_->bind_values );
+        }
+        else {
+            push( @vals, $_ );
         }
     }
+    return SQL::DB::Expr->new(
+        val         => $name . '(' . join( ', ', @vals ) . ')',
+        bind_values => \@bind,
+    );
 
-    $ref->{_columns} = $_columns;
-    $ref->{columns}  = \@columns;
+}
 
-    if ( $primary ) {
-        my @cols = _text2cols( $_columns, $primary );
-        push( @{ $ref->{primary} }, @cols );
+# FIXME set a flag somewhere so that SQL::DB::Row doesn't create a
+# modifier method
+sub sql_coalesce {
+    scalar @_ >= 2 || croak 'sql_coalesce() requires at least two argument';
+
+    return 'COALESCE(' . _expr_join( ', ', map { _bexpr($_) } @_ ) . ')';
+
+    return 'COALESCE(' . _expr_join(
+        ',',
         map {
-            $_->primary( 1 );
-            $ref->{_primary}->{$_->name} = $_;
-        } @cols;
-    }
-
-    if ( $unique ) {
-        my @unique = map {
-            ref $_ eq 'HASH'
-                ? [ _text2cols( $_columns, $_->{columns} ) ]
-                : [ _text2cols( $_columns, $_ ) ]
-        } @$unique;
-        push( @{ $ref->{unique} }, @unique );
-    }
-
-    # Everything else need the columns to be attached to a table
-    my $table = SQL::DB::Table->new( $ref );
-    map { $_->table( $table ) } @columns;
-
-#    $table->aclass( SQL::DB::ARow->make_class_from( @columns ) );
-#    $table->class( SQL::DB::Row->make_class_from( @columns ) );
-
-    if ( $indexes ) {
-        my @indexes = map {
-            my $idx = ref $_ eq 'HASH' ? $_ : { columns => $_ };
-            $idx->{columns} = [ _text2cols( $_columns, $idx->{columns} ) ];
-            $idx->{table} = $table;
-            SQL::DB::Index->new( $idx );
-        } @$indexes;
-        $table->indexes( \@indexes );
-    }
-
-    if ( $sequences ) {
-        my @sequences = map {
-            $_->{table} = $table;
-            SQL::DB::Sequences->new( $_ );
-        } @$sequences;
-        $table->sequences( \@sequences );
-    }
-
-    if ( $foreign ) {
-        my @foreign = map {
-            $_->{columns} ||= delete $_->{key};
-            $_->{columns} = [ _text2cols( $_columns, $_->{columns} ) ];
-            $_;
-        } @$foreign;
-        $table->_foreign( \@foreign );
-    }
-
-    $self->_tables->{ $table->name } = $table;
-    $self->_fk_resolved(0);
-
-    warn 'debug: defined '. $self->name .'.'. $table->name if ( $self->debug );
-    return $table;
-}
-
-
-sub tables {
-    my $self = shift;
-    return values %{ $self->_tables };
-}
-
-
-sub table {
-    my $self = shift;
-    my $name  = shift || croak 'usage: table($name)';
-
-    if (!exists($self->_tables->{$name})) {
-#        carp "Table '$name' does not exist. "
-#            . "Known tables: ". join(', ', keys %{ $self->_tables } );
-        return;
-    }
-    return $self->_tables->{$name};
-}
-
-
-# calculate which tables reference which other tables, and plan the
-# deployment order accordingly.
-sub deploy_order {
-    my $self     = shift;
-    my @src      = grep { $_->name ne $self->seqtable } $self->tables;
-    my $deployed = {};
-    my @ordered  = ();
-    my $count    = 0;
-    my $limit    = scalar @src + 10;
-
-    while (@src) {
-        if ($count++ > $limit) {
-            die 'Deployment calculation limit exceeded: circular foreign keys?';
-        }
-
-        my @newsrc = ();
-        foreach my $table (@src) {
-            my $deployable = 1;
-            foreach my $c ($table->columns) {
-                if (my $foreignc = $c->references) {
-                    if ($foreignc->table == $table or # self reference
-                        $deployed->{$foreignc->table->name}) {
-                        next;
-                    }
-                    $deployable = 0;
-                }
-            }
-
-            if ($deployable) {
-#                warn "debug: ".$table->name.' => deploy list ' if($self->{sqldb_sqldebug});
-                push(@ordered, $table);
-                $deployed->{$table->name} = 1;
+            if ( eval { $_->isa('SQL::DB::Expr') } )
+            {
+                $_;
             }
             else {
-                push(@newsrc, $table);
+                "'$_'";
             }
+          } @_
+    ) . ')';
+
+    #    SQL::DB::Expr->new(
+    #        _txt
+    my $new;
+    if ( UNIVERSAL::isa( $_[0], 'SQL::DB::Expr' ) ) {
+        $new = $_[0]->_clone();
+    }
+    else {
+        $new = SQL::DB::Expr->new;
+    }
+    $new->set_val( 'COALESCE(' . join( ', ', @_ ) . ')' );
+    return $new;
+}
+
+sub sql_length {
+    return _do_function( 'LENGTH', @_ );
+}
+
+sub sql_cast {
+    return _do_function( 'CAST', @_ );
+}
+
+sub sql_upper {
+    return _do_function( 'UPPER', @_ );
+}
+
+sub sql_lower {
+    return _do_function( 'LOWER', @_ );
+}
+
+sub sql_case {
+    @_ || croak 'case([$expr,] when => $expr, then => $val,[else...])';
+
+    my @bind;
+
+    my $str = 'CASE';
+    if ( $_[0] !~ /^when$/i ) {
+
+        # FIXME more cleaning? What can be injected here?
+        my $expr = shift;
+        $expr =~ s/\sEND\W.*//gi;
+        $str .= ' ' . $expr;
+    }
+
+    UNIVERSAL::isa( $_, 'SQL::DB::Expr' ) && push( @bind, $_->bind_values );
+
+    my @vals;
+
+    while ( my ( $p, $v ) = splice( @_, 0, 2 ) ) {
+        ( $p =~ m/(^when$)|(^then$)|(^else$)/ )
+          || croak 'case($expr, when => $cond, then => $val, [else...])';
+
+        if ( UNIVERSAL::isa( $v, 'SQL::DB::Expr' ) ) {
+            $str .= ' ' . uc($p) . ' ' . $v;
+            push( @bind, $v->bind_values );
         }
-        @src = @newsrc;
-
-    }
-    return $self->table( $self->seqtable ), @ordered;
-}
-
-
-sub as_sql {
-    my $self = shift;
-    unless ( $self->_fk_resolved ) {
-        croak "Cannot generate schema SQL unless foreign keys resolved";
+        else {
+            $str .= ' ' . uc($p) . ' ?';
+            push( @bind, $v );
+        }
     }
 
-    if ( wantarray ) {
-        return map { $_->as_sql } $self->deploy_order;
-    }
+    @_ && croak 'case($expr, when => $cond, then => $val,...)';
 
-    return join(";\n", map { $_->as_sql } $self->deploy_order ). ";\n";
+    return SQL::DB::Expr->new(
+        val         => $str . ' END',
+        bind_values => \@bind
+    );
 }
-
-
-sub row {
-    my $self = shift;
-    my $tname = shift || 'Unknown';
-    my $table = $self->table( $tname ) || confess "no such table: $tname";
-    return $table->row( @_ );
-}
-
-
-sub arow {
-    my $self  = shift;
-    my $table = $self->table( $_[0] ) || confess "No such table: $_[0]";
-    return $table->arow;
-}
-
-
-sub arows {
-    my $self = shift;
-    return map { $self->arow( $_ ) } @_;
-}
-
-
-sub query {
-    my $self = shift;
-    local %Carp::Internal;
-    local %Carp::CarpInternal;
-    $Carp::Internal{'SQL::DB::Schema'}++;
-    $Carp::CarpInternal{'SQL::DB::Schema'}++;
-
-    return SQL::DB::Query->new( @_ );
-}
-
 
 1;
+
 __END__
 
 =head1 NAME
 
-SQL::DB::Schema - Database schema model for SQL::DB
+SQL::DB::Schema - Model tables and rows for SQL::DB queries
 
 =head1 VERSION
 
@@ -404,100 +409,59 @@ SQL::DB::Schema - Database schema model for SQL::DB
 
 =head1 SYNOPSIS
 
+  package My::Schema;
   use SQL::DB::Schema;
-  my $schema = SQL::DB::Schema->new( name => 'myschema' );
 
-  $schema->define_table(
-      table => $name,
-      columns => [
-          [ name => 'id', type => 'int', primary => 1 ],
-          [ name => 'id', type => 'int', primary => 1 ],
-          [ name => 'id', type => 'int', primary => 1 ],
-      ],
-      indexes => [
-          [ columns => '', unique => 1, using => 'btree' ],
-      ],
-      foreign_keys => [
-           [ columns => 'col1,col2' => reference => 'remote(col1,col2)'],
-      ],
+  table 'cars' => qw/ id make model /;
+
+  table 'people' => qw/ id name carmake carmodel /,
+      { col      => 'photo',
+        btype    => 'SQL_BLOB',
+        btype_Pg => '{ pg_type => DBD::Pg::BYTEA }',
+      },
   );
 
-  $schema->resolve_fk();
+  end_schema();
 
-  # To see the different flavours of SQL
-  foreach my $dbd (qw/Pg SQLite mysql/) {
-      $schema->dbd($dbd);
-      print $schema->as_sql;
-  }
+  # in your application somewhere
+  use SQL::DB;
+  use My::Schema; # imports cars() and people()
 
-  foreach my $t ($schema->tables) {
-      # Do something with the SQL::DB::Table object
-      print $t->foreign->[0]->table->primary->[0]->name;
-  }
+  my $db = SQL::DB->new(...);
 
+  my $cars = srow('cars');
+  $db->do(
+    insert_into => people(qw/id name carmake carmodel/),
+    select  => [ 1, 'Harry', $cars->make, $cars->model ],
+    from    => $cars,
+    where   => $cars->make == 'Ford',
+  );
+
+  my $people = urow('people');
+  $db->do(
+    update => $people,
+    set    => [ $people->name('Linda') ],
+    where  => $people->id == 1,
+  );
 
 =head1 DESCRIPTION
 
 L<SQL::DB> provides a low-level interface to SQL databases, using Perl
-objects and logic operators. B<SQL::DB::Schema> is used by L<SQL::DB>
-as a container for L<SQL::DB::Table> objects. Most users will only
-use this module indirectly through L<SQL::DB>.
+objects and logic operators. B<SQL::DB::Schema> is used to specify
+database tables in a way that can be used in L<SQL::DB> queries.
 
-=head1 CONSTRUCTOR
+B<NOTE:> You probably don't want to be writing your schema classes
+manually.  Build them using L<sqldb-builder>(1) instead.
 
-The new() constructor requires the 'name' attribute.
+See L<SQL::DB> for how to use your schema classes.
 
-=head1 ATTRIBUTES
-
-=over 4
-
-=item name
-
-The name of this schema.
-
-=item seqtable
-
-The name of sequence table for this schema. Only used by DBDs that
-don't have native sequence support.
-
-=item debug <-> Bool
-
-General debugging state (true/false). Debug messages are 'warn'ed.
-
-=item dbd
-
-The DBD driver that the schema should map to. This affects the way
-tables and columns present themselves.
-
-=item tables
-
-A list of L<SQL::DB::Table> objects in the schema.
-
-=back
-
-=head1 METHODS
+=head1 FUNCTIONS
 
 =over 4
 
-=item define(@table_definition)
+=item table( $table, @columns )
 
-(Re)Define a table in the schema.
-
-=item table($name) -> SQL::DB::Table
-
-Returns the table $name if it exists, undef otherwise.
-
-=item resolve_fk
-
-Resolves the foreign key relationships, making sure that each foreign
-key refers to a known column in the schema.  It is called automatically
-when the L<SQL::DB> 'schema' attribute is set.
-
-=item as_sql -> @list | $str
-
-In array context returns a list of SQL CREATE TABLE/INDEX/TRIGGER
-statements.  In scalar context returns a string containing the same
-list of statements joined together by ";\n";
+Define a table in the schema.
 
 =item row( $name, @args ) -> SQL::DB::Row::$name
 
@@ -515,11 +479,105 @@ abstraction object is used with the SQL::DB 'fetch' and 'do' methods.
 Returns objects representing any row of a table. These abstraction
 objects are used with the SQL::DB 'fetch' and 'do' methods.
 
+=item end_schema
+
+Called when you have finished defining your schema. This imports a
+bunch of functions necessary to use the schema.
+
+=back
+
+=over 4
+
+=item expr( @statements )
+
+Create a new expression based on @statements. This is a very dumb
+function. All plain string statements are uppercased with all
+occurences of '_' converted to spaces.
+
+=item _expr_join( $separator, @expressions )
+
+Does the same as Perl's 'join' built-in but for SQL::DB::Expr objects.
+See BUGS below for why this is needed.
+
+=item _bexpr( $item )
+
+Return $item if it is already an expression, or a new SQL::DB::Expr
+object otherwise.
+
+=item _expr_binary( $op, $e1, $e2, $swap )
+
+An internal method for building binary operator expressions.
+
+=item AND, OR
+
+These subroutines let you write SQL logical expressions in Perl using
+string concatenation:
+
+    ( $e1 .AND. $e2 ) .OR. ( $e3 .AND. $e4 )
+
+Note that due to operator precedence, expressions either side of .AND.
+or .OR. should be bracketed if they are not already single expression
+objects.
+
+Things are implemented this way due to Perl not allowing the
+overloading of the 'and' and 'or' built-ins.
+
+=item sql_concat( $a, $b )
+
+Maps to "$a || $b".
+
+=item sql_exists( stuff )
+
+Maps to "EXISTS( stuff )".
+
+=item sql_sum( stuff )
+
+Maps to "SUM( stuff )".
+
+=item sql_min( stuff )
+
+Maps to "MIN( stuff )".
+
+=item sql_max( stuff )
+
+Maps to "MAX( stuff )".
+
+=item sql_count( stuff )
+
+Maps to "COUNT( stuff )".
+
+=item sql_case( stuff )
+=item sql_cast( stuff )
+=item sql_coalesce( stuff )
+=item sql_length( stuff )
+=item sql_lower( stuff )
+=item sql_upper( stuff )
+=item sql_values( stuff )
+
+=item sql_func( $name, @args )
+
+This is a generic way to write an SQL function that isn't already
+handled by B<SQL::DB::Expr>. For example:
+
+    sub my_weird_func {
+        sql_func('MY_WEIRD_FUNC', @_);
+    }
+
+    my_weird_func( 1, 3 );
+
+results in an expression with:
+
+    SQL:          MY_WEIRD_FUNC(?, ?)
+    Bind values:  [ 1, 3 ]
+
+Plus the appropriate bind_type values according to the expression
+arguments.
+
 =back
 
 =head1 SEE ALSO
 
-L<SQL::DB::Table>, L<SQL::DB>
+L<SQL::DB>, L<sqldb-builder>
 
 =head1 AUTHOR
 
@@ -527,12 +585,12 @@ Mark Lawrence E<lt>nomad@null.netE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2007-2009 Mark Lawrence <nomad@null.net>
+Copyright 2007-2011 Mark Lawrence <nomad@null.net>
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 3 of the License, or
-(at your option) any later version.
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 3 of the License, or (at your
+option) any later version.
 
 =cut
 
