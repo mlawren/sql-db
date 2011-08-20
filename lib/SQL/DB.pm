@@ -26,12 +26,12 @@ our $VERSION = '0.19_3';
 
 has 'verbose' => (
     is      => 'rw',
-    default => 0,
+    default => sub { 0 },
 );
 
 has 'debug' => (
     is      => 'rw',
-    default => 0,
+    default => sub { 0 },
 );
 
 has 'dsn' => ( is => 'rw', );
