@@ -316,7 +316,7 @@ column. Use the abstract row's _columns() method.
 =head2 Select from more than one table
 
 There is nothing to stop us selecting columns from different tables
-in the same query. Show me the Artist names and their Albumn titles
+in the same query. Show me the Artist names and their Album titles
 where the tracks are longer than 276 seconds:
 
   my $track  = $db->arow('tracks');
@@ -404,7 +404,7 @@ track, and the total length of the CD in one query:
       print 'CD Length: '        . $obj->sum_length ."\n\n";
   }
 
-For interests sake, here is the actual SQL:
+For interest's sake, here is the actual SQL:
 
   SELECT
       COUNT(t33.id),
@@ -423,7 +423,7 @@ For interests sake, here is the actual SQL:
 
 One thing to remember is that using B<SQL::DB> you can only get
 to foreign tables through the reference/foreign key, not the other
-way around. Ie there is no $cd->tracks method. I'm still having a
+way around. I.e., there is no $cd->tracks method. I'm still having a
 think about if/how this should be implemented or left to higher layers.
 
 
@@ -467,7 +467,7 @@ Mark Lawrence E<lt>nomad@null.netE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2007,2008 Mark Lawrence <nomad@null.net>
+Copyright (C) 2007-2011 Mark Lawrence <nomad@null.net>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
