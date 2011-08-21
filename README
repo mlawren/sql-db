@@ -1,10 +1,11 @@
-SQL::DB is a class for representing SQL tables and building queries
-against those tables.
+SQL::DB is a Perl interface to SQL databases.
 
 DEPENDENCIES
 ============
 
-    Class::Accessor (CPAN)
+    Moo
+    DBI
+    Try::Tiny
 
 INSTALLATION
 ============
@@ -19,7 +20,7 @@ To install this module type the following:
 COPYRIGHT AND LICENCE
 =====================
 
-Copyright (C) 2007 Mark Lawrence <nomad@null.net>
+Copyright (C) 2007-2011 Mark Lawrence <nomad@null.net>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
