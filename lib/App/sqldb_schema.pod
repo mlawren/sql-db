@@ -1,0 +1,33 @@
+
+=head1 NAME
+
+App::sqldb_schema - generate a SQL::DB schema from a database
+
+=head1 VERSION
+
+0.97_2. Development release.
+
+=head1 DESCRIPTION
+
+This is the implementation of the L<sqldb-schema> application.
+B<App::sqldb_schema> uses L<App::Dispatcher> for command dispatching.
+
+=head1 SEE ALSO
+
+L<sqldb-schema>, L<App::Dispatcher>
+
+=head1 AUTHOR
+
+Mark Lawrence E<lt>nomad@null.netE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2011 Mark Lawrence <nomad@null.net>
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 3 of the License, or (at your
+option) any later version.
+
+# vim: set tabstop=4 expandtab:
+

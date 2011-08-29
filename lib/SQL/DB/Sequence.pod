@@ -1,0 +1,70 @@
+
+=head1 NAME
+
+SQL::DB::Sequence - SQL::DB Role for sequence support
+
+=head1 VERSION
+
+0.97_2. Development release.
+
+=head1 SYNOPSIS
+
+  use SQL::DB;
+  use SQL::DB::Sequence;
+
+  my $db = SQL::DB->connect($dsn);
+
+  $db->create_sequence('myseq');
+  my $id = $db->nextval('myseq');
+
+=head1 DESCRIPTION
+
+B<SQL::DB::Sequence> is a Role class providing SQL sequence support for
+L<SQL::DB>.
+
+=head1 METHODS
+
+=over 4
+
+=item create_sequence( $name )
+
+Creates a sequence in the database. Takes the same arguments as
+Sequences are emulated on SQLite, used directly for PostgreSQL, and are
+unsupported for everything else.
+
+    $db->create_sequence( 'myseq' );
+
+=item nextval( $name ) -> Int
+
+Advance the sequence to its next value and return that value. If $count
+is specified then a array of $count values are returned and the
+sequence incremented appropriately.  Sequences are emulated on SQLite,
+used directly for PostgreSQL, and are unsupported for everything else.
+
+=item setval( $name, $value )
+
+Unimplemented.
+
+=item drop_sequence( $name )
+
+Unimplemented.
+
+=back
+
+=head1 SEE ALSO
+
+L<SQL::DB>, L<Moo::Role>
+
+=head1 AUTHOR
+
+Mark Lawrence E<lt>nomad@null.netE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2011 Mark Lawrence <nomad@null.net>
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 3 of the License, or (at your
+option) any later version.
+

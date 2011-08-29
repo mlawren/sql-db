@@ -1,0 +1,110 @@
+
+=head1 NAME
+
+SQL::DB::Schema - Table and column definitions for SQL::DB
+
+=head1 VERSION
+
+0.97_2. Development release.
+
+=head1 SYNOPSIS
+
+    use SQL::DB::Schema qw/get_schema/;
+
+    my $schema = SQL::DB::Schema->new(name => 'myschema');
+
+    $schema->define(@table_1_definition);
+    $schema->define(@table_2_definition);
+    $schema->define(@table_3_definition);
+    ...
+    $schema->define(@table_N_definition);
+    
+    # Build INSERT/UPDATE/DELETE expressions using urows:
+    my ($table_1, $table_3) = $schema->urow(qw/table_1, table_3)
+
+    # Build SELECT expressions using srows:
+    my ($table_1, $table_2) = $schema->srow(qw/table_1, table_2)
+
+    # Retrieve a previously elsewhere created schema:
+    my $other = get_schema('other');
+
+=head1 DESCRIPTION
+
+B<SQL::DB::Schema> objects hold the table and column definitions used
+by L<SQL::DB> for creating SQL queries.
+
+The SYNOPSIS and this documentation show how this module is used but
+you should never write such code by hand.  Schema information is either
+automatically retrieved by L<SQL::DB> at run-time or pre-generated with
+the L<sqldb-schema>(1) command-line program.
+
+A single function is exported on request:
+
+=over 4
+
+=item get_schema($name) -> SQL::DB::Schema
+
+Retrieves the schema with the given $name.
+
+=back
+
+=head1 CONSTRUCTOR
+
+=over 4
+
+=item new(name => $name) -> SQL::DB::Schema
+
+Create a new schema object. The 'name' attribute is required and must
+be unique. The created schema is stored in an internal hash and can be
+retrieved from other lexical scopes using the "get_schema" function.
+
+=back
+
+=head1 METHODS
+
+=over 4
+
+=item define( \@column_info )
+
+Add table/column information to the schema. The \@column_info
+array-reference must be the same as the structure returned from a
+L<DBI> "column_info()" call. This method will confess if duplicate
+column information is given.
+
+=item not_known(@tables) -> @not_known
+
+Returns the @tables which are not known in the schema.
+
+=item urow( $table, [ $table2 ] ) -> SQL::DB::Expr based objects
+
+Returns objects representing abstract rows from $table(s). Each object
+has a method for each column in the table. These urow objects can be
+used in L<SQL::DB>'s "do()" method (for INSERT, UPDATE or DELETE
+queries).
+
+=item srow( $table, [ $table2 ] ) -> SQL::DB::Expr based objects
+
+Returns objects representing abstract rows from $table(s). Each object
+has a method for each column in the table. These srow objects can be
+used in L<SQL::DB> "fetch()" and "fetch1()" methods (for SELECT
+queries).
+
+=back
+
+=head1 SEE ALSO
+
+L<SQL::DB>, L<sqldb-schema>
+
+=head1 AUTHOR
+
+Mark Lawrence E<lt>nomad@null.netE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright 2007-2011 Mark Lawrence <nomad@null.net>
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 3 of the License, or (at your
+option) any later version.
+

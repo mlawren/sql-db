@@ -1,0 +1,105 @@
+
+=head1 NAME
+
+SQL::DB::Iter - SQL::DB database iterator
+
+=head1 VERSION
+
+0.97_2. Development release.
+
+=head1 SYNOPSIS
+
+  use SQL::DB::Iter;
+
+  my $iter = SQL::DB::Iter->new(
+      sth => $sth,
+  );
+
+  while (my $row = $iter->next) {
+      print $row->column(), $row->some_other_column;
+  }
+
+  # Or if you want you can get everything at once:
+  my @rows = $iter->all;
+
+=head1 DESCRIPTION
+
+B<SQL::DB::Iter> is a class for traversing over records retrieved from
+a L<DBI> statement handle. Note that this is a Perl-side iterator,
+completely unrelated to any database-side cursors.
+
+The objects returned by the 'next' and 'all' methods are simple
+array-ref based objects with one accessor/modifer method per column.
+Method names are column names with spaces replaced by a '_'.
+
+=head1 CONSTRUCTOR
+
+=over 4
+
+=item new(sth => $sth)
+
+Returns a new iterator object. $sth must be a L<DBI> statement handle
+that has already been 'executed'.
+
+=back
+
+=head1 ATTRIBUTES
+
+=over 4
+
+=item sth -> DBI::st
+
+The L<DBI> statement handle. Read-only.
+
+=item class -> Str
+
+The class name into which retrieved rows are 'blessed'. This is
+automatically calculated based on the retrieved column names.
+Read-only.
+
+=back
+
+=head1 METHODS
+
+=over 4
+
+=item BUILD
+
+Internal method.
+
+=item next -> $row
+
+Returns the next row from the statement handle as an object. Returns
+undef when there is no more data.
+
+=item all -> @rows
+
+Returns all remaining rows from the statement handle as a list of
+objects. Returns the empty list if no data is available.
+
+=item finish
+
+Calls finish() on the DBI statement handle and internally records that
+there is no more data to be retrieved. This method is automatically
+called when the iterator object goes out of scope, so be aware you
+cannot use the passed-in statement handle again.
+
+=back
+
+=head1 SEE ALSO
+
+L<DBI>, L<SQL::DB>
+
+=head1 AUTHOR
+
+Mark Lawrence E<lt>nomad@null.netE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2007-2011 Mark Lawrence <nomad@null.net>
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 3 of the License, or (at your
+option) any later version.
+

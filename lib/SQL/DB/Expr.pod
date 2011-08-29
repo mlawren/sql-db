@@ -1,0 +1,258 @@
+
+=head1 NAME
+
+SQL::DB::Expr - Build SQL expressions with Perl
+
+=head1 VERSION
+
+0.97_2. Development release.
+
+=head1 SYNOPSIS
+
+  use SQL::DB::Expr;
+
+  my $col1 = SQL::DB::Expr->new(
+    _txt => 'col1',
+    _btype => 'SQL_INTEGER',
+  );
+
+  my $col2 = SQL::DB::Expr->new(
+    _txt => 'col2',
+  );
+
+  my $expr = ($col1->is_not_null .AND.
+    $col2->between(1,2))->as('alias');
+
+=head1 DESCRIPTION
+
+B<SQL::DB::Expr> provides an object class that supports mapping Perl
+syntax to SQL text, values and types suitable for passing to L<DBI>
+methods.  This class is the basis for L<SQL::DB> and is not generally
+used directly.
+
+=head1 CONSTRUCTOR
+
+    new(
+        _txt     => $_txt,
+        _btype   => $bind_type,
+        _bvalues => [ @_bvalues ],
+        _btypes  => [ @_btypes ],
+        _multi   => $_multi,
+        _op      => $op,
+    );
+
+=head1 ATTRIBUTES
+
+=over 4
+
+=item _txt => Scalar
+
+The SQL representation of the expression suitable for passing to DBI
+methods such as do(), selectall_arrayref(), prepare(), etc.
+
+=item _btype => Scalar
+
+The DBD bind_type suitable for passing to a L<DBI> statement-handle
+bind_param() method.
+
+=item _bvalues => ARRAYREF
+
+The values of the expression suitable for passing to a L<DBI>
+statement-handle bind_param() method.
+
+=item _btypes => ARRAYREF
+
+The bind types of the expression _bvalues suitable for passing to a
+L<DBI> statement handle bind_param() method.
+
+=item _multi => Bool
+
+Whether the expression requires surrounding brackets.
+
+=item _op => Scalar
+
+The operator of the expression in the case that it is binary.
+
+=back
+
+=head1 METHODS
+
+=over 4
+
+=item BUILD
+
+A subroutine called during an object's instantiation phase.
+
+=item _clone
+
+Makes a deep copy of the object.
+
+=item _as_string
+
+Returns a string representation of the expression, providing
+surrounding brackets for '_multi' expressions.
+
+=item _bvalues_sql
+
+Returns a string representation of the bind values as an SQL comment.
+
+=item _expr_not
+
+Maps '!' to 'NOT'.
+
+=item _expr_eq
+
+Maps '==' to "==".
+
+=item _expr_ne
+
+Maps '!=' to "!=".
+
+=item _expr_bitand
+
+Maps '&' to "&";
+
+=item _expr_bitor
+
+Maps '|' to "|";
+
+=item _expr_lt
+
+Maps '<' to "<";
+
+=item _expr_gt
+
+Maps '>' to ">";
+
+=item _expr_lte
+
+Maps '<=' to "<=";
+
+=item _expr_gte
+
+Maps '>=' to ">=";
+
+=item _expr_add
+
+Maps '+' to "+";
+
+=item _expr_sub
+
+Maps '-' to "-";
+
+=item _expr_mult
+
+Maps '*' to "*";
+
+=item _expr_divide
+
+Maps '/' to "/";
+
+=item is_null
+
+Maps to "IS NULL".
+
+=item is_not_null
+
+Maps to "IS NOT NULL".
+
+=item in(@values)
+
+Maps to "IN (@VALUES)"
+
+=item not_in( @values )
+
+Maps to "NOT IN ( @VALUES )".
+
+=item between( $a, $b )
+
+Maps to "BETWEEN $a AND $b".
+
+=item not_between( $a, $b )
+
+Maps to "NOT BETWEEN $a AND $b".
+
+=item as( $as )
+
+Maps to "AS $as".
+
+=item like( $like )
+
+Maps to "LIKE $like".
+
+=item asc
+
+Maps to "ASC".
+
+=item desc
+
+Maps to "DESC".
+
+=back
+
+=head1 CLASS FUNCTIONS
+
+The following functions are exported on demand.
+
+=over 4
+
+=item _bexpr( $item [,$bind_type] )
+
+Return $item if it is already an expression, or a new SQL::DB::Expr
+object otherwise. The optional $bind_type specifies the DBI bind_type.
+
+=item _expr_binary( $op, $e1, $e2, $swap )
+
+A method for building binary operator expressions.
+
+=item _expr_join( $separator, @expressions )
+
+Does the same as Perl's 'join' built-in. but for SQL::DB::Expr objects.
+See BUGS below for why this is needed.
+
+=item _bexpr_join( $separator, @expressions )
+
+Does the same as Perl's 'join' built-in but for SQL::DB::Expr objects,
+but using _bexpr on each item of @expressions. See BUGS below for why
+this is needed.
+
+=item AND, OR
+
+These subroutines let you write SQL logical expressions in Perl using
+string concatenation:
+
+    ( $e1 .AND. $e2 ) .OR. ( $e3 .AND. $e4 )
+
+Note that due to operator precedence, expressions either side of .AND.
+or .OR. should be bracketed if they are not already single expression
+objects.
+
+Things are implemented this way due to Perl not allowing the
+overloading of the 'and' and 'or' built-ins.
+
+=back
+
+=head1 BUGS
+
+Using B<SQL::DB::Expr> objects with the Perl "join" command does not
+work as expected, apparently because join does not trigger either the
+'.' or '.=' overload methods. The work around is to use the _expr_join
+subroutine.
+
+=head1 SEE ALSO
+
+L<SQL::DB>, L<DBI>
+
+=head1 AUTHOR
+
+Mark Lawrence E<lt>nomad@null.netE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2007-2011 Mark Lawrence <nomad@null.net>
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 3 of the License, or (at your
+option) any later version.
+

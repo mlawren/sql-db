@@ -1,17 +1,19 @@
-#!/usr/bin/perl
 use strict;
 use warnings;
-use lib 't/lib';
 use Test::More;
 use Test::Database;
 use Cwd;
 use File::Temp qw/tempdir/;
 use SQL::DB;
-use SQL::DB::Deploy;
+use SQL::DB::Sequence;
+use SQL::DB::Deploy;    # Remove this stuff
 
-unless ( eval { require YAML; } ) {
-    plan skip_all => "Feature Deploy YAML not enabled";
-}
+can_ok(
+    'SQL::DB', qw/
+      create_sequence
+      nextval
+      /
+);
 
 my $cwd;
 BEGIN { $cwd = getcwd }
@@ -83,10 +85,16 @@ foreach my $handle (@handles) {
           'yaml deploy';
     }
 
-    ok $db->insert_into( 'test', values => { id => 1, name => 'Mark' } ),
+    $db->create_sequence('test');
+    my $id = $db->nextval('test');
+    ok $id, 'nextval';
+
+    ok $db->insert_into( 'test', values => { id => $id, name => 'Mark' } ),
       'insert';
 
-    ok $db->insert_into( 'test', values => { id => 2, name => 'Mark2' } ),
+    ok $db->insert_into(
+        'test', values => { id => $db->nextval('test'), name => 'Mark2' }
+      ),
       'insert';
 
     my @res = $db->select( [ 'id', 'name' ], from => 'test', );

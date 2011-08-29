@@ -1,0 +1,490 @@
+
+=head1 NAME
+
+SQL::DB - Perl/SQL database interface
+
+=head1 VERSION
+
+0.97_2. Development release.
+
+=head1 SYNOPSIS
+
+    ########### The Simple API ###########
+
+    use SQL::DB;
+    my $db = SQL::DB->connect( $dsn, $dbuser, $dbpass );
+
+    $db->insert_into('purchases',
+        values => {id => 1, count => 1},
+    );
+
+    $db->update('purchases',
+        set   => {count => 2},
+        where => {id => 1},
+    );
+
+    $db->delete_from('purchases',
+        where => {id => 1},
+    );
+
+    my $obj = $db->select( ['id','who','count'],
+        from => 'customers',
+        where => {id => 1},
+    );
+    # print $obj->id, $obj->who etc.
+
+
+    ########### The Full-Power API ###########
+
+    use SQL::DB qw/:all/;
+
+    my $db = SQL::DB->new(
+        dsn      => $dsn,
+        username => $username,
+        password => $password,
+        schema   => 'MyApp',    # created with sqldb-schema(1)
+    );
+
+    # Anyone celebrating a birthday today gets a raise, with the
+    # calculation done inside the database.
+
+    my $people = $db->urow('people');
+
+    $db->do(
+        update => $people,
+        set    => $people->salary( $people->salary * 2 ),
+        where  => $people->dob == $today,
+    );
+
+    my $purchases = $db->srow('purchases');
+
+    my $row = $db->fetch1(
+        select    => [ $people->name, $ps->pid ],
+        from      => $people,
+        left_join => $purchases,
+        on        => $purchases->id == $people->id,
+        where     => $people->id->in(1,2,3) .AND.
+                       $people->name->like('%paul%'),
+        limit  => 1,
+        offset => 1,
+    );
+    # then do stuff with $row->pid, $row->name etc
+
+    my @rows = $db->fetch(
+        select => [ sql_coalesce($p->pid, $p->cid)->as('pcid') ],
+        from   => $p,
+        where  => $p->cid->is_not_null,
+    );
+    # coalesce column is available as $row->pcid
+
+    my $iter = $db->iter( @query ...);
+    while (my $row = $iter->next) {
+        print $row->column(), $row->some_other_column;
+    }
+
+    # If you want the data your own way you can still use the query
+    # syntax:
+    my $sth = $db->sth( @query);
+    map { print join(',',@$_) ."\n" } $sth->fetchall_arrayref;
+
+    # Transactions provided by DBIx::Connector
+    $db->txn( sub {
+        # multiple statements
+    });
+
+
+=head1 DESCRIPTION
+
+B<SQL::DB> is an extension to the Perl Database Interface (L<DBI>).  It
+is designed to handle complicated queries and provide efficient access
+to the results.  With an API that lets you easily write almost-raw SQL,
+B<SQL::DB> gives you unfettered access to the power and flexibility of
+your underlying database. It aims to be a tool for programmers who want
+their databases to work just as hard as their Perl scripts.
+
+B<SQL::DB> is capable of generating aggregate expressions, joins,
+nested selects, unions and database-side operator invocations.
+Transactional support is provided via L<DBIx::Connector>. There is some
+minor cross database support which transparently handles the binding of
+binary data types, keeping the amount of data- and database-specific
+code you have to write to a minimum.
+
+Although rows can be retrieved from the database as simple objects,
+B<SQL::DB> does not attempt to be an Object-Relational-Mapper al-la
+L<DBIx::Class>; there are no auto-inflating columns or automatic joins
+and the code size and speed reflect the lack of complexity.
+
+B<SQL::DB> uses the light-weight L<Log::Any> for logging.
+
+=head2 Simple API
+
+B<SQL::DB> queries use abstract representations of table rows - objects
+that can be thought of as matching I<any> row in a table.  Abstract
+rows are obtained using the Schema->arow() method.  The objects
+returned have methods that match the columns of a table, plus some
+extra SQL syntax/sugar methods.
+
+=head2 Full API
+
+The real power of B<SQL::DB> lies in the way that SQL expressions can
+be constructed using these abstract columns. The abstract column
+methods do not really act on the abstract row, but intead return an
+expression object (L<SQL::DB::Expr>). Using Perl's overload feature
+these objects can be combined and nested in Perl in a way that maps
+
+=head2 Abstract Rows and Expressions
+
+B<SQL::DB> queries use abstract representations of table rows - objects
+that can be thought of as matching I<any> row in a table.  Abstract
+rows are obtained using the Schema->arow() method.  The objects
+returned have methods that match the columns of a table, plus some
+extra SQL syntax/sugar methods.
+
+    my ( $cds, $tracks ) = $db->arow(qw/ cds tracks /);
+
+The real power of B<SQL::DB> lies in the way that SQL expressions can
+be constructed using these abstract columns. The abstract column
+methods do not really act on the abstract row, but intead return an
+expression object (L<SQL::DB::Expr>). Using Perl's overload feature
+these objects can be combined and nested in Perl in a way that maps
+very closely to they way the SQL would be written by hand.
+
+    Perl Expression                     SQL Result
+    ----------------------------------  ---------------------------
+    $cds                                cds
+
+    $cds->title                         cds.title
+
+    $tracks->cd                         tracks.cd
+
+    $tracks->id->func('count')          count(tracks.cd)
+
+    $tracks->set_length(                SET tracks.length =
+        $tracks->length + 10 )              tracks.length + 10
+
+    ( $cds->id == 1 ) .OR.              cds.id = 1 OR
+      $cds->title->like( '%Magic%' ) )      cds.title LIKE '%Magic%'
+
+    ( $cds->id->is_not_null .AND.       cds.id IS NOT NULL AND
+      ! $tracks->id->in( 1, 2, 5 ) )        NOT tracks.id IN (1,2,5)
+
+Here is a summary of the default available expression operators and
+methods. New expression subroutines can be generated in your own code -
+see L<SQL::DB::Expr> for details.
+
+    Perl            SQL             Applies to
+    ---------       -------         ------------
+    .AND.           AND             All Expressions
+    .OR.            OR              All Expressions
+    !               NOT             All Expressions
+    .CONCAT.        || or CONCAT    All Expressions
+    ==              =               All Expressions
+    !=              !=              All Expressions
+
+    like            LIKE            Column only
+    in              IN              Column only
+    not_in          NOT IN          Column only
+    is_null         IS NULL         Column only
+    is_not_null     IS NOT NULL     Column only
+    asc             ASC             Column only
+    desc            DESC            Column only
+    sql_count       COUNT           Column only
+    sql_min         MIN             Column only
+    sql_max         MAX             Column only
+    func('x',...)   X(col,...)      Column only
+
+=head2 Query Syntax
+
+Here is a better example with multiple functions and multiple tables.
+For each CD, show me the number of tracks, the length of the longest
+track, and the total length of the CD in one query:
+
+    track = $db->arow('tracks');
+    @objs = $db->fetch(
+        select   => [
+            $track->cd->title,
+            $track->id->func('count'),
+            $track->length->func('max'),
+            $track->length->func('sum')
+        ],
+        group_by  => [
+            $track->cd->title,
+        ],
+    );
+
+    foreach my $obj (@objs) {
+        print 'Title: '            . $obj->title      ."\n";
+        print 'Number of Tracks: ' . $obj->count_id   ."\n";
+        print 'Longest Track: '    . $obj->max_length ."\n";
+        print 'CD Length: '        . $obj->sum_length ."\n\n";
+    }
+
+
+
+=head1 CONSTRUCTORS
+
+=over 4
+
+=item connect( $dsn, [ $user, $pass, $attrs ] )
+
+Connect to a database and return a new B<SQL::DB> object.  This method
+is a convenience wrapper around new() for those who prefer L<DBI>-style
+construction.
+
+=item new( dsn => $dsn, ...)
+
+Connect to a database and return a new B<SQL::DB> object.  The 'dsn'
+argument is mandatory.  Also accepted here are 'dbuser', 'dbpass',
+'dbattrs', 'debug', 'prepare_mode' and 'schema'. See ATTRIBUTES below
+for definitions.
+
+=back
+
+=head1 ATTRIBUTES
+
+=over 4
+
+=item debug <-> Bool
+
+General debugging state (true/false). Debug messages are sent to
+L<Log::Any>'s "debug" method.
+
+=item dsn <-> Str
+
+The L<DBI> connection string.
+
+=item dbd -> Str
+
+The L<DBD> driver name ('SQLite', 'mysql', 'Pg' etc) for the type of
+database we are connected to. Derived from the 'dsn' attribute.
+
+=item dbuser <-> Str
+
+The L<DBI::Connector> connection username.
+
+=item dbpass <-> Str
+
+The L<DBI::Connector> connection password.
+
+=item dbattrs <-> HASHREF
+
+The L<DBI::Connector> connection attributes.
+
+=item conn -> DBIx::Connector
+
+The handle connecting us to the database.
+
+=item schema <-> Str
+
+The name of the schema associated with this connection.
+
+=item prepare_mode <-> Str
+
+One of either 'prepare' or 'prepare_cached' (default). See L<DBI> for
+details.
+
+=back
+
+=head1 METHODS
+
+=over 4
+
+=item srow( $name, [...] ) -> SQL::DB::SRow::$name, ...
+
+Returns an object (or objects in array context) representing any row of
+table $name. This abstraction object is used for building SELECT
+statements with the 'sth', 'fetch', 'fetch1', 'iter' etc methods. The
+returned object has a method for each column in the table.
+
+=item urow( $name, [...] ) -> SQL::DB::URow::$name, ...
+
+Returns an object (or objects in array context) representing any row of
+table $name. This abstraction object is used for building UPDATE or
+DELETE statements with the 'do' method. The returned object has a
+method for each column in the table.
+
+=item do(@query)
+
+Constructs a L<SQL::DB::Query> object as defined by @query and runs
+that query against the connected database.  Croaks if an error occurs.
+This is the method to use for any statement that doesn't retrieve
+values (eg INSERT, UPDATE and DELETE). Returns whatever value the
+underlying L<DBI>->do call returns.  This method uses "prepare_cached"
+to prepare the call to the database.
+
+=item fetch(@query) -> SQL::DB::Cursor | @SQL::DB::Row
+
+Constructs an L<SQL::DB::Query> object as defined by @query and runs
+that query against the connected database.  Croaks if an error occurs.
+This method should be used for SELECT-type statements that retrieve
+rows. This method uses "prepare_cached" to prepare the call to the
+database.
+
+When called in array context returns a list of L<SQL::DB::Row> based
+objects. The objects have accessors for each column in the query. Be
+aware that this can consume large amounts of memory if there are lots
+of rows retrieved.
+
+When called in scalar context returns a query iterator
+(L<SQL::DB::Cursor>) (with "next", "all" and "reset" methods) to
+retrieve dynamically constructed objects one at a time.
+
+=item fetch1(@query) -> SQL::DB::Row
+
+Similar to fetch() but always returns only the first object from the
+result set. All other rows (if any) can not be retrieved. You should
+only use this method if you know/expect one result. This method uses
+"prepare_cached" to prepare the call to the database.
+
+=item query(@query)
+
+Return an L<SQL::DB::Query> object as defined by @query. This method is
+useful when creating nested SELECTs, UNIONs, or you can print the
+returned object if you just want to see what the SQL looks like.
+
+=item query_as_string($sql, @bind_values)
+
+An internal function for pretty printing SQL queries by inserting the
+bind values into the SQL itself. Returns a string.
+
+=item current_timestamp
+
+The current date and time (as a string) that remains fixed within a
+transaction.
+
+=item iter( @query )
+
+Runs a query and returns a L<SQL::DB::Cursor> object. You can call
+next() and all() methods on this object to obtain data.
+
+=item sth( @query )
+
+Runs a query and returns a L<DBI::st> statement handle. You can call
+fetchrow_array() and other L<DBI> method on this handle.
+
+=item insert_into($row)
+
+Insert $row into the database, where $row is an L<SQL::DB::Row> based
+object returned from row() or fetch() methods.
+
+=item update($row)
+
+Update $row in the database, where $row is an L<SQL::DB::Row> based
+object returned from row() or fetch() methods.
+
+=item delete_from($row) -> Int
+
+Delete $row from the database, where $row is an L<SQL::DB::Row> based
+object returned from row() or fetch() methods.
+
+=item select(\@columns, from => $table, where => \%args) -> Obj
+
+Delete $row from the database, where $row is an L<SQL::DB::Row> based
+object returned from row() or fetch() methods.
+
+=item txn(&coderef)
+
+Runs the code in &coderef as an SQL transaction. If &coderef does not
+raise any exceptions then the transaction is commited, otherwise it is
+rolled back.
+
+This method can be called recursively, but any sub-transaction failure
+will always result in the outer-most transaction also being rolled
+back. For savepoint support see L<DBIx::Connector>.
+
+=back
+
+=head1 CLASS FUNCTIONS
+
+All of the following functions can be exported individually on demand,
+or all at once using the ':all' tag.
+
+=over 4
+
+=item query( @statements )
+
+Create a new L<SQL::DB::Expr> expression based on the given
+@statements. Scalars are uppercased with '_' converted to spaces, and
+ARRAYREF elements are joined together with ','.
+
+=item sql_and
+
+=item sql_case
+
+=item sql_coalesce
+
+=item sql_cast
+
+=item sql_concat
+
+=item sql_count
+
+=item sql_exists
+
+=item sql_func
+
+=item sql_length
+
+=item sql_lower
+
+=item sql_max
+
+=item sql_min
+
+=item sql_sum
+
+=item sql_or
+
+=item sql_substr
+
+=item sql_upper
+
+=item sql_values
+
+=back
+
+=head1 COMPATABILITY
+
+All SQL::DB releases have so far been DEVELOPMENT!
+
+B<SQL::DB> jumped from version 0.18 to 0.98 due to a complete rewrite
+based on Moo. Lots of things were simplified, modules deleted,
+dependencies removed, etc. The API changed enough to almost give this
+distribution a new name, except I don't know of anyone using this apart
+from myself. 0.98 will be the last release marked as development, 0.99
+will be a release candidate, and 1.00 will be the first stable release.
+
+=head1 SEE ALSO
+
+L<SQL::Sequence>, L<SQL::DB::Deploy>, L<SQL::DB::Expr>,
+L<SQL::DB::Iter>, L<DBIx::Connector>, L<Log::Any>
+
+=head1 SUPPORT
+
+Feedback, testing, bug reports and patches are all welcome.
+
+=over
+
+=item Bug Reporting
+
+    https://rt.cpan.org/Public/Bug/Report.html?Queue=SQL-DB
+
+=item Source Code
+
+    git clone git://github.com/mlawren/sql-db.git
+
+=back
+
+=head1 AUTHOR
+
+Mark Lawrence E<lt>nomad@null.netE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2007-2011 Mark Lawrence <nomad@null.net>
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 3 of the License, or (at your
+option) any later version.
+

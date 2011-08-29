@@ -1,0 +1,57 @@
+
+=head1 NAME
+
+SQL::DB::Deploy - SQL::DB Role for deployment support
+
+=head1 VERSION
+
+0.97_2. Development release.
+
+=head1 SYNOPSIS
+
+  use SQL::DB;
+  use SQL::DB::Deploy;
+
+  my $db = SQL::DB->connect($dsn);
+
+  $db->deploy('myseq', $arrayref);
+  my $id = $db->last_deploy_id;
+
+=head1 DESCRIPTION
+
+B<SQL::DB::Deploy> is a Role class providing deployment support for
+L<SQL::DB>.
+
+=head1 METHODS
+
+=over 4
+
+=item deploy( $app, $array_ref )
+
+Deploy the [ $type, $data ] pairs contained in $array_ref to the
+database.  Only $array_ref elements greater than the previous
+deployment count (stored in the _sqldb table) will be deployed.
+
+=item last_deploy_id( $app )
+
+Returns the count of all deployments.
+
+=back
+
+=head1 SEE ALSO
+
+L<SQL::DB>, L<Moo::Role>
+
+=head1 AUTHOR
+
+Mark Lawrence E<lt>nomad@null.netE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2011 Mark Lawrence <nomad@null.net>
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 3 of the License, or (at your
+option) any later version.
+

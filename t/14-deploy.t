@@ -1,7 +1,6 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
-use lib 't/lib';
 use Test::More;
 use Test::Database;
 use Cwd;
@@ -9,9 +8,13 @@ use File::Temp qw/tempdir/;
 use SQL::DB;
 use SQL::DB::Deploy;
 
-unless ( eval { require YAML; } ) {
-    plan skip_all => "Feature Deploy YAML not enabled";
+BEGIN {
+    unless ( eval { require YAML; } ) {
+        plan skip_all => "Feature Deploy YAML not enabled";
+    }
 }
+
+can_ok( 'SQL::DB', qw/deploy last_deploy_id/ );
 
 my $cwd;
 BEGIN { $cwd = getcwd }
@@ -81,59 +84,6 @@ foreach my $handle (@handles) {
         skip 'Deploy YAML not enabled', 1 unless eval { require YAML::Tiny };
         ok $db->deploy( 'sqldb-test', YAML::Tiny::Dump($deploy) ),
           'yaml deploy';
-    }
-
-    ok $db->insert_into( 'test', values => { id => 1, name => 'Mark' } ),
-      'insert';
-
-    ok $db->insert_into( 'test', values => { id => 2, name => 'Mark2' } ),
-      'insert';
-
-    my @res = $db->select( [ 'id', 'name' ], from => 'test', );
-
-    ok @res == 2, 'select many';
-    can_ok $res[0], qw/id name/;
-
-    my $res = $db->select(
-        [ 'id', 'name' ],
-        from  => 'test',
-        where => { id => 1 },
-    );
-
-    is $res->id,   1,      'res id';
-    is $res->name, 'Mark', 'res name';
-
-    my $test = $db->srow('test');
-
-    # These tests are repeated to make sure we are closing the
-    # statement handle at the end.
-    foreach ( 1 .. 2 ) {
-        my $iter = $db->iter(
-            select => [ $test->id, $test->name ],
-            from   => $test,
-            where  => $test->id == 1,
-            limit  => 1,
-        );
-
-        isa_ok $iter, 'SQL::DB::Iter';
-        isa_ok $iter->sth, 'DBI::st';
-        ok $iter->class,   $iter->class;
-
-        my $row = $iter->next;
-        is ref $row, $iter->class, 'row is ' . $iter->class;
-        is $row->id,   1,      'rowid';
-        is $row->name, 'Mark', 'row name';
-
-        ok !$iter->next, 'next is undef';
-
-        $iter = $db->iter(
-            select => [ $test->id, $test->name ],
-            from   => $test,
-        );
-
-        my @rows = $iter->all;
-        ok !$iter->next, 'next is undef';
-        is ref $rows[0], $iter->class, 'row is ' . $iter->class;
     }
 }
 
