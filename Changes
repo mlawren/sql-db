@@ -1,0 +1,21 @@
+0.19_1 (2011-03-08)
+
+    API Changes:
+        - This is a major rewrite, almost to the point where the
+          SQL::DB name should change. However, since *all* releases
+          have been DEVELOPMENT and there have never been any
+          expectations of stability, and there are no known users apart
+          from myself, I don't think there are going to be any issues.
+
+    New Features:
+        - N/A
+
+    Enhancements:
+        - N/A
+
+    Bug Fixes:
+        - N/A
+
+For previous changes see the Git repository at:
+
+    http://github.com/mlawren/sql-db/
