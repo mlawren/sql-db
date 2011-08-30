@@ -80,8 +80,11 @@ sub define {
 
         if ( !exists $tables->{$table} ) {
 
-            @{ *{ _getglob( $srow . '::ISA' ) }{ARRAY} } = ('SQL::DB::Expr');
-            @{ *{ _getglob( $urow . '::ISA' ) }{ARRAY} } = ('SQL::DB::Expr');
+            eval "package $srow; use Moo; extends 'SQL::DB::Expr'";
+            eval "package $urow; use Moo; extends 'SQL::DB::Expr'";
+
+  #            @{ *{ _getglob( $srow . '::ISA' ) }{ARRAY} } = ('SQL::DB::Expr');
+  #            @{ *{ _getglob( $urow . '::ISA' ) }{ARRAY} } = ('SQL::DB::Expr');
 
             install_sub(
                 {
