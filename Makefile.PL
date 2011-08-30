@@ -1,6 +1,10 @@
 # Load the Module::Install bundled in ./inc/
 use inc::Module::Install;
 
+if ( eval { require App::Dispatcher } ) {
+    App::Dispatcher::run_app_dispatcher('App::sqldb_schema');
+}
+
 name 'SQL-DB';
 license 'GPL';
 all_from 'lib/SQL/DB.pm';
