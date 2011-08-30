@@ -10,11 +10,10 @@ App::sqldb_schema - generate a SQL::DB schema from a database
 =head1 DESCRIPTION
 
 This is the implementation of the L<sqldb-schema> application.
-B<App::sqldb_schema> uses L<App::Dispatcher> for command dispatching.
 
 =head1 SEE ALSO
 
-L<sqldb-schema>, L<App::Dispatcher>
+L<sqldb-schema>, L<App::Dispatcher::Tutorial>
 
 =head1 AUTHOR
 
@@ -28,6 +27,8 @@ This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
 Free Software Foundation; either version 3 of the License, or (at your
 option) any later version.
+
+=cut
 
 # vim: set tabstop=4 expandtab:
 

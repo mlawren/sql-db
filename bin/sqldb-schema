@@ -99,7 +99,8 @@ file:
 
 =head1 SEE ALSO
 
-L<SQL::DB>, L<SQL::DB::Schema>, L<App::sqldb_schema>
+L<SQL::DB>, L<SQL::DB::Schema>, L<App::sqldb_schema>,
+L<App::Dispatcher::Tutorial>
 
 =head1 AUTHOR
 
