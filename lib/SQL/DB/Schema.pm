@@ -41,7 +41,7 @@ use constant {
 # Object definition
 
 has 'name' => (
-    is       => 'ro',
+    is       => 'rw',
     required => 1,
 );
 
