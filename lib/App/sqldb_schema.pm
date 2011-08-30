@@ -6,7 +6,7 @@ use File::Slurp qw/write_file/;
 use Perl::Tidy qw/perltidy/;
 use DBI;
 
-our $VERSION = '0.97_2';
+our $VERSION = '0.97_3';
 
 sub opt_spec {
     (
