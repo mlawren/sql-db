@@ -456,7 +456,7 @@ will be a release candidate, and 1.00 will be the first stable release.
 
 =head1 SEE ALSO
 
-L<SQL::Sequence>, L<SQL::DB::Deploy>, L<SQL::DB::Expr>,
+L<SQL::DB::Sequence>, L<SQL::DB::Deploy>, L<SQL::DB::Expr>,
 L<SQL::DB::Iter>, L<DBIx::Connector>, L<Log::Any>
 
 =head1 SUPPORT
