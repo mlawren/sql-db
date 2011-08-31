@@ -9,7 +9,7 @@ name 'SQL-DB';
 license 'GPL';
 all_from 'lib/SQL/DB.pm';
 
-requires 'Moo'             => 0;
+requires 'Moo'             => '0.009010';
 requires 'Log::Any'        => 0;
 requires 'Sub::Install'    => 0.04;
 requires 'Sub::Exporter'   => 0.04;

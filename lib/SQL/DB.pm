@@ -153,9 +153,23 @@ has 'conn' => ( is => 'rw', init_arg => undef );
 has 'schema' => (
     is      => 'rw',
     trigger => sub {
-        my $self = shift;
-        $self->_schema( get_schema( $self->schema )
-              || SQL::DB::Schema->new( name => $self->schema ) );
+        my $self   = shift;
+        my $str    = $self->schema;
+        my $strdbd = $str . '::' . $self->dbd;
+
+        if ( eval "require $str;" ) {
+            $self->_schema( get_schema($str) );
+        }
+        elsif ( eval "require $strdbd" ) {
+            $self->_schema( get_schema($strdbd) );
+        }
+        else {
+            $self->_schema( SQL::DB::Schema->new( name => $str ) );
+        }
+
+        if ( !$self->_schema ) {
+            confess "Invalid schema: " . $str;
+        }
     },
 );
 
@@ -177,10 +191,12 @@ has '_current_timestamp' => ( is => 'rw', init_arg => undef );
 
 sub BUILD {
     my $self = shift;
-    $self->dsn( $self->dsn );    # to make the trigger fire
+
+    # make dbd trigger fire
+    $self->dsn( $self->dsn );
     my $dbd = $self->dbd;
 
-    # Trigger schema creation
+    # Trigger _schema creation;
     $self->schema( $self->schema || $self->dsn );
 
     $self->dbattrs(

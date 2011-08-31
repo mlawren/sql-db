@@ -19,14 +19,14 @@ sqldb-schema - generate a SQL::DB schema from a database
 
 =head1 SYNOPSIS
 
-  sqldb-schema [options] DSN [OUTFILE]
+  sqldb-schema [options] DSN PACKAGE [OUTFILE]
 
 =head1 DESCRIPTION
 
 B<sqldb-schema> is a helper for building L<SQL::DB>-based Perl
-applications. Given a Data Source Name (DSN) or SQLite filename,
-B<sqldb-schema> will connect to the database and build the Perl code to
-define a matching schema.
+applications. Given a Data Source Name (DSN) (or SQLite filename) and a
+Perl package class, B<sqldb-schema> will connect to the database and
+build a Perl module containing the matching schema.
 
 Use of B<sqldb-schema> is not necessary for L<SQL::DB> applications,
 but is an important optimisation to minimize database calls in
@@ -40,25 +40,26 @@ The standard usage scenario is as follows. After any schema change to
 your database you run B<sqldb-schema> and save the output to a Perl
 module file:
 
-    $ sqldb-schema -s 'myapp' -p My::App::Schema \
-        dbi:Pg:dbname=myapp lib/My/App/Schema.pm
+    $ sqldb-schema dbi:Pg:dbname=myapp MyApp::Schema::Pg \
+        lib/MyApp/Schema/Pg.pm
     Username: mylogin
     Password: ********
 
-Then in your application code you 'use' your schema module and set the
-L<SQL::DB> object "schema" attribute to the same '-s' value:
+Then in your application code you set the L<SQL::DB> object "schema"
+attribute to the schema package:
 
-    package My::App;
+    package MyApp;
     use SQL::DB;
-    use My::App::Schema
 
     my $db = SQL::DB->new(
-        dsn    => $dsn,
-        schema => 'myapp', # must match the '-s'
+        dsn    => 'dbi:Pg:dbname=myapp',
+        dbuser => 'username',
+        dbpass => '******',
+        schema => 'MyApp::Schema::Pg',
     );
 
 Now any calls to "urow" or "srow" on the $db object will not need to
-query the database for table structure.
+query the database to know the table structure.
 
 =head1 OPTIONS
 
@@ -69,31 +70,18 @@ query the database for table structure.
 The username to connect to the database with. You will be prompted if
 this is not given (for any driver other than SQLite).
 
-=item --password
+=item --password, -p
 
 The password to connect to the database with. For security reasons it
 is not recommended to use this option. You will be prompted if this is
 not given (for any driver other than SQLite).
 
-=item --schema, -s
-
-The name of the L<SQL::DB> schema. Defaults to 'default'. You will need
-to set your L<SQL::DB> object's "schema" attribute to the same value.
-
 =item --dbschema, -d
 
 The name of the database schema (if any) to narrow down the result of
 the L<DBI> "table_info" call. For PostgreSQL databases this defaults to
-'public'. For SQLite databases this defaults to 'main'.
-
-=item --package, -p
-
-An optional package name to include in the output. Useful (but not
-strictly necessary) if you want to send the output directly to a module
-file:
-
-    $ sqldb-schema -p My::App::Schema myapp.sqlite \
-        lib/My/App/Schema.pm
+'public'. For SQLite databases this defaults to 'main'. Setting it to
+'%' will retrieve the tables from all schemas.
 
 =back
 
