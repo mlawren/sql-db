@@ -26,7 +26,7 @@ sqldb-schema - generate a SQL::DB schema from a database
 B<sqldb-schema> is a helper for building L<SQL::DB>-based Perl
 applications. Given a Data Source Name (DSN) (or SQLite filename) and a
 Perl package class, B<sqldb-schema> will connect to the database and
-build a Perl module containing the matching schema.
+output a Perl module containing the matching schema.
 
 Use of B<sqldb-schema> is not necessary for L<SQL::DB> applications,
 but is an important optimisation to minimize database calls in
@@ -37,11 +37,10 @@ higher query latency than for local database engines such as SQLite.
 Output is printed to STDOUT if OUTFILE is not specified.
 
 The standard usage scenario is as follows. After any schema change to
-your database you run B<sqldb-schema> and save the output to a Perl
-module file:
+your database you run B<sqldb-schema> and save the output as a Perl
+module:
 
-    $ sqldb-schema dbi:Pg:dbname=myapp MyApp::Schema::Pg \
-        lib/MyApp/Schema/Pg.pm
+    $ sqldb-schema dbi:Pg:dbname=myapp MyApp::Pg lib/MyApp/Pg.pm
     Username: mylogin
     Password: ********
 
@@ -55,7 +54,7 @@ attribute to the schema package:
         dsn    => 'dbi:Pg:dbname=myapp',
         dbuser => 'username',
         dbpass => '******',
-        schema => 'MyApp::Schema::Pg',
+        schema => 'MyApp::Pg',
     );
 
 Now any calls to "urow" or "srow" on the $db object will not need to
