@@ -23,6 +23,8 @@ lib/SQL/DB/X/Deploy.pm
 lib/SQL/DB/X/Deploy.pod
 lib/SQL/DB/X/Sequence.pm
 lib/SQL/DB/X/Sequence.pod
+lib/SQL/DB/X/Simple.pm
+lib/SQL/DB/X/Simple.pod
 lib/App/sqldb_schema/Dispatcher.pm
 lib/App/sqldb_schema.pm
 lib/App/sqldb_schema.pod
@@ -37,6 +39,7 @@ xt/package-names.t
 t/04-expr.t
 t/08-schema.t
 t/10-iter.t
+t/11-simple.t
 t/12-sequence.t
 t/14-deploy.t
 t/live.t

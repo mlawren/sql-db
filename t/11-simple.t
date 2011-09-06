@@ -1,18 +1,21 @@
-#!/usr/bin/perl
 use strict;
 use warnings;
-use lib 't/lib';
 use Test::More;
 use Test::Database;
 use Cwd;
 use File::Temp qw/tempdir/;
 use SQL::DB;
-use SQL::DB::X::Deploy;
+use SQL::DB::X::Deploy;    # Remove this stuff?
 use SQL::DB::X::Simple;
 
-unless ( eval { require YAML; } ) {
-    plan skip_all => "Feature Deploy YAML not enabled";
-}
+can_ok(
+    'SQL::DB', qw/
+      insert_into
+      update
+      delete_from
+      select
+      /
+);
 
 my $cwd;
 BEGIN { $cwd = getcwd }
@@ -87,7 +90,9 @@ foreach my $handle (@handles) {
     ok $db->insert_into( 'test', values => { id => 1, name => 'Mark' } ),
       'insert';
 
-    ok $db->insert_into( 'test', values => { id => 2, name => 'Mark2' } ),
+    ok $db->insert_into(
+        'test', values => { id => 2, name => 'Mark2' }
+      ),
       'insert';
 
     my @res = $db->select( [ 'id', 'name' ], from => 'test', );

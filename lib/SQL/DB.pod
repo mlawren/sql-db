@@ -9,33 +9,6 @@ SQL::DB - Perl/SQL database interface
 
 =head1 SYNOPSIS
 
-    ########### The Simple API ###########
-
-    use SQL::DB;
-    my $db = SQL::DB->connect( $dsn, $dbuser, $dbpass );
-
-    $db->insert_into('purchases',
-        values => {id => 1, count => 1},
-    );
-
-    $db->update('purchases',
-        set   => {count => 2},
-        where => {id => 1},
-    );
-
-    $db->delete_from('purchases',
-        where => {id => 1},
-    );
-
-    my $obj = $db->select( ['id','who','count'],
-        from => 'customers',
-        where => {id => 1},
-    );
-    # print $obj->id, $obj->who etc.
-
-
-    ########### The Full-Power API ###########
-
     use SQL::DB qw/:all/;
 
     my $db = SQL::DB->new(
@@ -361,26 +334,6 @@ next() and all() methods on this object to obtain data.
 
 Runs a query and returns a L<DBI::st> statement handle. You can call
 fetchrow_array() and other L<DBI> method on this handle.
-
-=item insert_into($row)
-
-Insert $row into the database, where $row is an L<SQL::DB::Row> based
-object returned from row() or fetch() methods.
-
-=item update($row)
-
-Update $row in the database, where $row is an L<SQL::DB::Row> based
-object returned from row() or fetch() methods.
-
-=item delete_from($row) -> Int
-
-Delete $row from the database, where $row is an L<SQL::DB::Row> based
-object returned from row() or fetch() methods.
-
-=item select(\@columns, from => $table, where => \%args) -> Obj
-
-Delete $row from the database, where $row is an L<SQL::DB::Row> based
-object returned from row() or fetch() methods.
 
 =item txn(&coderef)
 

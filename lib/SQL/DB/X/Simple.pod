@@ -1,0 +1,111 @@
+
+=head1 NAME
+
+SQL::DB::X::Simple - Simple CRUD extension for SQL::DB
+
+=head1 VERSION
+
+0.97_3. Development release.
+
+=head1 SYNOPSIS
+
+    use SQL::DB;
+    use SQL::DB::X::Simple;
+
+    my $db = SQL::DB->connect($dsn);
+
+    # INSERT INTO
+    #   actors (id, name)
+    # VALUES
+    #   (1, 'John Smith')
+
+    my $success = $db->insert(
+        into   => 'actors',
+        values => { id => 1, name => 'John Smith' },
+    );
+
+    # UPDATE
+    #   actors
+    # SET
+    #   name = 'Jack Smith'
+    # WHERE
+    #   id = 1 AND name = 'John Smith'
+
+    my $count = $db->update( 'actors',
+        set   => { name => 'Jack Smith' },
+        where => { id => 1, name => 'John Smith' },
+    );
+
+    # DELETE FROM
+    #   actors
+    # WHERE
+    #   actor_id = 1 AND last_name = 'Jones'
+
+    my $count = $db->delete(
+        from  => 'actors',
+        where => { actor_id => 1, last_name => 'Jones' },
+    );
+
+    # SELECT
+    #   id, name
+    # FROM
+    #   actors
+    # WHERE
+    #   id = 1
+
+    my $row = $db->select( ['id', 'name'],
+        from => 'actors',
+        where => { id => 1 },
+    )
+
+    print $row->id .':'. $row->name ."\n";
+
+
+=head1 DESCRIPTION
+
+B<SQL::DB::X::Simple> is a Role that adds very simple Create, Retrieve,
+Update and Delete actions to L<SQL::DB>.
+
+=head1 METHODS
+
+=over 4
+
+=item insert_into($row)
+
+Insert $row into the database, where $row is an L<SQL::DB::Row> based
+object returned from row() or fetch() methods.
+
+=item update($row)
+
+Update $row in the database, where $row is an L<SQL::DB::Row> based
+object returned from row() or fetch() methods.
+
+=item delete_from($row) -> Int
+
+Delete $row from the database, where $row is an L<SQL::DB::Row> based
+object returned from row() or fetch() methods.
+
+=item select(\@columns, from => $table, where => \%args) -> Obj
+
+Delete $row from the database, where $row is an L<SQL::DB::Row> based
+object returned from row() or fetch() methods.
+
+=back
+
+=head1 SEE ALSO
+
+L<SQL::DB>, L<Moo::Role>
+
+=head1 AUTHOR
+
+Mark Lawrence E<lt>nomad@null.netE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2011 Mark Lawrence <nomad@null.net>
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 3 of the License, or (at your
+option) any later version.
+
