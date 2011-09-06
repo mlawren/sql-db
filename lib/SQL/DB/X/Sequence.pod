@@ -1,7 +1,7 @@
 
 =head1 NAME
 
-SQL::DB::Sequence - SQL::DB Role for sequence support
+SQL::DB::X::Sequence - SQL::DB Role for sequence support
 
 =head1 VERSION
 
@@ -10,7 +10,7 @@ SQL::DB::Sequence - SQL::DB Role for sequence support
 =head1 SYNOPSIS
 
   use SQL::DB;
-  use SQL::DB::Sequence;
+  use SQL::DB::X::Sequence;
 
   my $db = SQL::DB->connect($dsn);
 
@@ -19,7 +19,7 @@ SQL::DB::Sequence - SQL::DB Role for sequence support
 
 =head1 DESCRIPTION
 
-B<SQL::DB::Sequence> is a Role class providing SQL sequence support for
+B<SQL::DB::X::Sequence> is a Role class providing SQL sequence support for
 L<SQL::DB>.
 
 =head1 METHODS

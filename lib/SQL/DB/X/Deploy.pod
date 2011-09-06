@@ -1,7 +1,7 @@
 
 =head1 NAME
 
-SQL::DB::Deploy - SQL::DB Role for deployment support
+SQL::DB::X::Deploy - SQL::DB Role for deployment support
 
 =head1 VERSION
 
@@ -10,7 +10,7 @@ SQL::DB::Deploy - SQL::DB Role for deployment support
 =head1 SYNOPSIS
 
   use SQL::DB;
-  use SQL::DB::Deploy;
+  use SQL::DB::X::Deploy;
 
   my $db = SQL::DB->connect($dsn);
 
@@ -19,7 +19,7 @@ SQL::DB::Deploy - SQL::DB Role for deployment support
 
 =head1 DESCRIPTION
 
-B<SQL::DB::Deploy> is a Role class providing deployment support for
+B<SQL::DB::X::Deploy> is a Role class providing deployment support for
 L<SQL::DB>.
 
 =head1 METHODS

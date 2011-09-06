@@ -6,7 +6,7 @@ use Test::Database;
 use Cwd;
 use File::Temp qw/tempdir/;
 use SQL::DB;
-use SQL::DB::Deploy;
+use SQL::DB::X::Deploy;
 
 BEGIN {
     unless ( eval { require YAML; } ) {
