@@ -5,8 +5,8 @@ use Test::Database;
 use Cwd;
 use File::Temp qw/tempdir/;
 use SQL::DB;
-use SQL::DB::X::Sequence;
-use SQL::DB::X::Deploy;    # Remove this stuff
+use SQL::DBx::Sequence;
+use SQL::DBx::Deploy;    # Remove this stuff
 
 can_ok(
     'SQL::DB', qw/

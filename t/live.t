@@ -7,8 +7,8 @@ use Test::Database;
 use Cwd;
 use File::Temp qw/tempdir/;
 use SQL::DB;
-use SQL::DB::X::Deploy;
-use SQL::DB::X::Simple;
+use SQL::DBx::Deploy;
+use SQL::DBx::Simple;
 
 unless ( eval { require YAML; } ) {
     plan skip_all => "Feature Deploy YAML not enabled";

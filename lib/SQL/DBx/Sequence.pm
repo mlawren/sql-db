@@ -1,4 +1,4 @@
-package SQL::DB::X::Sequence;
+package SQL::DBx::Sequence;
 use strict;
 use warnings;
 use Moo::Role;

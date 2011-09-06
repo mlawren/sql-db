@@ -5,8 +5,8 @@ use Test::Database;
 use Cwd;
 use File::Temp qw/tempdir/;
 use SQL::DB;
-use SQL::DB::X::Deploy;    # Remove this stuff?
-use SQL::DB::X::Simple;
+use SQL::DBx::Deploy;    # Remove this stuff?
+use SQL::DBx::Simple;
 
 can_ok(
     'SQL::DB', qw/
@@ -90,9 +90,7 @@ foreach my $handle (@handles) {
     ok $db->insert_into( 'test', values => { id => 1, name => 'Mark' } ),
       'insert';
 
-    ok $db->insert_into(
-        'test', values => { id => 2, name => 'Mark2' }
-      ),
+    ok $db->insert_into( 'test', values => { id => 2, name => 'Mark2' } ),
       'insert';
 
     my @res = $db->select( [ 'id', 'name' ], from => 'test', );

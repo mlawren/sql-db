@@ -1,4 +1,4 @@
-package SQL::DB::X::Deploy;
+package SQL::DBx::Deploy;
 use strict;
 use warnings;
 use Moo::Role;

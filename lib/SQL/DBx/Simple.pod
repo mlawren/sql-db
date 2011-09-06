@@ -1,7 +1,7 @@
 
 =head1 NAME
 
-SQL::DB::X::Simple - Simple CRUD extension for SQL::DB
+SQL::DBx::Simple - Simple CRUD extension for SQL::DB
 
 =head1 VERSION
 
@@ -10,7 +10,7 @@ SQL::DB::X::Simple - Simple CRUD extension for SQL::DB
 =head1 SYNOPSIS
 
     use SQL::DB;
-    use SQL::DB::X::Simple;
+    use SQL::DBx::Simple;
 
     my $db = SQL::DB->connect($dsn);
 
@@ -63,32 +63,45 @@ SQL::DB::X::Simple - Simple CRUD extension for SQL::DB
 
 =head1 DESCRIPTION
 
-B<SQL::DB::X::Simple> is a Role that adds very simple Create, Retrieve,
-Update and Delete actions to L<SQL::DB>.
+B<SQL::DBx::Simple> is a Role that adds very simple Create, Retrieve,
+Update and Delete (CRUD) actions to L<SQL::DB>.  The added methods are
+designed to get you up and running quickly when your query data is
+already inside a hash. These methods are abstractions of the real API,
+but should still read as much as possible like SQL.
+
+The insert(), update() and delete() methods return the result of the
+underlying L<DBI> do() call, which is typically the number of rows
+affected. Security conscious coders will be pleased to know that all
+user-supplied values are bound properly using L<DBI> "bind_param()".
 
 =head1 METHODS
 
 =over 4
 
-=item insert_into($row)
+=item insert_into($row) -> Int
 
-Insert $row into the database, where $row is an L<SQL::DB::Row> based
-object returned from row() or fetch() methods.
+Insert a row into the database.
 
-=item update($row)
+=item update($row) -> Int
 
-Update $row in the database, where $row is an L<SQL::DB::Row> based
-object returned from row() or fetch() methods.
+Update rows in the database.  This method is retricted to the wholesale
+replacement of column values (no database-side calculations etc).
+Multiple WHERE key/values are only 'AND'd together. An 'undef' value
+maps to SQL's NULL value.
 
 =item delete_from($row) -> Int
 
-Delete $row from the database, where $row is an L<SQL::DB::Row> based
-object returned from row() or fetch() methods.
+Delete rows from the database.
 
-=item select(\@columns, from => $table, where => \%args) -> Obj
+=item select(\@columns, from => $table, where => \%args) -> @Obj
 
-Delete $row from the database, where $row is an L<SQL::DB::Row> based
-object returned from row() or fetch() methods.
+Retrieve rows from the database as a list of objects in array context,
+or a single object in scalar context. These objects (blessed into a
+dynamically created class) have an accessor method for each column.
+
+The first argument to the select() method must be either an array
+reference of column names, or a single '*'. If the array reference is
+given only the columns specified will be retrieved from the database.
 
 =back
 

@@ -1,7 +1,7 @@
 
 =head1 NAME
 
-SQL::DB - Perl/SQL database interface
+SQL::DB - SQL database interface for Perl
 
 =head1 VERSION
 
@@ -11,12 +11,7 @@ SQL::DB - Perl/SQL database interface
 
     use SQL::DB qw/:all/;
 
-    my $db = SQL::DB->new(
-        dsn      => $dsn,
-        username => $username,
-        password => $password,
-        schema   => 'MyApp',    # created with sqldb-schema(1)
-    );
+    my $db = SQL::DB->connect($dsn, $username, $password);
 
     # Anyone celebrating a birthday today gets a raise, with the
     # calculation done inside the database.
@@ -73,7 +68,9 @@ is designed to handle complicated queries and provide efficient access
 to the results.  With an API that lets you easily write almost-raw SQL,
 B<SQL::DB> gives you unfettered access to the power and flexibility of
 your underlying database. It aims to be a tool for programmers who want
-their databases to work just as hard as their Perl scripts.
+their databases to work just as hard as their Perl scripts. For very
+simple needs the L<SQL::DBx::Simple> extension may be an appropriate
+starting point.
 
 B<SQL::DB> is capable of generating aggregate expressions, joins,
 nested selects, unions and database-side operator invocations.
@@ -410,7 +407,7 @@ will be a release candidate, and 1.00 will be the first stable release.
 =head1 SEE ALSO
 
 L<SQL::DB::Expr>, L<SQL::DB::Iter>, L<DBIx::Connector>, L<Log::Any>,
-L<SQL::DB::X::Sequence>, L<SQL::DB::X::Deploy>
+L<SQL::DBx::Sequence>, L<SQL::DBx::Deploy>
 
 =head1 SUPPORT
 

@@ -1,4 +1,4 @@
-package SQL::DB::X::Simple;
+package SQL::DBx::Simple;
 use strict;
 use warnings;
 use Moo::Role;
