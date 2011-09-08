@@ -44,22 +44,6 @@ sub update {
     shift;
     my $where = shift;
 
-    if ( $self->debug ) {
-        require Data::Dumper;
-        local $Data::Dumper::Indent   = 1;
-        local $Data::Dumper::Maxdepth = 2;
-
-        $log->debug(
-            Data::Dumper::Dumper(
-                {
-                    table => $table,
-                    set   => $set,
-                    where => $where
-                }
-            )
-        );
-    }
-
     my $urow = $self->urow($table);
     my @updates = map { $urow->$_( $set->{$_} ) }
       grep { $urow->can($_) and !exists $where->{$_} } keys %$set;
