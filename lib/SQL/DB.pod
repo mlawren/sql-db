@@ -64,11 +64,14 @@ SQL::DB - SQL database interface for Perl
 =head1 DESCRIPTION
 
 B<SQL::DB> is an extension to the Perl Database Interface (L<DBI>).  It
-is designed for complicated queries and efficient access to results. 
+is designed for complicated queries and efficient access to results.
 With an API that lets you easily write almost-raw SQL, SQL::DB gives
 you unfettered access to the power and flexibility of your underlying
 database. It aims to be a tool for programmers who want their databases
 to work just as hard as their Perl scripts.
+
+[ If your needs are not very complicated you might consider
+L<SQL::DBx::Simple> instead. ]
 
 SQL::DB is capable of generating aggregate expressions, joins, nested
 selects, unions and database-side operator invocations. Transactional
