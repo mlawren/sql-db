@@ -167,7 +167,7 @@ sub srow {
     foreach my $name (@_) {
         my $class = $self->_package_root . '::Srow::' . $name;
         my $srow = eval { $class->new( _txt => $name, _alias => $name ) };
-        confess "$@\nTable not defined in schema?: $name" if $@;
+        confess "Table not defined in schema: $name" if $@;
         return $srow unless (wantarray);
         push( @ret, $srow );
     }
@@ -181,7 +181,7 @@ sub urow {
     foreach my $name (@_) {
         my $class = $self->_package_root . '::Urow::' . $name;
         my $urow = eval { $class->new( _txt => $name ) };
-        confess "$@\nTable not defined in schema?: $name" if $@;
+        confess "Table not defined in schema: $name" if $@;
         return $urow unless (wantarray);
         push( @ret, $urow );
     }

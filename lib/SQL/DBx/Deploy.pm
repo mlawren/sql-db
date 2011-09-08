@@ -4,54 +4,50 @@ use warnings;
 use Moo::Role;
 use Log::Any qw/$log/;
 use Carp qw/croak carp confess/;
+use YAML;
+use constant DEPLOY_TABLE => '_deploy';
 
 our $VERSION = '0.97_3';
 
 sub last_deploy_id {
     my $self = shift;
-    my $app = shift || croak 'deploy_id($app)';
+    my $app  = shift || croak 'deploy_id($app)';
+    my $dbh  = $self->conn->dbh;
 
-    return eval {
-        $self->conn->dbh->selectrow_array(
-            'SELECT count(id) FROM _sqldb WHERE app=?',
-            undef, $app );
-    } || 0;
+    my $sth = $dbh->table_info( '%', '%', DEPLOY_TABLE );
+    return 0 unless ( @{ $sth->fetchall_arrayref } );
+
+    return $dbh->selectrow_array(
+        'SELECT count(id) FROM ' . DEPLOY_TABLE . ' WHERE app=?',
+        undef, $app );
 }
 
 sub deploy {
     my $self = shift;
-    my $app  = shift || croak 'deploy($app,$ref)';
-    my $ref  = shift || croak 'deploy($app,$ref)';
+    my $app = shift || confess 'missing class';
 
-    unless ( ref $ref ) {
-        eval { require YAML };
-        die "Deploy YAML feature not enabled" if $@;
-        if ( $ref =~ /^---/ ) {
-            $ref = YAML::Load($ref);
-        }
-        else {
-            $ref = YAML::LoadFile($ref);
-        }
-    }
+    my $class = $app . '::' . $self->dbd;
+    eval "require $class;";
+    confess $@ if $@;
 
-    if ( !grep { $_ eq $self->dbd } keys %$ref ) {
-        die "Missing key for deploy: "
-          . $self->dbd
-          . ' (have '
-          . join( ',', keys %$ref ) . ')';
-    }
+    my $fh        = eval "\\*${class}::DATA";
+    my $start_pos = tell $fh;
+    my $yaml      = do { local $/; <$fh> };
+    seek $fh, $start_pos, 0;
+
+    my $ref = Load($yaml);
 
     return $self->conn->txn(
         sub {
             my $dbh = $_;
 
-            my $sth = $dbh->table_info( '%', '%', '_sqldb' );
-            my $_sqldb = $dbh->selectall_arrayref($sth);
+            my $sth = $dbh->table_info( '%', '%', DEPLOY_TABLE );
+            my $_deploy = $dbh->selectall_arrayref($sth);
 
-            unless (@$_sqldb) {
-                $log->debug('Creating _sqldb');
+            unless (@$_deploy) {
+                $log->debug( 'Create table ' . DEPLOY_TABLE );
                 $dbh->do( '
-            CREATE TABLE _sqldb (
+            CREATE TABLE ' . DEPLOY_TABLE . ' (
                 id INTEGER,
                 app VARCHAR(40) NOT NULL,
                 ctime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -65,7 +61,7 @@ sub deploy {
             $log->debug( 'Latest Change ID:', $latest_change_id );
 
             my $count = 0;
-            foreach my $cmd ( @{ $ref->{ $self->dbd } } ) {
+            foreach my $cmd (@$ref) {
                 $count++;
                 next unless ( $count > $latest_change_id );
 
@@ -75,9 +71,12 @@ sub deploy {
 
                 if ( exists $cmd->{sql} ) {
                     $log->debug( $cmd->{sql} );
-                    $dbh->do( $cmd->{sql} );
+                    eval { $dbh->do( $cmd->{sql} ) };
+                    die $cmd->{sql} . $@ if $@;
                     $dbh->do(
-                        'INSERT INTO _sqldb(id,app,type,data) VALUES(?,?,?,?)',
+                        'INSERT INTO '
+                          . DEPLOY_TABLE
+                          . '(id,app,type,data) VALUES(?,?,?,?)',
                         undef, $count, $app, 'sql', $cmd->{sql}
                     );
                 }
@@ -85,9 +84,11 @@ sub deploy {
                 if ( exists $cmd->{perl} ) {
                     $log->debug( $cmd->{perl} );
                     eval "$cmd->{perl}";
-                    die $@ if $@;
+                    die $cmd->{perl} . $@ if $@;
                     $dbh->do(
-                        'INSERT INTO _sqldb(id,app,type,data) VALUES(?,?,?,?)',
+                        'INSERT INTO '
+                          . DEPLOY_TABLE
+                          . '(id,app,type,data) VALUES(?,?,?,?)',
                         undef, $count, $app, 'perl', $cmd->{perl}
                     );
                 }

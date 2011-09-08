@@ -20,15 +20,21 @@ build_requires 'Test::More'        => 0;
 build_requires 'Test::Database'    => 0;
 build_requires 'Test::Differences' => 0;
 build_requires 'DBD::SQLite'       => '1.26';
+build_requires 'FindBin'           => 0;
 
 feature 'sqldb-schema',
   -default       => 1,
+  'DBI'          => 0,
   'Term::Prompt' => 0,
   'File::Slurp'  => 0,
   'Perl::Tidy'   => 0;
 
 feature 'Deploy',
-  -default => 0,
+  -default => 1,
+  'YAML'   => 0;
+
+feature 'sqldb-deploy',
+  -default => 1,
   'YAML'   => 0;
 
 repository 'http://github.com/mlawren/sql-db.git/';

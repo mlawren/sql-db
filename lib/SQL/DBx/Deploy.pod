@@ -1,7 +1,7 @@
 
 =head1 NAME
 
-SQL::DBx::Deploy - SQL::DB Role for deployment support
+SQL::DBx::Deploy - Deployment support for SQL::DB
 
 =head1 VERSION
 
@@ -9,32 +9,72 @@ SQL::DBx::Deploy - SQL::DB Role for deployment support
 
 =head1 SYNOPSIS
 
-  use SQL::DB;
-  use SQL::DBx::Deploy;
+    package MyApp::Deploy::SQLite;
+    1;
 
-  my $db = SQL::DB->connect($dsn);
+    # Only ever ADD lines to this file. Never delete them!
 
-  $db->deploy('myseq', $arrayref);
-  my $id = $db->last_deploy_id;
+    __DATA__
+    - sql: |
+        CREATE TABLE actors (
+            id integer primary key,
+            name varchar
+        )
+
+    - sql: |
+        CREATE TABLE films (
+            id integer primary key,
+            title varchar
+        )
+
+    - perl: |
+        print "Perl sections are eval'd\n";
+
+    - sql: |
+        CREATE TABLE film_actors (
+            actor_id integer references actors(id),
+            film_id integer references films(id),
+            primary key (actor_id,film_id)
+        )
+
+
+    # In your code somewhere else
+    use SQL::DB;
+    use SQL::DBx::Deploy;
+
+    my $db = SQL::DB->connect('dbi:SQLite:dbname=test');
+
+    # The '::Driver' part is auto appended
+    $db->deploy('MyApp::Deploy');
+
+    # Multiple calls are safe
+    $db->deploy('MyApp::Deploy');
 
 =head1 DESCRIPTION
 
-B<SQL::DBx::Deploy> is a Role class providing deployment support for
-L<SQL::DB>.
+B<SQL::DBx::Deploy> adds deployment support to L<SQL::DB>. Your SQL and
+Perl statements (formatted as YAML) are included in the __DATA__
+section of a Perl module. Calls to deploy() will load that module and
+run any statements contained inside that have not already been applied
+to the database.  SQL::DBx::Deploy keeps track of what has been run
+through a table in your database called '_deploy'.
+
+Note that the approach is very simple, based on the number of
+statements already executed. B<You can only ever add new statements to
+your deploy module>.
 
 =head1 METHODS
 
 =over 4
 
-=item deploy( $app, $array_ref )
+=item deploy($app)
 
-Deploy the [ $type, $data ] pairs contained in $array_ref to the
-database.  Only $array_ref elements greater than the previous
-deployment count (stored in the _sqldb table) will be deployed.
+Deploy the YAML found in the __DATA__ section of the $app::$driver
+module.
 
 =item last_deploy_id( $app )
 
-Returns the count of all deployments.
+Returns the count of all deployment statements.
 
 =back
 

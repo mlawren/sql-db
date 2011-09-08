@@ -26,10 +26,10 @@ sqldb-schema - generate a SQL::DB schema from a database
 B<sqldb-schema> is a helper for building L<SQL::DB>-based Perl
 applications. Given a Data Source Name (DSN) (or SQLite filename) and a
 Perl package class, B<sqldb-schema> will connect to the database and
-output a Perl module containing the matching schema.
+output a Perl module that can be used by L<SQL::DB::Schema> at runtime.
 
 Use of B<sqldb-schema> is not necessary for L<SQL::DB> applications,
-but is an important optimisation to minimize database calls in
+but could be an important optimisation to minimize database calls in
 applications with more than a trivial number of tables. This is more
 interesting for remote database engines such as PostgreSQL with a
 higher query latency than for local database engines such as SQLite.

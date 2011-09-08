@@ -4,14 +4,17 @@ use warnings;
 use Moo::Role;
 use Log::Any qw/$log/;
 use Carp qw/croak/;
+use SQL::DB::Expr qw/_expr_join/;
+use SQL::DB qw/sql_table sql_values/;
 
 our $VERSION = '0.97_3';
 
 # $db->insert_into('customers',
 #     values => {cid => 1, name => 'Mark'}
 # );
-sub insert_into {
-    my $self  = shift;
+sub insert {
+    my $self = shift;
+    shift;
     my $table = shift;
     shift;
     my $values = shift;
@@ -24,10 +27,8 @@ sub insert_into {
     @cols || croak 'insert_into requires columns/values';
 
     return $self->do(
-        insert_into => SQL::DB::Expr->new(
-            _txt => $table . '(' . join( ',', @cols ) . ')',
-        ),
-        SQL::DB::sql_values(@vals)
+        insert_into => sql_table( $table, @cols ),
+        sql_values(@vals),
     );
 }
 
@@ -86,8 +87,9 @@ sub update {
 #    where => {cid => 1},
 # );
 
-sub delete_from {
-    my $self  = shift;
+sub delete {
+    my $self = shift;
+    shift;
     my $table = shift;
     shift;
     my $where = shift;
@@ -96,10 +98,9 @@ sub delete_from {
     my $expr =
       _expr_join( ' AND ', map { $urow->$_ == $where->{$_} } keys %$where );
 
-    $expr || croak 'delete_from requires a where clause';
     return $self->do(
         delete_from => $urow,
-        where       => $expr,
+        $expr ? ( where => $expr ) : (),
     );
 }
 
@@ -115,7 +116,7 @@ sub select {
     shift;
     my $where = shift;
 
-    my $srow = $self->schema->srow($table);
+    my $srow = $self->srow($table);
     my @columns = map { $srow->$_ } @$list;
 
     @columns || croak 'select requires columns';

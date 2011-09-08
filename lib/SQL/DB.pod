@@ -420,6 +420,10 @@ Maps to "$arg1 OR $arg2 OR ...".
 
 Maps to "SUBSTR($arg1, $arg2, ...)".
 
+=item sql_table($name, @columns) -> L<SQL::DB::Expr>
+
+Maps to "name(col1,col2,...)".
+
 =item sql_upper(@args) -> L<SQL::DB::Expr>
 
 Maps to "UPPER(@args)".

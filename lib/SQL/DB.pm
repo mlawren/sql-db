@@ -30,6 +30,7 @@ use constant SQL_FUNCTIONS => qw/
   sql_or
   sql_substr
   sql_sum
+  sql_table
   sql_upper
   sql_values
   /;
@@ -110,6 +111,8 @@ sub sql_length { sql_func( 'LENGTH', @_ ) }
 
 sub sql_lower { sql_func( 'LOWER', @_ ) }
 
+sub sql_or { _bexpr_join( ' OR ', @_ ) }
+
 sub sql_max { sql_func( 'MAX', @_ ) }
 
 sub sql_min { sql_func( 'MIN', @_ ) }
@@ -118,7 +121,10 @@ sub sql_substr { sql_func( 'SUBSTR', @_ ) }
 
 sub sql_sum { sql_func( 'SUM', @_ ) }
 
-sub sql_or { _bexpr_join( ' OR ', @_ ) }
+sub sql_table {
+    my $table = shift;
+    return SQL::DB::Expr->new( _txt => $table . '(' . join( ',', @_ ) . ')' );
+}
 
 sub sql_upper { sql_func( 'UPPER', @_ ) }
 

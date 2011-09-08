@@ -1,18 +1,23 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
-use lib 't/lib';
 use Test::More;
 use Test::Database;
 use Cwd;
 use File::Temp qw/tempdir/;
-use SQL::DB;
+use SQL::DB ':all';
 use SQL::DBx::Deploy;
 use SQL::DBx::Simple;
+use FindBin;
+use lib "$FindBin::RealBin/lib";
 
-unless ( eval { require YAML; } ) {
-    plan skip_all => "Feature Deploy YAML not enabled";
+BEGIN {
+    unless ( eval { require YAML; } ) {
+        plan skip_all => "Feature Deploy YAML not enabled";
+    }
 }
+
+can_ok( 'SQL::DB', qw/deploy last_deploy_id/ );
 
 my $cwd;
 BEGIN { $cwd = getcwd }
@@ -24,21 +29,6 @@ my @handles = Test::Database->handles(qw/ SQLite Pg mysql /);
 if ( !@handles ) {
     plan skip_all => "No database handles to test with";
 }
-
-my $deploy = {
-    SQLite => [
-        { 'sql'  => 'create table test (id integer, name varchar)' },
-        { 'perl' => '1' },
-    ],
-    Pg => [
-        { 'sql'  => 'create table test (id integer, name varchar)' },
-        { 'perl' => '2' },
-    ],
-    mysql => [
-        { 'sql'  => 'create table test (id integer, name varchar)' },
-        { 'perl' => '3' },
-    ],
-};
 
 my $tempdir;
 foreach my $handle (@handles) {
@@ -57,62 +47,77 @@ foreach my $handle (@handles) {
     isa_ok( $db, 'SQL::DB' );
 
     # Clean up any previous runs (mostly for Pg's sake)
-    eval { $db->conn->dbh->do('DROP TABLE _sqldb'); };
-    eval { $db->conn->dbh->do('DROP TABLE test'); };
-    eval { $db->conn->dbh->do('DROP TABLE test2'); };
+    eval { $db->conn->dbh->do('DROP TABLE film_actors'); };
+    eval { $db->conn->dbh->do('DROP TABLE actors'); };
+    eval { $db->conn->dbh->do('DROP TABLE films'); };
+    eval {
+        $db->conn->dbh->do( 'DROP TABLE ' . SQL::DBx::Deploy::DEPLOY_TABLE );
+    };
     eval { $db->conn->dbh->do('DROP SEQUENCE seq_test'); };
 
     my $ret;
+    my $prev_id;
 
-    ok $ret = $db->deploy( 'sqldb-test', $deploy ), 'deployed to ' . $db->dbd;
-    ok $ret = $db->deploy( 'sqldb-test', $deploy ), 're-deploy same';
+    $prev_id = $db->last_deploy_id('Deploy');
+    ok $prev_id == 0, 'Nothing deployed yet: ' . $prev_id;
 
-    my $prev_id = $db->last_deploy_id('sqldb-test');
-    ok $prev_id == $ret, 'return values';
+    $ret = $db->deploy('Deploy');
+    ok $ret == 3, 'deployed to ' . $ret;
 
-    push( @{ $deploy->{ $db->dbd } }, { sql => 'create table test2(id int)' } );
-    ok $ret = $db->deploy( 'sqldb-test', $deploy ), 're-deploy more';
+    $prev_id = $db->last_deploy_id('Deploy');
+    ok $prev_id == 3, 'last id check';
 
-    my $last_id = $db->last_deploy_id('sqldb-test');
-    ok $last_id == $ret, 'return values';
+    $ret = $db->deploy('Deploy');
+    ok $ret == 3, 'still deployed to ' . $ret;
 
-    ok $last_id > $prev_id, 'upgrade occurred';
+    $prev_id = $db->last_deploy_id('Deploy');
+    ok $prev_id == 3, 'still last id check';
 
-  SKIP: {
-        skip 'Deploy YAML not enabled', 1 unless eval { require YAML::Tiny };
-        ok $db->deploy( 'sqldb-test', YAML::Tiny::Dump($deploy) ),
-          'yaml deploy';
-    }
+    # This is a fake increment of the __DATA__ section
+    require Deploy::SQLite2 if ( $dsn =~ /:SQLite:/ );
+    require Deploy::Pg2     if ( $dsn =~ /:Pg:/ );
 
-    ok $db->insert_into( 'test', values => { id => 1, name => 'Mark' } ),
+    $ret = $db->deploy('Deploy');
+    ok $ret == 4, 'upgraded to ' . $ret;
+
+    ok $db->do(
+        insert_into => \'actors(id,name)',
+        sql_values( 1, 'Mark' )
+      ),
       'insert';
 
-    ok $db->insert_into( 'test', values => { id => 2, name => 'Mark2' } ),
+    ok $db->do(
+        insert_into => sql_table( 'actors', qw/id name/ ),
+        sql_values( 2, 'Mark2' )
+      ),
       'insert';
 
-    my @res = $db->select( [ 'id', 'name' ], from => 'test', );
+    my $actors = $db->srow('actors');
+
+    my @res = $db->fetch(
+        select => [ $actors->id, $actors->name ],
+        from   => $actors,
+    );
 
     ok @res == 2, 'select many';
     can_ok $res[0], qw/id name/;
 
-    my $res = $db->select(
-        [ 'id', 'name' ],
-        from  => 'test',
-        where => { id => 1 },
+    my $res = $db->fetch1(
+        select => [ $actors->id, $actors->name ],
+        from   => $actors,
+        where  => $actors->id == 1,
     );
 
     is $res->id,   1,      'res id';
     is $res->name, 'Mark', 'res name';
 
-    my $test = $db->srow('test');
-
     # These tests are repeated to make sure we are closing the
     # statement handle at the end.
     foreach ( 1 .. 2 ) {
         my $iter = $db->iter(
-            select => [ $test->id, $test->name ],
-            from   => $test,
-            where  => $test->id == 1,
+            select => [ $actors->id, $actors->name ],
+            from   => $actors,
+            where  => $actors->id == 1,
             limit  => 1,
         );
 
@@ -128,14 +133,48 @@ foreach my $handle (@handles) {
         ok !$iter->next, 'next is undef';
 
         $iter = $db->iter(
-            select => [ $test->id, $test->name ],
-            from   => $test,
+            select => [ $actors->id, $actors->name ],
+            from   => $actors,
         );
 
         my @rows = $iter->all;
         ok !$iter->next, 'next is undef';
         is ref $rows[0], $iter->class, 'row is ' . $iter->class;
     }
+
+    # DBx::Simple
+
+    ok $db->delete(
+        from  => 'actors',
+        where => {},
+      ),
+      'delete';
+
+    ok $db->insert(
+        into   => 'actors',
+        values => { id => 1, name => 'Mark' }
+      ),
+      'insert';
+
+    ok $db->insert(
+        into   => 'actors',
+        values => { id => 2, name => 'Mark2' }
+      ),
+      'insert';
+
+    @res = $db->select( [ 'id', 'name' ], from => 'actors', );
+
+    ok @res == 2, 'select many';
+    can_ok $res[0], qw/id name/;
+
+    $res = $db->select(
+        [ 'id', 'name' ],
+        from  => 'actors',
+        where => { id => 1 },
+    );
+
+    is $res->id,   1,      'res id';
+    is $res->name, 'Mark', 'res name';
 }
 
 done_testing();
@@ -147,3 +186,4 @@ END {
 }
 
 1;
+

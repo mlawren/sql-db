@@ -78,22 +78,22 @@ user-supplied values are bound properly using L<DBI> "bind_param()".
 
 =over 4
 
-=item insert_into($row) -> Int
+=item insert(into => $table, values => \%val) -> Int
 
 Insert a row into the database.
 
-=item update($row) -> Int
+=item update($table, set => \%values, where => \%expr) -> Int
 
 Update rows in the database.  This method is retricted to the wholesale
 replacement of column values (no database-side calculations etc).
 Multiple WHERE key/values are only 'AND'd together. An 'undef' value
 maps to SQL's NULL value.
 
-=item delete_from($row) -> Int
+=item delete(from => $table, where => \%expr) -> Int
 
 Delete rows from the database.
 
-=item select(\@columns, from => $table, where => \%args) -> @Obj
+=item select(\@columns, from => $table, where => \%expr) -> @Obj
 
 Retrieve rows from the database as a list of objects in array context,
 or a single object in scalar context. These objects (blessed into a
