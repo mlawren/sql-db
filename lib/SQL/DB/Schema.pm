@@ -192,6 +192,7 @@ sub urow {
 
 sub get_schema {
     my $name = shift;
+    eval "require $name;";
     return $schema{$name} if ( exists $schema{$name} );
     return;
 }

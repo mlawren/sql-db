@@ -115,7 +115,7 @@ sub select {
     shift;
     my $where = shift;
 
-    my $srow = $self->_schema->srow($table);
+    my $srow = $self->schema->srow($table);
     my @columns = map { $srow->$_ } @$list;
 
     @columns || croak 'select requires columns';

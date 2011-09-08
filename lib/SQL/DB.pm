@@ -38,7 +38,7 @@ use Sub::Exporter -setup => {
     exports => [SQL_FUNCTIONS],
     groups  => {
         all     => [SQL_FUNCTIONS],
-        default => [SQL_FUNCTIONS],
+        default => [],
     },
 };
 
@@ -55,6 +55,9 @@ sub query {
         }
         elsif ( ref $item eq 'ARRAY' ) {
             push( @statements, '    ', _bexpr_join( ",\n    ", @$item ), "\n" );
+        }
+        elsif ( ref $item eq 'SCALAR' ) {
+            push( @statements, $$item . "\n" );
         }
         elsif ( ref $item ) {
             confess "Invalid query element: " . $item;
@@ -121,131 +124,86 @@ sub sql_upper { sql_func( 'UPPER', @_ ) }
 
 sub sql_values { sql_func( 'VALUES', @_ ) }
 
-# SQL::DB Object implementation
+### OBJECT IMPLEMENTATION ###
 
-has 'debug' => ( is => 'rw', default => sub { 0 } );
+has 'conn' => ( is => 'ro' );
 
-has 'dsn' => (
-    is       => 'rw',
-    required => 1,
-    isa      => sub {
-        confess "dsn must be 'dbi:...'"
-          unless ( defined $_[0] && $_[0] =~ /^dbi:/ );
-    },
-    trigger => sub {
-        my $self = shift;
-        ( my $dsn = shift ) =~ /^dbi:(.*?):/;
-        my $dbd = $1 || die "Invalid DSN: " . $dsn;
-        $self->dbd($dbd);
-    },
-);
+has 'dbd' => ( is => 'ro' );
 
-has 'dbd' => ( is => 'rw', init_arg => undef );
+has 'schema' => ( is => 'ro' );
 
-has 'dbuser' => ( is => 'rw' );
-
-has 'dbpass' => ( is => 'rw' );
-
-has 'dbattrs' => ( is => 'rw', default => sub { {} } );
-
-has 'conn' => ( is => 'rw', init_arg => undef );
-
-has 'schema' => (
+has 'prepare_cached' => (
     is      => 'rw',
-    trigger => sub {
-        my $self   = shift;
-        my $str    = $self->schema;
-        my $strdbd = $str . '::' . $self->dbd;
-
-        if ( eval "require $str;" ) {
-            $self->_schema( get_schema($str) );
-        }
-        elsif ( eval "require $strdbd" ) {
-            $self->_schema( get_schema($strdbd) );
-        }
-        else {
-            $self->_schema( SQL::DB::Schema->new( name => $str ) );
-        }
-
-        if ( !$self->_schema ) {
-            confess "Invalid schema: " . $str;
-        }
-    },
-);
-
-has '_schema' => (
-    is       => 'rw',
-    init_arg => undef,
-);
-
-has 'prepare_mode' => (
-    is  => 'rw',
-    isa => sub {
-        confess "prepare_mode must be 'prepare|prepare_cached'"
-          unless $_[0] =~ m/^(prepare)|(prepare_cached)$/;
-    },
-    default => sub { 'prepare_cached' },
+    default => sub { 1 },
 );
 
 has '_current_timestamp' => ( is => 'rw', init_arg => undef );
 
-sub BUILD {
-    my $self = shift;
+around BUILDARGS => sub {
+    my $orig  = shift;
+    my $class = shift;
+    my %args  = @_;
 
-    # make dbd trigger fire
-    $self->dsn( $self->dsn );
-    my $dbd = $self->dbd;
+    $args{dsn} || confess 'Missing argument: dsn';
+    my ( $dbi, $dbd, @rest ) = DBI->parse_dsn( $args{dsn} );
 
-    # Trigger _schema creation;
-    $self->schema( $self->schema || $self->dsn );
+    $args{dbd} = $dbd;
 
-    $self->dbattrs(
-        {
-            PrintError => 0,
-            ChopBlanks => 1,
-            $dbd eq 'Pg'     ? ( pg_enable_utf8    => 1 ) : (),
-            $dbd eq 'SQLite' ? ( sqlite_unicode    => 1 ) : (),
-            $dbd eq 'mysql'  ? ( mysql_enable_utf8 => 1 ) : (),
-            %{ $self->dbattrs },
-            RaiseError => 1,
-            AutoCommit => 1,
-            Callbacks  => {
-                connected => sub {
-                    my $h = shift;
-                    if ( $dbd eq 'Pg' ) {
-                        $h->do('SET client_min_messages = WARNING;');
-                        $h->do("SET TIMEZONE TO 'UTC';");
-                    }
-                    elsif ( $dbd eq 'SQLite' ) {
-                        $h->do('PRAGMA foreign_keys = ON;');
-                    }
-                    return;
-                },
-            }
+    if ( my $sname = $args{schema} ) {
+        $sname .= '::' . $dbd;
+        $args{schema} = get_schema($sname)
+          || confess "Could not get schema: " . $sname;
+    }
+    else {
+        ( my $sname = "$args{dsn}" ) =~ s/[^a-zA-Z]/_/g;
+        $args{schema} = SQL::DB::Schema->new( name => $sname );
+    }
+
+    my $attr = {
+        PrintError => 0,
+        ChopBlanks => 1,
+        $dbd eq 'Pg'     ? ( pg_enable_utf8    => 1 ) : (),
+        $dbd eq 'SQLite' ? ( sqlite_unicode    => 1 ) : (),
+        $dbd eq 'mysql'  ? ( mysql_enable_utf8 => 1 ) : (),
+        %{ $args{attr} || {} },
+        RaiseError => 1,
+        AutoCommit => 1,
+        Callbacks  => {
+            connected => sub {
+                my $h = shift;
+                if ( $dbd eq 'Pg' ) {
+                    $h->do('SET client_min_messages = WARNING;');
+                    $h->do("SET TIMEZONE TO 'UTC';");
+                }
+                elsif ( $dbd eq 'SQLite' ) {
+                    $h->do('PRAGMA foreign_keys = ON;');
+                }
+                return;
+            },
         }
-    );
+    };
 
-    $self->conn(
-        DBIx::Connector->new(
-            $self->dsn, $self->dbuser, $self->dbpass, $self->dbattrs
-        )
-    );
+    $args{conn} =
+      DBIx::Connector->new( $args{dsn}, $args{username}, $args{password},
+        $attr );
 
-    $self->conn->mode('fixup');
-    return $self;
-}
+    $args{conn}->mode('fixup');
+
+    return $class->$orig(%args);
+};
 
 sub connect {
-    my $class   = shift;
-    my $dsn     = shift;
-    my $dbuser  = shift;
-    my $dbpass  = shift;
-    my $dbattrs = shift || {};
+    my $class    = shift;
+    my $dsn      = shift;
+    my $username = shift;
+    my $password = shift;
+    my $attr     = shift || {};
+
     return $class->new(
-        dsn     => $dsn,
-        dbuser  => $dbuser,
-        dbpass  => $dbpass,
-        dbattrs => $dbattrs,
+        dsn      => $dsn,
+        username => $username,
+        password => $password,
+        attr     => $attr,
     );
 }
 
@@ -254,33 +212,33 @@ sub _load_tables {
 
     foreach my $table (@_) {
         my $sth = $self->conn->dbh->column_info( '%', '%', $table, '%' );
-        $self->_schema->define( $sth->fetchall_arrayref );
+        $self->schema->define( $sth->fetchall_arrayref );
     }
 }
 
 sub urow {
     my $self = shift;
 
-    if ( my @unknown = $self->_schema->not_known(@_) ) {
+    if ( my @unknown = $self->schema->not_known(@_) ) {
         $self->_load_tables(@unknown);
     }
 
-    return $self->_schema->urow(@_);
+    return $self->schema->urow(@_);
 }
 
 sub srow {
     my $self = shift;
 
-    if ( my @unknown = $self->_schema->not_known(@_) ) {
+    if ( my @unknown = $self->schema->not_known(@_) ) {
         $self->_load_tables(@unknown);
     }
 
-    return $self->_schema->srow(@_);
+    return $self->schema->srow(@_);
 }
 
 sub sth {
     my $self    = shift;
-    my $prepare = $self->prepare_mode;
+    my $prepare = $self->prepare_cached ? 'prepare_cached' : 'prepare';
     my $query   = eval { query(@_) };
 
     if ( !defined $query ) {
@@ -326,27 +284,6 @@ sub sth {
     );
 }
 
-sub txn {
-    my $wantarray = wantarray;
-
-    my $self          = shift;
-    my $set_timestamp = !$self->_current_timestamp;
-
-    if ($set_timestamp) {
-        $log->debug('BEGIN TRANSACTION;');
-        $self->_current_timestamp( $self->current_timestamp );
-    }
-
-    my @ret = $self->conn->txn(@_);
-
-    if ($set_timestamp) {
-        $log->debug('COMMIT;');
-        $self->_current_timestamp(undef);
-    }
-
-    return $wantarray ? @ret : $ret[0];
-}
-
 sub do {
     my $self = shift;
     my ( $sth, $rv ) = $self->sth(@_);
@@ -383,6 +320,27 @@ sub current_timestamp {
     $year += 1900;
     return sprintf( '%04d-%02d-%02d %02d:%02d:%02d',
         $year, $mon, $mday, $hour, $min, $sec );
+}
+
+sub txn {
+    my $wantarray = wantarray;
+
+    my $self          = shift;
+    my $set_timestamp = !$self->_current_timestamp;
+
+    if ($set_timestamp) {
+        $log->debug('BEGIN TRANSACTION;');
+        $self->_current_timestamp( $self->current_timestamp );
+    }
+
+    my @ret = $self->conn->txn(@_);
+
+    if ($set_timestamp) {
+        $log->debug('COMMIT;');
+        $self->_current_timestamp(undef);
+    }
+
+    return $wantarray ? @ret : $ret[0];
 }
 
 sub query_as_string {

@@ -51,9 +51,9 @@ foreach my $handle (@handles) {
     my ( $dsn, $user, $pass ) = $handle->connection_info;
 
     my $db = SQL::DB->new(
-        dsn    => $dsn,
-        dbuser => $user,
-        dbpass => $pass,
+        dsn      => $dsn,
+        username => $user,
+        password => $pass,
     );
 
     isa_ok( $db, 'SQL::DB' );

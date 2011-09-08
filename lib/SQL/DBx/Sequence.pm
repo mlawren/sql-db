@@ -7,16 +7,18 @@ use Carp qw/croak carp confess/;
 
 our $VERSION = '0.97_3';
 
-has '_sqlite_seq_dbh' => (
-    is       => 'rw',
-    init_arg => undef,
-);
+has '_sqlite_seq_dbh' => ( is => 'ro' );
 
-after 'BUILD' => sub {
-    my $self = shift;
+around BUILDARGS => sub {
+    my $orig  = shift;
+    my $class = shift;
+    my %args  = @_;
 
-    if ( $self->dbd eq 'SQLite' and $self->dsn !~ m/\.seq$/ ) {
-        my $dsn = $self->dsn . '.seq';
+    $args{dsn} || confess 'Missing argument: dsn';
+    my ( $dbi, $dbd, @rest ) = DBI->parse_dsn( $args{dsn} );
+
+    if ( $dbd eq 'SQLite' and $args{dsn} !~ m/\.seq$/ ) {
+        my $dsn = $args{dsn} . '.seq';
         my $dbh = DBI->connect(
             $dsn, '', '',
             {
@@ -24,10 +26,10 @@ after 'BUILD' => sub {
                 PrintError => 0,
             }
         );
-        $self->_sqlite_seq_dbh($dbh);
+        $args{_sqlite_seq_dbh} = $dbh;
     }
 
-    return $self;
+    return $class->$orig(%args);
 };
 
 sub create_sequence {

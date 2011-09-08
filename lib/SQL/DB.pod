@@ -9,7 +9,7 @@ SQL::DB - SQL database interface for Perl
 
 =head1 SYNOPSIS
 
-    use SQL::DB qw/:all/;
+    use SQL::DB ':all';
 
     my $db = SQL::DB->connect($dsn, $username, $password);
 
@@ -64,149 +64,148 @@ SQL::DB - SQL database interface for Perl
 =head1 DESCRIPTION
 
 B<SQL::DB> is an extension to the Perl Database Interface (L<DBI>).  It
-is designed to handle complicated queries and provide efficient access
-to the results.  With an API that lets you easily write almost-raw SQL,
-B<SQL::DB> gives you unfettered access to the power and flexibility of
-your underlying database. It aims to be a tool for programmers who want
-their databases to work just as hard as their Perl scripts. For very
-basic needs the L<SQL::DBx::Simple> extension may be a more appropriate
-starting point.
+is designed for complicated queries and efficient access to results. 
+With an API that lets you easily write almost-raw SQL, SQL::DB gives
+you unfettered access to the power and flexibility of your underlying
+database. It aims to be a tool for programmers who want their databases
+to work just as hard as their Perl scripts.
 
-B<SQL::DB> is capable of generating aggregate expressions, joins,
-nested selects, unions and database-side operator invocations.
-Transactional support is provided via L<DBIx::Connector>. There is some
-minor cross database support which transparently handles the binding of
-binary data types, keeping the amount of data- and database-specific
-code you have to write to a minimum.
+SQL::DB is capable of generating aggregate expressions, joins, nested
+selects, unions and database-side operator invocations. Transactional
+support is provided via L<DBIx::Connector>. There is some minor cross
+database support which transparently handles the binding of binary data
+types, keeping the amount of data- and database-specific code you have
+to write to a minimum. For more basic needs you might consider starting
+with the L<SQL::DBx::Simple> extension.
 
 Although rows can be retrieved from the database as simple objects,
-B<SQL::DB> does not attempt to be an Object-Relational-Mapper al-la
+SQL::DB does not attempt to be an Object-Relational-Mapper al-la
 L<DBIx::Class>; there are no auto-inflating columns or automatic joins
 and the code size and speed reflect the lack of complexity.
 
-B<SQL::DB> uses the light-weight L<Log::Any> for logging.
+SQL::DB uses the light-weight L<Log::Any> for logging.
 
-=head2 Simple API
+=head1 QUERY FORMAT
 
-B<SQL::DB> queries use abstract representations of table rows - objects
-that can be thought of as matching I<any> row in a table.  Abstract
-rows are obtained using the Schema->arow() method.  The objects
-returned have methods that match the columns of a table, plus some
-extra SQL syntax/sugar methods.
+An L<SQL::DB> query is composed from a list of scalars, schema objects,
+expressions, and arrays as follows.
 
-=head2 Full API
+=over 4
 
-The real power of B<SQL::DB> lies in the way that SQL expressions can
-be constructed using these abstract columns. The abstract column
-methods do not really act on the abstract row, but intead return an
-expression object (L<SQL::DB::Expr>). Using Perl's overload feature
-these objects can be combined and nested in Perl in a way that maps
+=item Scalars
 
-=head2 Abstract Rows and Expressions
+Scalars are assumed to be SQL keywords and are accepted more or less
+unchanged (uppercased with underscores converted to spaces).
 
-B<SQL::DB> queries use abstract representations of table rows - objects
-that can be thought of as matching I<any> row in a table.  Abstract
-rows are obtained using the Schema->arow() method.  The objects
-returned have methods that match the columns of a table, plus some
-extra SQL syntax/sugar methods.
+    Perl                            SQL
+    ----                            ---
+    'select'                        SELECT
+    'outer_join'                    OUTER JOIN
 
-    my ( $cds, $tracks ) = $db->arow(qw/ cds tracks /);
+=item Schema Objects
 
-The real power of B<SQL::DB> lies in the way that SQL expressions can
-be constructed using these abstract columns. The abstract column
-methods do not really act on the abstract row, but intead return an
-expression object (L<SQL::DB::Expr>). Using Perl's overload feature
-these objects can be combined and nested in Perl in a way that maps
-very closely to they way the SQL would be written by hand.
+and DELETE.  A urow object maps to a table in the database. It has a
+method for each of the columns in the table which return
+column-objects. These column-objects in turn have further methods which
+map to various SQL statements. The table and column objects are used in
+positions as appropriate for their types.
 
-    Perl Expression                     SQL Result
-    ----------------------------------  ---------------------------
-    $cds                                cds
+    Perl                            SQL
+    ----                            ---
+    $table                          table  (for UPDATE statements)
+    $table                          table0 (for SELECT statements)
+    $table->col > 1                 table0.col > ?
+    $table->col->is_not_null        table0.col IS NULL
+    $table->col->asc                table0.col ASC
+    $table->col->between(1,5)       table0.col BETWEEN(?,?)
 
-    $cds->title                         cds.title
+=item Expressions
 
-    $tracks->cd                         tracks.cd
+Expressions are built using schema objects (described below) that hold
+extra information such as table/column names and types, your
+application's input values, and their relationships.
 
-    $tracks->id->func('count')          count(tracks.cd)
+    Perl                            SQL
+    ----                            ---
+    $table->col == 1                table0.col = ?
 
-    $tracks->set_length(                SET tracks.length =
-        $tracks->length + 10 )              tracks.length + 10
+    ($table->col == 1) .AND.
+      ($table.col2 = ?
+    $table->col > 1                 table0.col > ?
 
-    ( $cds->id == 1 ) .OR.              cds.id = 1 OR
-      $cds->title->like( '%Magic%' ) )      cds.title LIKE '%Magic%'
+    $table->col ==                  table.col =
+      $table->col2 - $table->col3     table.col2 - table.col3 
 
-    ( $cds->id->is_not_null .AND.       cds.id IS NOT NULL AND
-      ! $tracks->id->in( 1, 2, 5 ) )        NOT tracks.id IN (1,2,5)
+=item Arrays
 
-Here is a summary of the default available expression operators and
-methods. New expression subroutines can be generated in your own code -
-see L<SQL::DB::Expr> for details.
+Arrays (array-refs) can contain scalars and expressions which will
+appear in the final SQL joined together by commas (',').
 
-    Perl            SQL             Applies to
-    ---------       -------         ------------
-    .AND.           AND             All Expressions
-    .OR.            OR              All Expressions
-    !               NOT             All Expressions
-    .CONCAT.        || or CONCAT    All Expressions
-    ==              =               All Expressions
-    !=              !=              All Expressions
+    Perl                                    SQL
+    ----                                    ---
+    select => [1,2,3]                       SELECT ?,?,?
+    set => [$t->c1 == 1, $t->c2 == 2 ]      SET t->c1 = ?, t.c2 = ?
 
-    like            LIKE            Column only
-    in              IN              Column only
-    not_in          NOT IN          Column only
-    is_null         IS NULL         Column only
-    is_not_null     IS NOT NULL     Column only
-    asc             ASC             Column only
-    desc            DESC            Column only
-    sql_count       COUNT           Column only
-    sql_min         MIN             Column only
-    sql_max         MAX             Column only
-    func('x',...)   X(col,...)      Column only
+=item Functions
 
-=head2 Query Syntax
+Arrays (array-refs) can contain scalars and expressions which will
+appear in the final SQL joined together by commas (',').
 
-Here is a better example with multiple functions and multiple tables.
-For each CD, show me the number of tracks, the length of the longest
-track, and the total length of the CD in one query:
+    Perl                                SQL
+    ----                                ---
+    sql_count($table->col)              COUNT(table0.col)
+    sql_values('a', 'b', 'c')           VALUES(?,?,?)
 
-    track = $db->arow('tracks');
-    @objs = $db->fetch(
-        select   => [
-            $track->cd->title,
-            $track->id->func('count'),
-            $track->length->func('max'),
-            $track->length->func('sum')
-        ],
-        group_by  => [
-            $track->cd->title,
-        ],
-    );
-
-    foreach my $obj (@objs) {
-        print 'Title: '            . $obj->title      ."\n";
-        print 'Number of Tracks: ' . $obj->count_id   ."\n";
-        print 'Longest Track: '    . $obj->max_length ."\n";
-        print 'CD Length: '        . $obj->sum_length ."\n\n";
-    }
-
+=back
 
 
 =head1 CONSTRUCTORS
 
 =over 4
 
-=item connect( $dsn, [ $user, $pass, $attrs ] )
+=item new( %args )
 
-Connect to a database and return a new B<SQL::DB> object.  This method
-is a convenience wrapper around new() for those who prefer L<DBI>-style
-construction.
+Connect to a database and return a new SQL::DB handle. Arguments are as
+follows:
 
-=item new( dsn => $dsn, ...)
+=over 4
 
-Connect to a database and return a new B<SQL::DB> object.  The 'dsn'
-argument is mandatory.  Also accepted here are 'dbuser', 'dbpass',
-'dbattrs', 'debug', 'prepare_mode' and 'schema'. See ATTRIBUTES below
-for definitions.
+=item dsn
+
+The data source name ('dbi:...'). Required.
+
+=item username
+
+The database authentication username.
+
+=item password
+
+The database authentication password.
+
+=item attr
+
+A hash-reference of L<DBI> handle attributes.  RaiseError and
+AutoCommit are always set to 1 and cannot be overridden.  PrintError
+defaults to 0.  ChopBlanks defaults to 1. pg_enable_utf8,
+sqlite_unicode, and mysql_enable_utf8 default to 1.
+
+=item prepare_cached
+
+Whether to use the L<DBI> prepare_cached() method. See ATTRIBUTES
+below.
+
+=item schema
+
+The name of the schema class (less the '::Driver' part) associated with
+this handle. See the command-line tool L<sqldb-schema>(1) for details.
+
+=back
+
+
+=item connect( $dsn, [ $username, $password, $attr ] )
+
+This is a convenience wrapper around new() for those who prefer
+L<DBI>-style construction.
 
 =back
 
@@ -214,44 +213,22 @@ for definitions.
 
 =over 4
 
-=item debug <-> Bool
+=item conn -> L<DBIx::Connector>
 
-General debugging state (true/false). Debug messages are sent to
-L<Log::Any>'s "debug" method.
-
-=item dsn <-> Str
-
-The L<DBI> connection string.
+The handle connecting us to the database. Read-only.
 
 =item dbd -> Str
 
-The L<DBD> driver name ('SQLite', 'mysql', 'Pg' etc) for the type of
-database we are connected to. Derived from the 'dsn' attribute.
+The database driver name (Pg, SQLite, etc). Read-only.
 
-=item dbuser <-> Str
+=item schema -> L<SQL::DB::Schema>
 
-The L<DBI::Connector> connection username.
+The schema definition associated with this connection. Read-only.
 
-=item dbpass <-> Str
+=item prepare_cached <-> Bool
 
-The L<DBI::Connector> connection password.
-
-=item dbattrs <-> HASHREF
-
-The L<DBI::Connector> connection attributes.
-
-=item conn -> DBIx::Connector
-
-The handle connecting us to the database.
-
-=item schema <-> Str
-
-The name of the schema associated with this connection.
-
-=item prepare_mode <-> Str
-
-One of either 'prepare' or 'prepare_cached' (default). See L<DBI> for
-details.
+If true then the L<DBI> prepare_cached() method will be used for
+creating statement handles. Otherwise prepare() will be used.
 
 =back
 
@@ -259,137 +236,197 @@ details.
 
 =over 4
 
-=item srow( $name, [...] ) -> SQL::DB::SRow::$name, ...
+=item urow( @tables ) -> @URow
 
-Returns an object (or objects in array context) representing any row of
-table $name. This abstraction object is used for building SELECT
-statements with the 'sth', 'fetch', 'fetch1', 'iter' etc methods. The
-returned object has a method for each column in the table.
+Returns schema objects representing database tables/rows for
+update-style SQL. In scalar context returns a single object.
 
-=item urow( $name, [...] ) -> SQL::DB::URow::$name, ...
+These objects have a method for each table column.  Each column object
+has the following methods: is_null(), is_not_null(), in(), not_in(),
+between(), not_between(), as(), like(), asc(), and desc() (see
+L<SQL::DB::Expr> for details).
 
-Returns an object (or objects in array context) representing any row of
-table $name. This abstraction object is used for building UPDATE or
-DELETE statements with the 'do' method. The returned object has a
-method for each column in the table.
+These objects can be used with the do() method for INSERT, UPDATE, and
+DELETE queries.
 
-=item do(@query)
+=item do(@query) -> $count
 
-Constructs a L<SQL::DB::Query> object as defined by @query and runs
-that query against the connected database.  Croaks if an error occurs.
-This is the method to use for any statement that doesn't retrieve
-values (eg INSERT, UPDATE and DELETE). Returns whatever value the
-underlying L<DBI>->do call returns.  This method uses "prepare_cached"
-to prepare the call to the database.
+Prepares (a INSERT, UPDATE or DELETE) @query using either prepare() or
+prepare_cached() (depending on the "prepare_cached" attribute) and
+execute()'s it. Croaks on error.
 
-=item fetch(@query) -> SQL::DB::Cursor | @SQL::DB::Row
+Returns the value of the execute() call. The result is typically the
+number of rows affected (but this is driver dependent).
 
-Constructs an L<SQL::DB::Query> object as defined by @query and runs
-that query against the connected database.  Croaks if an error occurs.
-This method should be used for SELECT-type statements that retrieve
-rows. This method uses "prepare_cached" to prepare the call to the
-database.
+=item srow( @tables ) -> @SRow
 
-When called in array context returns a list of L<SQL::DB::Row> based
-objects. The objects have accessors for each column in the query. Be
-aware that this can consume large amounts of memory if there are lots
-of rows retrieved.
+Returns schema objects representing database tables/rows for
+select-style SQL. In scalar context returns a single object.
 
-When called in scalar context returns a query iterator
-(L<SQL::DB::Cursor>) (with "next", "all" and "reset" methods) to
-retrieve dynamically constructed objects one at a time.
+These objects have a method for each table column.  Each column object
+has the following methods: is_null(), is_not_null(), in(), not_in(),
+between(), not_between(), as(), like(), asc(), and desc() (see
+L<SQL::DB::Expr> for details).
 
-=item fetch1(@query) -> SQL::DB::Row
+These objects can be used with the do(), sth(), fetch(), fetch1(), and
+iter() methods for SELECT queries.
 
-Similar to fetch() but always returns only the first object from the
-result set. All other rows (if any) can not be retrieved. You should
-only use this method if you know/expect one result. This method uses
-"prepare_cached" to prepare the call to the database.
+=item fetch(@query) -> @rows
 
-=item query(@query)
+Prepares (a SELECT) @query using either prepare() or prepare_cached()
+(depending on the "prepare_cached" attribute) and execute()'s it.
+Croaks on error.
 
-Return an L<SQL::DB::Query> object as defined by @query. This method is
-useful when creating nested SELECTs, UNIONs, or you can print the
-returned object if you just want to see what the SQL looks like.
+Returns a list of array-based objects and closes the underlying
+statement handle. Each object has accessor methods for each column
+selected.
 
-=item query_as_string($sql, @bind_values)
+Be aware that calling this method can consume large amounts of memory
+if there are lots of rows to be retrieved. Consider using iter()
+instead.
 
-An internal function for pretty printing SQL queries by inserting the
-bind values into the SQL itself. Returns a string.
+=item fetch1(@query) -> $row
 
-=item current_timestamp
+Prepares (a SELECT) @query using either prepare() or prepare_cached()
+(depending on the "prepare_cached" attribute) and execute()'s it.
+Croaks on error.
 
-The current date and time (as a string) that remains fixed within a
-transaction.
+Returns a single array-based object and closes the underlying statement
+handle.  The object has accessor methods for each column selected.
 
-=item iter( @query )
+=item iter( @query ) -> L<SQL::DB::Iter>
 
-Runs a query and returns a L<SQL::DB::Cursor> object. You can call
-next() and all() methods on this object to obtain data.
+Prepares (a SELECT) @query using either prepare() or prepare_cached()
+(depending on the "prepare_cached" attribute) and execute()'s it.
+Croaks on error.
 
-=item sth( @query )
+Returns a cursor/iteration object with next() and all() methods for
+retrieving array-based objects. Each object has accessor methods for
+each column selected.
 
-Runs a query and returns a L<DBI::st> statement handle. You can call
-fetchrow_array() and other L<DBI> method on this handle.
+=item sth( @query ) -> ($sth, $rv) -> $rv
+
+Prepares @query using either prepare() or prepare_cached() (depending
+on the "prepare_cached" attribute) and execute()'s it. Croaks on error.
+
+In array context returns a L<DBI::st> statement handle and the result
+of the execute() call. This is useful if you want to obtain the data
+with one of the L<DBI> fetchrow_hashref(), fetchall_arrayref() etc
+methods.
+
+In scalar context simply returns the result of the execute() call.
+
+This method is the basis for all other retrieval methods.
 
 =item txn(&coderef)
 
-Runs the code in &coderef as an SQL transaction. If &coderef does not
-raise any exceptions then the transaction is commited, otherwise it is
-rolled back.
+Runs the Perl code in &coderef as an SQL transaction. If &coderef does
+not raise any exceptions then the transaction is commited, otherwise it
+is rolled back. See L<DBIx::Connector> for details.
 
-This method can be called recursively, but any sub-transaction failure
-will always result in the outer-most transaction also being rolled
-back. For savepoint support see L<DBIx::Connector>.
+=item current_timestamp -> Str
+
+Returns the current UTC timestamp as a string in the form 'yyyy-mm-dd
+hh:mm:ss'.  The returned value remains constant during a transaction.
+
+=item query_as_string($sql, @bind_values) -> Str
+
+Pretty print an SQL query by inserting the bind values into the SQL
+itself.
 
 =back
 
 =head1 CLASS FUNCTIONS
 
-All of the following functions can be exported individually on demand,
-or all at once using the ':all' tag.
+The following functions can be exported individually or all at once
+using the ':all' tag.  They all return an object which can be combined
+with or used inside other functions.
 
 =over 4
 
-=item query( @statements )
+=item query( @query ) -> L<SQL::DB::Expr>
 
-Create a new L<SQL::DB::Expr> expression based on the given
-@statements. Scalars are uppercased with '_' converted to spaces, and
-ARRAYREF elements are joined together with ','.
+Build an SQL query using a list of scalars, schema objects,
+expressions, other functions, and arrays. This function is the basis
+for the do(), fetch(), fetch1(), iter() and sth() methods.
 
-=item sql_and
+=item sql_and( @args ) -> L<SQL::DB::Expr>
 
-=item sql_case
+Maps to "$arg1 AND $arg2 AND ...".
 
-=item sql_coalesce
+=item sql_case( @stmts ) -> L<SQL::DB::Expr>
 
-=item sql_cast
+Wraps @stmts inside a CASE/END pair while converting arguments to
+expressions where needed.
 
-=item sql_concat
+    sql_case(
+        when => $actors->name->is_null,
+        then => 'No Name',
+        else => $actors->name,
+    )->as('name')
 
-=item sql_count
+    # CASE WHEN actors0.name IS NULL
+    # THEN ? ELSE actors0.name END AS name
 
-=item sql_exists
+=item sql_coalesce(@args) -> L<SQL::DB::Expr>
 
-=item sql_func
+Maps to "COALESCE($arg1, $arg2, ...)".
 
-=item sql_length
+=item sql_cast(@args) -> L<SQL::DB::Expr>
 
-=item sql_lower
+Maps to "CAST($arg1, $arg2, ...)".
 
-=item sql_max
+=item sql_concat(@args) -> L<SQL::DB::Expr>
 
-=item sql_min
+Maps to "$arg1 || $arg2 || ...".
 
-=item sql_sum
+=item sql_count(@args) -> L<SQL::DB::Expr>
 
-=item sql_or
+Maps to "COUNT($arg1, $arg2, ...)".
 
-=item sql_substr
+=item sql_exists(@args) -> L<SQL::DB::Expr>
 
-=item sql_upper
+Maps to "EXISTS(@args)".
 
-=item sql_values
+=item sql_func('myfunc', @args) -> L<SQL::DB::Expr>
+
+Maps to "MYFUNC($arg1, $arg2, ...)".
+
+=item sql_length(@args) -> L<SQL::DB::Expr>
+
+Maps to "LENGTH(@args)".
+
+=item sql_lower(@args) -> L<SQL::DB::Expr>
+
+Maps to "LOWER(@args)".
+
+=item sql_max(@args) -> L<SQL::DB::Expr>
+
+Maps to "MAX(@args)".
+
+=item sql_min(@args) -> L<SQL::DB::Expr>
+
+Maps to "MIN(@args)".
+
+=item sql_sum(@args) -> L<SQL::DB::Expr>
+
+Maps to "MIN(@args)".
+
+=item sql_or(@args) -> L<SQL::DB::Expr>
+
+Maps to "$arg1 OR $arg2 OR ...".
+
+=item sql_substr(@args) -> L<SQL::DB::Expr>
+
+Maps to "SUBSTR($arg1, $arg2, ...)".
+
+=item sql_upper(@args) -> L<SQL::DB::Expr>
+
+Maps to "UPPER(@args)".
+
+=item sql_values(@args) -> L<SQL::DB::Expr>
+
+Maps to "VALUES($arg1, $arg2, ...)".
 
 =back
 
@@ -397,7 +434,7 @@ ARRAYREF elements are joined together with ','.
 
 All SQL::DB releases have so far been DEVELOPMENT!
 
-B<SQL::DB> jumped from version 0.18 to 0.98 due to a complete rewrite
+SQL::DB jumped from version 0.18 to 0.98 due to a complete rewrite
 based on Moo. Lots of things were simplified, modules deleted,
 dependencies removed, etc. The API changed enough to almost give this
 distribution a new name, except I don't know of anyone using this apart
@@ -406,8 +443,7 @@ will be a release candidate, and 1.00 will be the first stable release.
 
 =head1 SEE ALSO
 
-L<SQL::DB::Expr>, L<SQL::DB::Iter>, L<DBIx::Connector>, L<Log::Any>,
-L<SQL::DBx::Sequence>, L<SQL::DBx::Deploy>
+L<DBIx::Connector>, L<Log::Any>
 
 =head1 SUPPORT
 

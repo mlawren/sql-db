@@ -1,5 +1,5 @@
-Changes
 bin/sqldb-schema
+Changes
 inc/Module/AutoInstall.pm
 inc/Module/Install.pm
 inc/Module/Install/AutoInstall.pm
@@ -11,6 +11,9 @@ inc/Module/Install/Makefile.pm
 inc/Module/Install/Metadata.pm
 inc/Module/Install/Win32.pm
 inc/Module/Install/WriteAll.pm
+lib/App/sqldb_schema.pm
+lib/App/sqldb_schema.pod
+lib/App/sqldb_schema/Dispatcher.pm
 lib/SQL/DB.pm
 lib/SQL/DB.pod
 lib/SQL/DB/Expr.pm
@@ -25,17 +28,11 @@ lib/SQL/DBx/Sequence.pm
 lib/SQL/DBx/Sequence.pod
 lib/SQL/DBx/Simple.pm
 lib/SQL/DBx/Simple.pod
-lib/App/sqldb_schema/Dispatcher.pm
-lib/App/sqldb_schema.pm
-lib/App/sqldb_schema.pod
 Makefile.PL
 MANIFEST
 MANIFEST.SKIP
 META.yml
 README
-xt/pod.t
-xt/pod-coverage.t
-xt/package-names.t
 t/04-expr.t
 t/08-schema.t
 t/10-iter.t
@@ -43,3 +40,6 @@ t/11-simple.t
 t/12-sequence.t
 t/14-deploy.t
 t/live.t
+xt/package-names.t
+xt/pod-coverage.t
+xt/pod.t
