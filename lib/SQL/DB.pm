@@ -216,9 +216,12 @@ sub connect {
 sub _load_tables {
     my $self = shift;
 
+    my %seen;
     foreach my $table (@_) {
+        next if $seen{$table};
         my $sth = $self->conn->dbh->column_info( '%', '%', $table, '%' );
         $self->schema->define( $sth->fetchall_arrayref );
+        $seen{$table}++;
     }
 }
 
