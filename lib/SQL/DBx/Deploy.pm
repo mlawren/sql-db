@@ -24,9 +24,9 @@ sub last_deploy_id {
 
 sub deploy {
     my $self = shift;
-    my $app = shift || confess 'missing class';
+    my $app = shift || confess 'usage: deploy($app)';
 
-    my $class = $app . '::' . $self->dbd;
+    my $class = $app . '::Deploy::' . $self->dbd;
     eval "require $class;";
     confess $@ if $@;
 

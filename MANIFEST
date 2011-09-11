@@ -37,10 +37,10 @@ t/04-expr.t
 t/08-schema.t
 t/10-iter.t
 t/12-sequence.t
-t/lib/Deploy/Pg.pm
-t/lib/Deploy/Pg2.pm
-t/lib/Deploy/SQLite.pm
-t/lib/Deploy/SQLite2.pm
+t/lib/test/Deploy/Pg.pm
+t/lib/test/Deploy/Pg2.pm
+t/lib/test/Deploy/SQLite.pm
+t/lib/test/Deploy/SQLite2.pm
 t/live.t
 xt/package-names.t
 xt/pod-coverage.t

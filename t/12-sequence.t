@@ -55,8 +55,10 @@ foreach my $handle (@handles) {
         password => $pass,
     );
 
-    $db->create_sequence('test');
-    my $id = $db->nextval('test');
+    eval { $db->conn->dbh->do('DROP SEQUENCE seq_testseq'); };
+
+    $db->create_sequence('testseq');
+    my $id = $db->nextval('testseq');
     ok $id, 'nextval';
 }
 

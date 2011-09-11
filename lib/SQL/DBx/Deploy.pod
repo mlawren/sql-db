@@ -44,11 +44,11 @@ SQL::DBx::Deploy - Deployment support for SQL::DB
 
     my $db = SQL::DB->connect('dbi:SQLite:dbname=test');
 
-    # The '::Driver' part is auto appended
-    $db->deploy('MyApp::Deploy');
+    # The '::Deploy::SQLite' part is auto appended
+    $db->deploy('MyApp');
 
     # Multiple calls are safe
-    $db->deploy('MyApp::Deploy');
+    $db->deploy('MyApp');
 
 =head1 DESCRIPTION
 
@@ -69,8 +69,8 @@ your deploy module>.
 
 =item deploy($app)
 
-Deploy the YAML found in the __DATA__ section of the $app::$driver
-module.
+Deploy the YAML found in the __DATA__ section of the
+$app::Deploy::$driver module.
 
 =item last_deploy_id( $app )
 
