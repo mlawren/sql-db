@@ -5,7 +5,7 @@ use Moo;
 use Log::Any qw/$log/;
 use Carp qw/croak carp confess/;
 use Storable qw/dclone/;
-use DBI ':sql_types';
+use DBI ':sql_types', 'looks_like_number';
 use DBIx::Connector;
 use SQL::DB::Schema qw/get_schema/;
 use SQL::DB::Expr qw/:all/;
@@ -80,8 +80,8 @@ sub sql_case {
     @_ || croak 'case([$expr,] when => $expr, then => $val,[else...])';
 
     my @items = map {
-        ( ref $_ eq '' && $_ =~ m/^((when)|(then)|(else))$/i )
-          ? uc($_)
+            ( ref $_ eq '' && $_ =~ m/^((when)|(then)|(else))$/i ) ? uc($_)
+          : looks_like_number($_) ? $_
           : _bexpr($_)
     } @_;
 
