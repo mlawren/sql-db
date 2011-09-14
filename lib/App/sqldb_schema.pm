@@ -59,7 +59,7 @@ sub run {
 
     $output .= "use strict;\n";
     $output .= "use warnings;\n";
-    $output .= "require SQL::DB::Schema;\n";
+    $output .= "require SQL::DB::Schema;\n\n";
 
     my $dbh = DBI->connect( $opt->dsn, $opt->username, $opt->password )
       || die "Could not connect: " . DBI->errstr;
@@ -82,8 +82,9 @@ sub run {
     $output .= 'my ' . Dumper \@columns;
 
     $output .=
-      qq[SQL::DB::Schema->new(name => '$opt->{package}')->define(\$VAR1);\n];
+      qq[\nSQL::DB::Schema->new(name => '$opt->{package}')->define(\$VAR1);\n];
 
+    $output .= "1;\n";
     my $tidy;
     perltidy( source => \$output, destination => \$tidy );
 

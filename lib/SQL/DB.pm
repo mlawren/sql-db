@@ -7,7 +7,7 @@ use Carp qw/croak carp confess/;
 use Storable qw/dclone/;
 use DBI ':sql_types', 'looks_like_number';
 use DBIx::Connector;
-use SQL::DB::Schema qw/get_schema/;
+use SQL::DB::Schema qw/load_schema/;
 use SQL::DB::Expr qw/:all/;
 use SQL::DB::Iter;
 
@@ -159,8 +159,7 @@ around BUILDARGS => sub {
 
     if ( my $sname = $args{schema} ) {
         $sname .= '::' . $dbd;
-        $args{schema} = get_schema($sname)
-          || confess "Could not get schema: " . $sname;
+        $args{schema} = load_schema($sname);
     }
     else {
         ( my $sname = "$args{dsn}" ) =~ s/[^a-zA-Z]/_/g;
@@ -221,7 +220,7 @@ sub _load_tables {
     my %seen;
     foreach my $table (@_) {
         next if $seen{$table};
-        $log->debug('Attempting to load schema for table: '.$table);
+        $log->debug( 'Attempting to load schema for table: ' . $table );
         my $sth = $self->conn->dbh->column_info( '%', '%', $table, '%' );
         $self->schema->define( $sth->fetchall_arrayref );
         $seen{$table}++;
@@ -269,7 +268,8 @@ sub sth {
             my $dbh = $_;
             my $sth = eval { $dbh->$prepare( $query->_as_string ) };
             if ($@) {
-                die 'Error: '. $self->query_as_string( $query->_as_string,
+                die 'Error: '
+                  . $self->query_as_string( $query->_as_string,
                     @{ $query->_bvalues } )
                   . "\n$@";
             }
@@ -290,7 +290,8 @@ sub sth {
 
                 my $rv = eval { $sth->execute };
                 if ($@) {
-                    die 'Error: '. $self->query_as_string( $query->_as_string,
+                    die 'Error: '
+                      . $self->query_as_string( $query->_as_string,
                         @{ $query->_bvalues } )
                       . "\n$@";
                 }
@@ -373,7 +374,7 @@ sub query_as_string {
         else {
             my $quote;
             if ( defined $x ) {
-                if (looks_like_number($x)) {
+                if ( looks_like_number($x) ) {
                     $quote = $x;
                 }
                 else {

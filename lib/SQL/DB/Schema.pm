@@ -7,9 +7,9 @@ use Carp qw/confess/;
 use SQL::DB::Expr;
 use Sub::Install qw/install_sub/;
 use Sub::Exporter -setup => {
-    exports => ['get_schema'],
+    exports => ['load_schema'],
     groups  => {
-        all     => ['get_schema'],
+        all     => ['load_schema'],
         default => [],
     },
 };
@@ -61,10 +61,10 @@ sub _getglob { no strict 'refs'; \*{ $_[0] } }
 
 sub BUILD {
     my $self = shift;
-    ( my $name = $self->name ) =~ tr/a-zA-Z0-9/_/cs;
-    $self->name($name);
-    $self->_package_root( __PACKAGE__ . '::' . $name );
-    $schema{$name} = $self;
+    ( my $clean = $self->name ) =~ tr/a-zA-Z0-9/_/cs;
+    $self->_package_root( __PACKAGE__ . '::' . $clean );
+    $schema{ $self->name } = $self;
+    $log->debug( "Schema " . $self->name . " created" );
 }
 
 sub define {
@@ -108,11 +108,11 @@ sub define {
                 }
             );
 
-            $log->debug('First seen table: '. $table);
+            $log->debug( $package_root . ': ' . $table );
         }
         $tables->{$table}++;
 
-        my $col  = $colref->[COLUMN_NAME];
+        my $col = $colref->[COLUMN_NAME];
 
         if ( $col eq 'new' ) {
             confess "Column name 'new' (table/view '$table') clashes with "
@@ -203,11 +203,17 @@ sub urow {
 
 # Class functions
 
-sub get_schema {
+sub load_schema {
     my $name = shift;
     eval "require $name;";
-    return $schema{$name} if ( exists $schema{$name} );
-    return;
+    if ($@) {
+        confess $@;
+    }
+    elsif ( !exists $schema{$name} ) {
+        confess "$name did not load properly";
+    }
+    $log->debug("load_schema($name) succeeded");
+    return $schema{$name};
 }
 
 1;

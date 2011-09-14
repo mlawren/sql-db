@@ -9,7 +9,7 @@ SQL::DB::Schema - Table and column definitions for SQL::DB
 
 =head1 SYNOPSIS
 
-    use SQL::DB::Schema qw/get_schema/;
+    use SQL::DB::Schema qw/load_schema/;
 
     my $schema = SQL::DB::Schema->new(name => 'myschema');
 
@@ -26,7 +26,7 @@ SQL::DB::Schema - Table and column definitions for SQL::DB
     my ($table_1, $table_2) = $schema->srow(qw/table_1, table_2)
 
     # Retrieve a previously elsewhere created schema:
-    my $other = get_schema('other');
+    my $other = load_schema('other');
 
 =head1 DESCRIPTION
 
@@ -42,9 +42,11 @@ A single function is exported on request:
 
 =over 4
 
-=item get_schema($name) -> SQL::DB::Schema
+=item load_schema($name) -> SQL::DB::Schema
 
-Retrieves the schema with the given $name.
+$name + '::$driver' (where $driver is a DBD driver name) must be the
+name of a class which when loaded creates a schema called $name +
+'::$driver'. See L<sqldb-schema> for how to generate such a class.
 
 =back
 
@@ -56,7 +58,7 @@ Retrieves the schema with the given $name.
 
 Create a new schema object. The 'name' attribute is required and must
 be unique. The created schema is stored in an internal hash and can be
-retrieved from other lexical scopes using the "get_schema" function.
+retrieved from other lexical scopes using the "load_schema" function.
 
 =back
 
