@@ -37,6 +37,8 @@ feature 'sqldb-deploy',
   -default => 1,
   'YAML'   => 0;
 
+install_script 'bin/sqldb-schema';
+
 repository 'http://github.com/mlawren/sql-db.git/';
 
 auto_install;
