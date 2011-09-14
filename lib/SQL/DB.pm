@@ -221,6 +221,7 @@ sub _load_tables {
     my %seen;
     foreach my $table (@_) {
         next if $seen{$table};
+        $log->debug('Attempting to load schema for table: '.$table);
         my $sth = $self->conn->dbh->column_info( '%', '%', $table, '%' );
         $self->schema->define( $sth->fetchall_arrayref );
         $seen{$table}++;
@@ -268,7 +269,7 @@ sub sth {
             my $dbh = $_;
             my $sth = eval { $dbh->$prepare( $query->_as_string ) };
             if ($@) {
-                die $self->query_as_string( $query->_as_string,
+                die 'Error: '. $self->query_as_string( $query->_as_string,
                     @{ $query->_bvalues } )
                   . "\n$@";
             }
@@ -287,7 +288,12 @@ sub sth {
             {
                 no warnings 'uninitialized';
 
-                my $rv = $sth->execute;
+                my $rv = eval { $sth->execute };
+                if ($@) {
+                    die 'Error: '. $self->query_as_string( $query->_as_string,
+                        @{ $query->_bvalues } )
+                      . "\n$@";
+                }
                 $log->debug( "-- Result:", $rv );
                 return $wantarray ? ( $sth, $rv ) : $sth;
             }
@@ -367,8 +373,13 @@ sub query_as_string {
         else {
             my $quote;
             if ( defined $x ) {
-                $x =~ s/\n.*/\.\.\./s;
-                $quote = $dbh->quote("$x");
+                if (looks_like_number($x)) {
+                    $quote = $x;
+                }
+                else {
+                    $x =~ s/\n.*/\.\.\./s;
+                    $quote = $dbh->quote("$x");
+                }
             }
             else {
                 $quote = $dbh->quote(undef);

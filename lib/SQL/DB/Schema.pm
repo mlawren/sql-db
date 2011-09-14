@@ -2,6 +2,7 @@ package SQL::DB::Schema;
 use strict;
 use warnings;
 use Moo;
+use Log::Any qw/$log/;
 use Carp qw/confess/;
 use SQL::DB::Expr;
 use Sub::Install qw/install_sub/;
@@ -106,10 +107,18 @@ sub define {
                     as   => '_columns',
                 }
             );
+
+            $log->debug('First seen table: '. $table);
         }
         $tables->{$table}++;
 
         my $col  = $colref->[COLUMN_NAME];
+
+        if ( $col eq 'new' ) {
+            confess "Column name 'new' (table/view '$table') clashes with "
+              . __PACKAGE__ . '!!!';
+        }
+
         my $type = lc $colref->[TYPE_NAME];
 
         install_sub(
@@ -165,9 +174,11 @@ sub srow {
 
     my @ret;
     foreach my $name (@_) {
+        if ( !exists $self->_tables->{$name} ) {
+            confess "Table not defined in schema: $name";
+        }
         my $class = $self->_package_root . '::Srow::' . $name;
-        my $srow = eval { $class->new( _txt => $name, _alias => $name ) };
-        confess "Table not defined in schema: $name" if $@;
+        my $srow = $class->new( _txt => $name, _alias => $name );
         return $srow unless (wantarray);
         push( @ret, $srow );
     }
@@ -179,9 +190,11 @@ sub urow {
 
     my @ret;
     foreach my $name (@_) {
+        if ( !exists $self->_tables->{$name} ) {
+            confess "Table not defined in schema: $name";
+        }
         my $class = $self->_package_root . '::Urow::' . $name;
-        my $urow = eval { $class->new( _txt => $name ) };
-        confess "Table not defined in schema: $name" if $@;
+        my $urow = $class->new( _txt => $name );
         return $urow unless (wantarray);
         push( @ret, $urow );
     }

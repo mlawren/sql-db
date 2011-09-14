@@ -26,10 +26,16 @@ sub insert {
 
     @cols || croak 'insert_into requires columns/values';
 
-    return $self->do(
+    my $ret = eval { $self->do(
         insert_into => sql_table( $table, @cols ),
         sql_values(@vals),
-    );
+    ) };
+
+    if ($@) {
+        croak $@;
+    }
+
+    return $ret;
 }
 
 # $db->update('purchases',
@@ -50,7 +56,7 @@ sub update {
 
     unless (@updates) {
         $log->debug( "Nothing to update for table:", $table );
-        return;
+        return 0;
     }
 
     my $expr = SQL::DB::_expr_join(
