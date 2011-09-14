@@ -375,9 +375,9 @@ expressions where needed.
 
 Maps to "COALESCE($arg1, $arg2, ...)".
 
-=item sql_cast(@args) -> L<SQL::DB::Expr>
+=item sql_cast($arg1, as => $arg2) -> L<SQL::DB::Expr>
 
-Maps to "CAST($arg1, $arg2, ...)".
+Maps to "CAST( $arg1 AS $arg2 )".
 
 =item sql_concat(@args) -> L<SQL::DB::Expr>
 

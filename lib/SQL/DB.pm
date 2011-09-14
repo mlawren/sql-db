@@ -90,7 +90,9 @@ sub sql_case {
 
 sub sql_coalesce { sql_func( 'COALESCE', @_ ) }
 
-sub sql_cast { sql_func( 'CAST', @_ ) }
+sub sql_cast {
+    return _expr_join( ' ', 'CAST(', $_[0], 'AS', $_[2], ')' );
+}
 
 sub sql_concat { _expr_binary( '||', $_[0], $_[1] ) }
 

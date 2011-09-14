@@ -142,6 +142,8 @@ foreach my $handle (@handles) {
         is ref $rows[0], $iter->class, 'row is ' . $iter->class;
     }
 
+    is sql_cast($actors->id, as => 'char')->_as_string, 'CAST( actors0.id AS char )', 'CAST';
+
     # DBx::Simple
 
     ok $db->delete(
