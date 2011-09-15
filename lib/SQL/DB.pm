@@ -199,6 +199,10 @@ around BUILDARGS => sub {
     return $class->$orig(%args);
 };
 
+# For our extensions to 'around' or 'after'
+sub BUILD {
+}
+
 sub connect {
     my $class    = shift;
     my $dsn      = shift;
