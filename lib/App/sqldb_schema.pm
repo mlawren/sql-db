@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use Term::Prompt;
 use File::Slurp qw/write_file/;
+use Data::Dumper;
 use Perl::Tidy qw/perltidy/;
 use DBI;
 
@@ -68,7 +69,6 @@ sub run {
       $dbh->table_info( '%', $opt->{dbschema}, '%',
         "'TABLE','VIEW','GLOBAL TEMPORARY','LOCAL TEMPORARY'" );
 
-    use Data::Dumper;
     local $Data::Dumper::Indent   = 0;
     local $Data::Dumper::Maxdepth = 0;
 

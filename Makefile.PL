@@ -27,6 +27,7 @@ feature 'sqldb-schema',
   'DBI'          => 0,
   'Term::Prompt' => 0,
   'File::Slurp'  => 0,
+  'Data::Dumper' => 0,
   'Perl::Tidy'   => 0;
 
 feature 'Deploy',
