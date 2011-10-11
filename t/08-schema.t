@@ -34,6 +34,10 @@ $schema->define(
 
 ok !$schema->not_known('users'), 'table users is NOT not_known()';
 
+my $irow = $schema->irow('users');
+isa_ok $irow, 'CODE';
+is $irow->( 'col1', 'col2' ), 'users(col1,col2)', 'irow expansion';
+
 my $srow = $schema->srow('users');
 isa_ok $srow, 'SQL::DB::Schema::test::Srow::users';
 isa_ok $srow, 'SQL::DB::Expr';

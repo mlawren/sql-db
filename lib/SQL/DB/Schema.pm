@@ -169,6 +169,20 @@ sub not_known {
     return grep { !exists $tables->{$_} } @_;
 }
 
+sub irow {
+    my $self = shift;
+
+    my @ret;
+    foreach my $name (@_) {
+        if ( !exists $self->_tables->{$name} ) {
+            confess "Table not defined in schema: $name";
+        }
+        push( @ret, sub { $name . '(' . join( ',', @_ ) . ')' } );
+        return $ret[0] unless (wantarray);
+    }
+    return @ret;
+}
+
 sub srow {
     my $self = shift;
 

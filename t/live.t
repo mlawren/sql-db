@@ -92,14 +92,21 @@ foreach my $handle (@handles) {
       ),
       'insert';
 
-    my $actors = $db->srow('actors');
+    my $actors = $db->irow('actors');
+    ok $db->do(
+        insert_into => $actors->(qw/id name/),
+        sql_values( 3, 'Mark3' )
+      ),
+      'insert';
+
+    $actors = $db->srow('actors');
 
     my @res = $db->fetch(
         select => [ $actors->id, $actors->name ],
         from   => $actors,
     );
 
-    ok @res == 2, 'select many';
+    ok @res == 3, 'select many';
     can_ok $res[0], qw/id name/;
 
     my $res = $db->fetch1(
@@ -142,7 +149,8 @@ foreach my $handle (@handles) {
         is ref $rows[0], $iter->class, 'row is ' . $iter->class;
     }
 
-    is sql_cast($actors->id, as => 'char')->_as_string, 'CAST( actors0.id AS char )', 'CAST';
+    is sql_cast( $actors->id, as => 'char' )->_as_string,
+      'CAST( actors0.id AS char )', 'CAST';
 
     # DBx::Simple
 

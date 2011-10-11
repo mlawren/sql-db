@@ -19,11 +19,14 @@ SQL::DB::Schema - Table and column definitions for SQL::DB
     ...
     $schema->define(@table_N_definition);
     
+    # Build INSERT expressions using irows:
+    my ($table_1, $table_3) = $schema->irow(qw/table_1, table_3/)
+
     # Build INSERT/UPDATE/DELETE expressions using urows:
-    my ($table_1, $table_3) = $schema->urow(qw/table_1, table_3)
+    my ($table_1, $table_3) = $schema->urow(qw/table_1, table_3/)
 
     # Build SELECT expressions using srows:
-    my ($table_1, $table_2) = $schema->srow(qw/table_1, table_2)
+    my ($table_1, $table_2) = $schema->srow(qw/table_1, table_2/)
 
     # Retrieve a previously elsewhere created schema:
     my $other = load_schema('other');
@@ -77,12 +80,18 @@ column information is given.
 
 Returns the @tables which are not known in the schema.
 
+=item irow( $table, [ $table2 ] ) -> CODEref
+
+Returns coderefs representing $table(s). Each coderef called with
+column names returns a string suitable for an INSERT operation.  These
+coderefs can be used in L<SQL::DB>'s "do()" method (for INSERT
+queries).
+
 =item urow( $table, [ $table2 ] ) -> SQL::DB::Expr based objects
 
 Returns objects representing abstract rows from $table(s). Each object
 has a method for each column in the table. These urow objects can be
-used in L<SQL::DB>'s "do()" method (for INSERT, UPDATE or DELETE
-queries).
+used in L<SQL::DB>'s "do()" method (UPDATE or DELETE queries).
 
 =item srow( $table, [ $table2 ] ) -> SQL::DB::Expr based objects
 

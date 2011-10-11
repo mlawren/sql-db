@@ -13,6 +13,13 @@ SQL::DB - SQL database interface for Perl
 
     my $db = SQL::DB->connect($dsn, $username, $password);
 
+    my $people = $db->irow('people');
+
+    $db->do(
+        insert_into => $people->('id','name');
+        sql_values(1, 'A Name'),
+    );
+
     # Anyone celebrating a birthday today gets a raise, with the
     # calculation done inside the database.
 
@@ -239,6 +246,14 @@ creating statement handles. Otherwise prepare() will be used.
 
 =over 4
 
+=item irow( @tables ) -> @coderef
+
+Returns coderefs for generating table/column strings.  In scalar
+context returns a single coderef. Calling the coderef with column name
+arguments returns a string of the form 'table(col1,col2)'.
+
+These refs can be used with the do() method for INSERT queries.
+
 =item urow( @tables ) -> @URow
 
 Returns schema objects representing database tables/rows for
@@ -249,8 +264,8 @@ has the following methods: is_null(), is_not_null(), in(), not_in(),
 between(), not_between(), as(), like(), asc(), and desc() (see
 L<SQL::DB::Expr> for details).
 
-These objects can be used with the do() method for INSERT, UPDATE, and
-DELETE queries.
+These objects can be used with the do() method for UPDATE and DELETE
+queries.
 
 =item do(@query) -> $count
 

@@ -231,6 +231,16 @@ sub _load_tables {
     }
 }
 
+sub irow {
+    my $self = shift;
+
+    if ( my @unknown = $self->schema->not_known(@_) ) {
+        $self->_load_tables(@unknown);
+    }
+
+    return $self->schema->irow(@_);
+}
+
 sub urow {
     my $self = shift;
 
