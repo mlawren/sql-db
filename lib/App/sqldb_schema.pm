@@ -85,8 +85,14 @@ sub run {
       qq[\nSQL::DB::Schema->new(name => '$opt->{package}')->define(\$VAR1);\n];
 
     $output .= "1;\n";
+
     my $tidy;
-    perltidy( source => \$output, destination => \$tidy );
+
+    perltidy(
+        source      => \$output,
+        destination => \$tidy,
+        perltidyrc  => '/dev/null',
+    );
 
     if ( $opt->outfile eq '-' ) {
         print $tidy;
