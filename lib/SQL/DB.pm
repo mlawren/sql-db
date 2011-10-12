@@ -50,22 +50,24 @@ our $VERSION = '0.97_3';
 sub query {
     return $_[0] if ( @_ == 1 and ref $_[0] eq 'SQL::DB::Expr' );
     my @statements;
-    foreach my $item (@_) {
-        if ( eval { $item->isa('SQL::DB::Expr') } ) {
-            push( @statements, '    ', $item, "\n" );
+    while ( my ( $keyword, $item ) = splice( @_, 0, 2 ) ) {
+        if ( ref $keyword ) {
+            push( @statements, $keyword . "\n" );
         }
-        elsif ( ref $item eq 'ARRAY' ) {
-            push( @statements, '    ', _bexpr_join( ",\n    ", @$item ), "\n" );
+        else {
+            ( my $tmp = uc($keyword) ) =~ s/_/ /g;
+            push( @statements, $tmp . "\n" );
+        }
+
+        next unless defined $item;
+        if ( ref $item eq 'ARRAY' ) {
+            push( @statements, '    ', _expr_join( ",\n    ", @$item ), "\n" );
         }
         elsif ( ref $item eq 'SCALAR' ) {
             push( @statements, $$item . "\n" );
         }
-        elsif ( ref $item ) {
-            confess "Invalid query element: " . $item;
-        }
-        else {    # ( ref $item eq '' ) {
-            ( my $tmp = uc($item) ) =~ s/_/ /g;
-            push( @statements, $tmp . "\n" );
+        else {
+            push( @statements, '    ', $item, "\n" );
         }
     }
 
