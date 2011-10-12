@@ -140,7 +140,7 @@ has 'dbd' => ( is => 'ro' );
 
 has 'schema' => ( is => 'ro' );
 
-has 'prepare_cached' => (
+has 'cache_sth' => (
     is      => 'rw',
     default => sub { 1 },
 );
@@ -261,9 +261,9 @@ sub srow {
     return $self->schema->srow(@_);
 }
 
-sub sth {
+sub _prepare {
     my $self    = shift;
-    my $prepare = $self->prepare_cached ? 'prepare_cached' : 'prepare';
+    my $prepare = shift;
     my $query   = eval { query(@_) };
 
     if ( !defined $query ) {
@@ -272,10 +272,6 @@ sub sth {
 
     $log->debug(
         $self->query_as_string( $query->_as_string, @{ $query->_bvalues } ) );
-
-    #    $log->debugf( $query->_as_string, @{ $query->_bvalues } );
-
-    my $wantarray = wantarray;
 
     return $self->conn->run(
         sub {
@@ -299,33 +295,50 @@ sub sth {
 #                $log->debugf('binding param %s %s as type %s', $i, $val, $btype );
             }
 
-            {
-                no warnings 'uninitialized';
-
-                my $rv = eval { $sth->execute };
-                if ($@) {
-                    die 'Error: '
-                      . $self->query_as_string( $query->_as_string,
-                        @{ $query->_bvalues } )
-                      . "\n$@";
-                }
-                $log->debug( "-- Result:", $rv );
-                return $wantarray ? ( $sth, $rv ) : $sth;
-            }
+            return ( $sth, $query );
         },
     );
 }
 
+sub prepare {
+    my $self = shift;
+    return $self->_prepare( 'prepare', @_ );
+}
+
+sub prepare_cached {
+    my $self = shift;
+    return $self->_prepare( 'prepare_cached', @_ );
+}
+
+sub sth {
+    my $self = shift;
+    my ( $sth, $query ) =
+        $self->cache_sth
+      ? $self->_prepare( 'prepare_cached', @_ )
+      : $self->_prepare( 'prepare',        @_ );
+    return $sth;
+}
+
 sub do {
     my $self = shift;
-    my ( $sth, $rv ) = $self->sth(@_);
+    my ( $sth, $query ) =
+        $self->cache_sth
+      ? $self->_prepare( 'prepare_cached', @_ )
+      : $self->_prepare( 'prepare',        @_ );
+    my $rv = $sth->execute;
+    $log->debug( "-- Result:", $rv );
     $sth->finish();
     return $rv;
 }
 
 sub iter {
     my $self = shift;
-    my ( $sth, $rv ) = $self->sth(@_);
+    my ( $sth, $query ) =
+        $self->cache_sth
+      ? $self->_prepare( 'prepare_cached', @_ )
+      : $self->_prepare( 'prepare',        @_ );
+    my $rv = $sth->execute;
+    $log->debug( "-- Result:", $rv );
     return SQL::DB::Iter->new( sth => $sth );
 }
 

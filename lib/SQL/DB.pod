@@ -77,21 +77,17 @@ you unfettered access to the power and flexibility of your underlying
 database. It aims to be a tool for programmers who want their databases
 to work just as hard as their Perl scripts.
 
-[ If your needs are not very complicated you might consider
-L<SQL::DBx::Simple> instead. ]
-
-SQL::DB is capable of generating aggregate expressions, joins, nested
+SQL::DB gives you access to aggregate expressions, joins, nested
 selects, unions and database-side operator invocations. Transactional
-support is provided via L<DBIx::Connector>. There is some minor cross
-database support which transparently handles the binding of binary data
-types, keeping the amount of data- and database-specific code you have
-to write to a minimum. For more basic needs you might consider starting
-with the L<SQL::DBx::Simple> extension.
+support is provided via L<DBIx::Connector>. Binding non-integer
+non-string (eg binary) data types is handled transparently across
+different database types. For more basic needs you might consider
+starting with the L<SQL::DBx::Simple> extension.
 
 Although rows can be retrieved from the database as simple objects,
-SQL::DB does not attempt to be an Object-Relational-Mapper al-la
-L<DBIx::Class>; there are no auto-inflating columns or automatic joins
-and the code size and speed reflect the lack of complexity.
+SQL::DB does not attempt to be an Object-Relational-Mapper (ORM). There
+are no auto-inflating columns or automatic joins and the code size and
+speed reflect the lack of complexity.
 
 SQL::DB uses the light-weight L<Log::Any> for logging.
 
@@ -199,7 +195,7 @@ AutoCommit are always set to 1 and cannot be overridden.  PrintError
 defaults to 0.  ChopBlanks defaults to 1. pg_enable_utf8,
 sqlite_unicode, and mysql_enable_utf8 default to 1.
 
-=item prepare_cached
+=item cache_sth
 
 Whether to use the L<DBI> prepare_cached() method. See ATTRIBUTES
 below.
@@ -235,7 +231,7 @@ The database driver name (Pg, SQLite, etc). Read-only.
 
 The schema definition associated with this connection. Read-only.
 
-=item prepare_cached <-> Bool
+=item cache_sth <-> Bool
 
 If true then the L<DBI> prepare_cached() method will be used for
 creating statement handles. Otherwise prepare() will be used.
@@ -267,15 +263,6 @@ L<SQL::DB::Expr> for details).
 These objects can be used with the do() method for UPDATE and DELETE
 queries.
 
-=item do(@query) -> $count
-
-Prepares (a INSERT, UPDATE or DELETE) @query using either prepare() or
-prepare_cached() (depending on the "prepare_cached" attribute) and
-execute()'s it. Croaks on error.
-
-Returns the value of the execute() call. The result is typically the
-number of rows affected (but this is driver dependent).
-
 =item srow( @tables ) -> @SRow
 
 Returns schema objects representing database tables/rows for
@@ -289,11 +276,46 @@ L<SQL::DB::Expr> for details).
 These objects can be used with the do(), sth(), fetch(), fetch1(), and
 iter() methods for SELECT queries.
 
+=item prepare( @query ) -> ($sth, $query)
+
+Prepares @query using L<DBI> prepare() and returns a L<DBI::st>
+statement handle and the L<SQL::DB::Expr> object representing the
+query. Croaks on error.
+
+You need to call execute() on the statement handle yourself afterwards.
+
+=item prepare_cached( @query ) -> ($sth, $query)
+
+Prepares @query using L<DBI> prepare_cached() and returns a L<DBI::st>
+statement handle and the L<SQL::DB::Expr> object representing the
+query. Croaks on error.
+
+You need to call execute() on the statement handle yourself afterwards.
+
+=item do(@query) -> $count
+
+Prepares (a INSERT, UPDATE or DELETE) @query using either prepare() or
+prepare_cached() (depending on the "cache_sth" attribute) and
+execute()'s the associated L<DBI::st> statement handle. Croaks on
+error.
+
+Returns the value of the execute() call. The result is typically the
+number of rows affected (but this is driver dependent).
+
+=item sth( @query ) -> DBI::st
+
+Prepares (a SELECT) @query using either prepare() or prepare_cached()
+(depending on the "cache_sth" attribute) then execute()s and returns
+the associated L<DBI::st> statement handle. Croaks on error.
+
+This method is useful if you want to obtain the data with one of the
+L<DBI> fetchrow_hashref(), fetchall_arrayref() etc methods.
+
 =item fetch(@query) -> @rows
 
 Prepares (a SELECT) @query using either prepare() or prepare_cached()
-(depending on the "prepare_cached" attribute) and execute()'s it.
-Croaks on error.
+(depending on the "cache_sth" attribute) and execute()'s it. Croaks on
+error.
 
 Returns a list of array-based objects and closes the underlying
 statement handle. Each object has accessor methods for each column
@@ -306,8 +328,8 @@ instead.
 =item fetch1(@query) -> $row
 
 Prepares (a SELECT) @query using either prepare() or prepare_cached()
-(depending on the "prepare_cached" attribute) and execute()'s it.
-Croaks on error.
+(depending on the "cache_sth" attribute) and execute()'s it. Croaks on
+error.
 
 Returns a single array-based object and closes the underlying statement
 handle.  The object has accessor methods for each column selected.
@@ -315,26 +337,12 @@ handle.  The object has accessor methods for each column selected.
 =item iter( @query ) -> L<SQL::DB::Iter>
 
 Prepares (a SELECT) @query using either prepare() or prepare_cached()
-(depending on the "prepare_cached" attribute) and execute()'s it.
-Croaks on error.
+(depending on the "cache_sth" attribute) and execute()'s it. Croaks on
+error.
 
 Returns a cursor/iteration object with next() and all() methods for
 retrieving array-based objects. Each object has accessor methods for
 each column selected.
-
-=item sth( @query ) -> ($sth, $rv) -> $rv
-
-Prepares @query using either prepare() or prepare_cached() (depending
-on the "prepare_cached" attribute) and execute()'s it. Croaks on error.
-
-In array context returns a L<DBI::st> statement handle and the result
-of the execute() call. This is useful if you want to obtain the data
-with one of the L<DBI> fetchrow_hashref(), fetchall_arrayref() etc
-methods.
-
-In scalar context simply returns the result of the execute() call.
-
-This method is the basis for all other retrieval methods.
 
 =item txn(&coderef)
 
@@ -366,7 +374,8 @@ with or used inside other functions.
 
 Build an SQL query using a list of scalars, schema objects,
 expressions, other functions, and arrays. This function is the basis
-for the do(), fetch(), fetch1(), iter() and sth() methods.
+for the prepare(), prepare_cached(), do(), sth(), iter(), fetch() and
+fetch1() methods.
 
 =item sql_and( @args ) -> L<SQL::DB::Expr>
 
