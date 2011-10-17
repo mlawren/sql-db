@@ -48,8 +48,37 @@ foreach my $handle (@handles) {
     eval { $db->conn->dbh->do('DROP SEQUENCE seq_testseq'); };
 
     $db->create_sequence('testseq');
-    my $id = $db->nextval('testseq');
-    ok $id, 'nextval';
+
+    my ( $id1, $id2, $id3, $id4 );
+
+    $id1 = $db->nextval('testseq');
+    ok $id1, 'nextval:' . $id1;
+
+    $id2 = $db->nextval('testseq');
+    ok $id2 > $id1, "$id2 > $id1";
+
+    eval {
+        $db->txn(
+            sub {
+                $id3 = $db->nextval('testseq');
+                die;    # Force a ROLLBACK
+            }
+        );
+    };
+
+  TODO: {
+        local $TODO = "SQLite Sequence Rollback"
+          if ( $handle->dbd eq 'SQLite' );
+
+        $id4 = $db->nextval('testseq');
+        ok $id4 > $id3, "$id4 > $id3 after ROLLBACK";
+    }
+
+    if ( $handle->dbd eq 'SQLite' ) {
+        my $rows =
+          $db->conn->dbh->selectrow_array('SELECT count(seq) from seq.testseq');
+        is $rows, 1, 'SQLite rows deleted';
+    }
 }
 
 done_testing();
