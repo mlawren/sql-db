@@ -8,3 +8,5 @@ MANIFEST.bak
 old
 blib
 .swp$
+SQL-DB.*
+TODO

@@ -1,0 +1,11 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use File::Basename;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+
+use App::sqldb_schema::Dispatcher;
+
+App::sqldb_schema::Dispatcher->run;
+

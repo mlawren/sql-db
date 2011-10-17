@@ -43,6 +43,8 @@ t/lib/test/Deploy/Pg2.pm
 t/lib/test/Deploy/SQLite.pm
 t/lib/test/Deploy/SQLite2.pm
 t/live.t
+t/sqldb-schema
+t/sqldb-schema.t
 xt/package-names.t
 xt/pod-coverage.t
 xt/pod.t

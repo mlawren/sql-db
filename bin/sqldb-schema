@@ -1,8 +1,6 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
-use File::Basename;
-use lib dirname($0) . '/../lib';
 use App::sqldb_schema::Dispatcher;
 
 App::sqldb_schema::Dispatcher->run;
@@ -27,14 +25,13 @@ B<sqldb-schema> is a helper for building L<SQL::DB>-based Perl
 applications. Given a Data Source Name (DSN) (or SQLite filename) and a
 Perl package class, B<sqldb-schema> will connect to the database and
 output a Perl module that can be used by L<SQL::DB::Schema> at runtime.
+Output is printed to STDOUT if OUTFILE is not specified.
 
 Use of B<sqldb-schema> is not necessary for L<SQL::DB> applications,
 but could be an important optimisation to minimize database calls in
 applications with more than a trivial number of tables. This is more
 interesting for remote database engines such as PostgreSQL with a
 higher query latency than for local database engines such as SQLite.
-
-Output is printed to STDOUT if OUTFILE is not specified.
 
 The standard usage scenario is as follows. After any schema change to
 your database you run B<sqldb-schema> and save the output as a Perl
@@ -89,8 +86,7 @@ the L<DBI> "table_info" call. For PostgreSQL databases this defaults to
 
 =head1 SEE ALSO
 
-L<SQL::DB>, L<SQL::DB::Schema>, L<App::sqldb_schema>,
-L<App::Dispatcher::Tutorial>
+L<SQL::DB>, L<SQL::DB::Schema>, L<App::sqldb_schema>
 
 =head1 AUTHOR
 
