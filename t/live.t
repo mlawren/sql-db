@@ -38,6 +38,11 @@ foreach my $handle (@handles) {
 
     my ( $dsn, $user, $pass ) = $handle->connection_info;
 
+    if ( $handle->dbd eq 'SQLite' ) {
+        $handle->driver->drop_database( $handle->name );
+        $handle->driver->drop_database( $handle->name . '.seq' );
+    }
+
     my $db = SQL::DB->new(
         dsn      => $dsn,
         username => $user,

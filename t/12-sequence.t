@@ -47,6 +47,11 @@ foreach my $handle (@handles) {
     $tempdir = tempdir( CLEANUP => 1 );
     chdir $tempdir || die "chdir: $!";
 
+    if ( $handle->dbd eq 'SQLite' ) {
+        $handle->driver->drop_database( $handle->name );
+        $handle->driver->drop_database( $handle->name . '.seq' );
+    }
+
     my ( $dsn, $user, $pass ) = $handle->connection_info;
 
     my $db = SQL::DB->new(
