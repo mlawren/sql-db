@@ -46,8 +46,7 @@ is $srow->name->_btype,     'varchar',     'name is varchar';
 is $srow->dob->_btype,      'timestamp',   'dob is timestamp';
 is $srow->name->_as_string, 'users0.name', 'as string';
 my $sx = $srow->name == 'mark';
-is $sx->_as_string, 'users0.name = ?', $sx->_as_string;
-is_deeply $sx->_btypes, ['varchar'], 'btypes';
+like $sx->_as_string, qr/^users0.name = q{mark}/, $sx->_as_string;
 
 my $urow = $schema->urow('users');
 isa_ok $urow, 'SQL::DB::Schema::test::Urow::users';
@@ -56,8 +55,7 @@ can_ok $urow, 'name', 'dob';
 is $urow->name->_btype,     'varchar',   'name is varchar';
 is $urow->dob->_btype,      'timestamp', 'dob is timestamp';
 is $urow->name->_as_string, 'name',      'as string';
-my $ux = $urow->name == 'mark';
-is $ux->_as_string, 'name = ?', $ux->_as_string;
-is_deeply $ux->_btypes, ['varchar'], 'btypes';
+my $ux = $urow->name == SQL::DB::Expr::_bval('mark');
+like $ux->_as_string, qr/^name = bv{mark}::varchar/, $ux->_as_string;
 
 done_testing;

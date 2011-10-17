@@ -370,6 +370,14 @@ with or used inside other functions.
 
 =over 4
 
+=item bv( $value, [ $bind_type ] ) -> L<SQL::DB::BindValue>
+
+This function returns an object which tells SQL::DB to bind $value
+using a placeholder. The optional $bind_type is a database type
+(integer, varchar, timestamp, bytea, etc) which will be converted to
+the appropriate bind constant during a prepare() or prepare_cached()
+call.
+
 =item query( @query ) -> L<SQL::DB::Expr>
 
 Build an SQL query using a list of scalars, schema objects,

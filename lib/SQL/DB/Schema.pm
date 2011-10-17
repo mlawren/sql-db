@@ -4,7 +4,7 @@ use warnings;
 use Moo;
 use Log::Any qw/$log/;
 use Carp qw/confess/;
-use SQL::DB::Expr;
+use SQL::DB::Expr qw/_quote/;
 use Sub::Install qw/install_sub/;
 use Sub::Exporter -setup => {
     exports => ['load_schema'],
@@ -107,8 +107,6 @@ sub define {
                     as   => '_columns',
                 }
             );
-
-            $log->debug( $package_root . ': ' . $table );
         }
         $tables->{$table}++;
 
@@ -119,6 +117,7 @@ sub define {
               . __PACKAGE__ . '!!!';
         }
 
+        use bytes;
         my $type = lc $colref->[TYPE_NAME];
 
         install_sub(
@@ -126,7 +125,7 @@ sub define {
                 code => sub {
                     my $table_expr = shift;
                     SQL::DB::Expr->new(
-                        _txt   => $table_expr->_alias . '.' . $col,
+                        _txt   => [ $table_expr->_alias . '.' . $col ],
                         _btype => $type,
                     );
                 },
@@ -143,14 +142,14 @@ sub define {
                     if (@_) {
                         my $val = shift;
                         return SQL::DB::Expr->new(
-                            _txt     => $col . ' = ?',
+                            _txt     => [ $col . ' = ', _quote( $val, $type ) ],
                             _btype   => $type,
                             _bvalues => [$val],
                         );
                     }
 
                     return SQL::DB::Expr->new(
-                        _txt   => $col,
+                        _txt   => [$col],
                         _btype => $type,
                     );
                 },
@@ -192,7 +191,7 @@ sub srow {
             confess "Table not defined in schema: $name";
         }
         my $class = $self->_package_root . '::Srow::' . $name;
-        my $srow = $class->new( _txt => $name, _alias => $name );
+        my $srow = $class->new( _txt => [$name], _alias => $name );
         return $srow unless (wantarray);
         push( @ret, $srow );
     }
@@ -208,7 +207,7 @@ sub urow {
             confess "Table not defined in schema: $name";
         }
         my $class = $self->_package_root . '::Urow::' . $name;
-        my $urow = $class->new( _txt => $name );
+        my $urow = $class->new( _txt => [$name] );
         return $urow unless (wantarray);
         push( @ret, $urow );
     }

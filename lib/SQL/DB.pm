@@ -12,9 +12,10 @@ use SQL::DB::Expr qw/:all/;
 use SQL::DB::Iter;
 
 use constant SQL_FUNCTIONS => qw/
-  query
+  bv
   AND
   OR
+  query
   sql_and
   sql_case
   sql_cast
@@ -47,47 +48,27 @@ our $VERSION = '0.97_3';
 
 ### CLASS FUNCTIONS ###
 
-sub query {
-    return $_[0] if ( @_ == 1 and ref $_[0] eq 'SQL::DB::Expr' );
-    my @statements;
-    while ( my ( $keyword, $item ) = splice( @_, 0, 2 ) ) {
-        if ( ref $keyword ) {
-            push( @statements, $keyword . "\n" );
-        }
-        else {
-            ( my $tmp = uc($keyword) ) =~ s/_/ /g;
-            push( @statements, $tmp . "\n" );
-        }
+sub bv { _bval(@_) }
 
-        next unless defined $item;
-        if ( ref $item eq 'ARRAY' ) {
-            push( @statements, '    ', _expr_join( ",\n    ", @$item ), "\n" );
-        }
-        elsif ( ref $item eq 'SCALAR' ) {
-            push( @statements, $$item . "\n" );
-        }
-        else {
-            push( @statements, '    ', $item, "\n" );
-        }
-    }
+sub query { _query(@_) }
 
-    my $e = _expr_join( '', @statements );
-    $e->_txt( $e->_txt . "\n" ) unless ( $e->_txt =~ /\n$/ );
-    return $e;
-}
-
-sub sql_and { _bexpr_join( ' AND ', @_ ) }
+sub sql_and { _expr_join( ' AND ', @_ ) }
 
 sub sql_case {
     @_ || croak 'case([$expr,] when => $expr, then => $val,[else...])';
 
-    my @items = map {
-            ( ref $_ eq '' && $_ =~ m/^((when)|(then)|(else))$/i ) ? uc($_)
-          : looks_like_number($_) ? $_
-          : _bexpr($_)
-    } @_;
+    my $e = SQL::DB::Expr->new( _txt => ["CASE\n"] );
 
-    return _expr_join( ' ', 'CASE', @items, 'END' );
+    while ( my ( $keyword, $item ) = splice( @_, 0, 2 ) ) {
+        $e .= '    ' . uc($keyword) . "\n        ";
+
+        # Need to do this separately because
+        # SQL::DB::Quote doesn't know how to '.='
+        $e .= _quote($item);
+        $e .= "\n";
+    }
+    $e .= '    END';
+    return $e;
 }
 
 sub sql_coalesce { sql_func( 'COALESCE', @_ ) }
@@ -100,22 +81,24 @@ sub sql_concat { _expr_binary( '||', $_[0], $_[1] ) }
 
 sub sql_count {
     my $e = sql_func( 'COUNT', @_ );
-    $e->_btype( { default => SQL_INTEGER } );
+    $e->_btype('integer');
     return $e;
 }
 
-sub sql_exists { 'EXISTS(' . query(@_) . ')' }
+sub sql_exists { 'EXISTS(' . _query(@_) . ')' }
 
 sub sql_func {
     my $func = shift;
-    return $func . '(' . _bexpr_join( ', ', @_ ) . ')';
+    my $e = SQL::DB::Expr->new( _txt => [ $func . '(', ] );
+    $e .= _expr_join( ', ', map { _quote($_) } @_ ) . ')';
+    return $e;
 }
 
 sub sql_length { sql_func( 'LENGTH', @_ ) }
 
 sub sql_lower { sql_func( 'LOWER', @_ ) }
 
-sub sql_or { _bexpr_join( ' OR ', @_ ) }
+sub sql_or { _expr_join( ' OR ', @_ ) }
 
 sub sql_max { sql_func( 'MAX', @_ ) }
 
@@ -127,7 +110,8 @@ sub sql_sum { sql_func( 'SUM', @_ ) }
 
 sub sql_table {
     my $table = shift;
-    return SQL::DB::Expr->new( _txt => $table . '(' . join( ',', @_ ) . ')' );
+    return SQL::DB::Expr->new(
+        _txt => [ $table . '(' . join( ', ', @_ ) . ')' ] );
 }
 
 sub sql_upper { sql_func( 'UPPER', @_ ) }
@@ -196,6 +180,7 @@ around BUILDARGS => sub {
       DBIx::Connector->new( $args{dsn}, $args{username}, $args{password},
         $attr );
 
+    $log->debug( 'Connected to ' . $args{dsn} );
     $args{conn}->mode('fixup');
 
     return $class->$orig(%args);
@@ -226,7 +211,7 @@ sub _load_tables {
     my %seen;
     foreach my $table (@_) {
         next if $seen{$table};
-        $log->debug( 'Attempting to load schema for table: ' . $table );
+        $log->debug( 'Loading table schema: ' . $table );
         my $sth = $self->conn->dbh->column_info( '%', '%', $table, '%' );
         $self->schema->define( $sth->fetchall_arrayref );
         $seen{$table}++;
@@ -266,38 +251,132 @@ sub srow {
 sub _prepare {
     my $self    = shift;
     my $prepare = shift;
-    my $query   = eval { query(@_) };
-
-    if ( !defined $query ) {
-        confess "Bad Query: $@";
-    }
-
-    $log->debug(
-        $self->query_as_string( $query->_as_string, @{ $query->_bvalues } ) );
+    my $query   = _query(@_);
 
     return $self->conn->run(
         sub {
             my $dbh = $_;
+
+            $log->debug( "/* $prepare */\n" . $query->_as_string );
+
+  #                $self->query_as_string( $query->_as_string, @bind_values ) );
+
+            my @bind_values;
+            my @bind_types;
+
+            my $ref = $query->_txt;
+            foreach my $i ( 0 .. $#{$ref} ) {
+                if ( ref $ref->[$i] eq 'SQL::DB::Quote' ) {
+                    if ( looks_like_number( $ref->[$i]->val ) ) {
+                        $ref->[$i] = $ref->[$i]->val;
+                    }
+                    else {
+                        $ref->[$i] = $dbh->quote( $ref->[$i]->val );
+                    }
+                }
+                elsif ( ref $ref->[$i] eq 'SQL::DB::BindValue' ) {
+                    my $val  = $ref->[$i]->val;
+                    my $type = $ref->[$i]->type;
+
+                    # TODO: Ignore everything except binary/bytea?
+                    if ( ref $type eq 'HASH' ) {
+
+                        # pass it straight through
+                    }
+                    elsif ( $type =~ /^bit/ ) {
+                        $type = { TYPE => SQL_BIT };
+                    }
+                    elsif ( $type =~ /^smallint/ ) {
+                        $type = { TYPE => SQL_SMALLINT };
+                    }
+                    elsif ( $type =~ /^numeric/ ) {
+                        $type = { TYPE => SQL_NUMERIC };
+                    }
+                    elsif ( $type =~ /^decimal/ ) {
+                        $type = { TYPE => SQL_DECIMAL };
+                    }
+                    elsif ( $type =~ /^int/ ) {
+                        $type = { TYPE => SQL_INTEGER };
+                    }
+                    elsif ( $type =~ /^bigint/ ) {
+                        $type = { TYPE => SQL_BIGINT };
+                    }
+                    elsif ( $type =~ /^float/ ) {
+                        push( @bind_types, { TYPE => SQL_FLOAT } );
+                    }
+                    elsif ( $type =~ /^real/ ) {
+                        push( @bind_types, { TYPE => SQL_REAL } );
+                    }
+                    elsif ( $type =~ /^double/ ) {
+                        push( @bind_types, { TYPE => SQL_DOUBLE } );
+                    }
+                    elsif ( $type =~ /^char/ ) {
+                        push( @bind_types, { TYPE => SQL_CHAR } );
+                    }
+                    elsif ( $type =~ /^varchar/ ) {
+                        push( @bind_types, { TYPE => SQL_VARCHAR } );
+                    }
+                    elsif ( $type =~ /^datetime/ ) {
+                        push( @bind_types, { TYPE => SQL_DATETIME } );
+                    }
+                    elsif ( $type =~ /^date/ ) {
+                        push( @bind_types, { TYPE => SQL_DATE } );
+                    }
+                    elsif ( $type =~ /^timestamp/ ) {
+                        push( @bind_types, { TYPE => SQL_TIMESTAMP } );
+                    }
+                    elsif ( $type =~ /^interval/ ) {
+                        push( @bind_types, { TYPE => SQL_INTERVAL } );
+                    }
+                    elsif ( $type =~ /^bin/ ) {
+                        $type = { TYPE => SQL_BINARY };
+                    }
+                    elsif ( $type =~ /^varbin/ ) {
+                        $type = { TYPE => SQL_VARBINARY };
+                    }
+                    elsif ( $type =~ /^blob/ ) {
+                        $type = { TYPE => SQL_BLOB };
+                    }
+                    elsif ( $type =~ /^clob/ ) {
+                        $type = { TYPE => SQL_CLOB };
+                    }
+                    elsif ( $type =~ /^bytea/ ) {
+                        $type = { pg_type => eval 'DBD::Pg::PG_BYTEA' };
+                    }
+                    elsif ( looks_like_number($val) ) {
+                        if ( $val =~ /\./ ) {
+                            $type = { TYPE => SQL_FLOAT };
+                        }
+                        else {
+                            $type = { TYPE => SQL_INTEGER };
+                        }
+                    }
+                    else {
+                        $type = { TYPE => SQL_VARCHAR };
+                    }
+
+                    push( @bind_values, $val );
+                    push( @bind_types,  $type );
+                    $ref->[$i] = '?';
+                }
+            }
+
             my $sth = eval { $dbh->$prepare( $query->_as_string ) };
             if ($@) {
                 die 'Error: '
-                  . $self->query_as_string( $query->_as_string,
-                    @{ $query->_bvalues } )
+                  . $self->query_as_string( $query->_as_string, @bind_values )
                   . "\n$@";
             }
 
-            my $i     = 0;
-            my $types = dclone $query->_btypes;
-            foreach my $val ( @{ $query->_bvalues } ) {
+            my $i = 0;
+            foreach my $val (@bind_values) {
                 $i++;
-                my $type = shift @$types;
-                my $btype = eval { $type->{ $self->dbd } || $type->{default} };
-                $sth->bind_param( $i, $val, $btype );
-
-#                $log->debugf('binding param %s %s as type %s', $i, $val, $btype );
+                my $type = shift @bind_types;
+                $log->debugf( 'binding param %s as type %s', $i, $type );
+                $sth->bind_param( $i, $val, $type );
             }
 
-            return ( $sth, $query );
+            return $sth;
         },
     );
 }
@@ -314,20 +393,21 @@ sub prepare_cached {
 
 sub sth {
     my $self = shift;
-    my ( $sth, $query ) =
+    my $sth =
         $self->cache_sth
       ? $self->_prepare( 'prepare_cached', @_ )
       : $self->_prepare( 'prepare',        @_ );
+    my $rv = $sth->execute();
     return $sth;
 }
 
 sub do {
     my $self = shift;
-    my ( $sth, $query ) =
+    my $sth =
         $self->cache_sth
       ? $self->_prepare( 'prepare_cached', @_ )
       : $self->_prepare( 'prepare',        @_ );
-    my $rv = $sth->execute;
+    my $rv = $sth->execute();
     $log->debug( "-- Result:", $rv );
     $sth->finish();
     return $rv;
@@ -335,11 +415,11 @@ sub do {
 
 sub iter {
     my $self = shift;
-    my ( $sth, $query ) =
+    my $sth =
         $self->cache_sth
       ? $self->_prepare( 'prepare_cached', @_ )
       : $self->_prepare( 'prepare',        @_ );
-    my $rv = $sth->execute;
+    my $rv = $sth->execute();
     $log->debug( "-- Result:", $rv );
     return SQL::DB::Iter->new( sth => $sth );
 }

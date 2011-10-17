@@ -35,10 +35,7 @@ used directly.
     new(
         _txt     => $_txt,
         _btype   => $bind_type,
-        _bvalues => [ @_bvalues ],
-        _btypes  => [ @_btypes ],
         _multi   => $_multi,
-        _op      => $op,
     );
 
 =head1 ATTRIBUTES
@@ -55,23 +52,9 @@ methods such as do(), selectall_arrayref(), prepare(), etc.
 The DBD bind_type suitable for passing to a L<DBI> statement-handle
 bind_param() method.
 
-=item _bvalues => ARRAYREF
-
-The values of the expression suitable for passing to a L<DBI>
-statement-handle bind_param() method.
-
-=item _btypes => ARRAYREF
-
-The bind types of the expression _bvalues suitable for passing to a
-L<DBI> statement handle bind_param() method.
-
 =item _multi => Bool
 
 Whether the expression requires surrounding brackets.
-
-=item _op => Scalar
-
-The operator of the expression in the case that it is binary.
 
 =back
 
@@ -91,10 +74,6 @@ Makes a deep copy of the object.
 
 Returns a string representation of the expression, providing
 surrounding brackets for '_multi' expressions.
-
-=item _bvalues_sql
-
-Returns a string representation of the bind values as an SQL comment.
 
 =item _expr_not
 
@@ -196,10 +175,15 @@ The following functions are exported on demand.
 
 =over 4
 
-=item _bexpr( $item [,$bind_type] )
+=item _quote( $value [,$bind_type] ) -> SQL::DB::Quote
 
-Return $item if it is already an expression, or a new SQL::DB::Expr
-object otherwise. The optional $bind_type specifies the DBI bind_type.
+Returns an object which is recognized by L<SQL::DB> as something which
+should be quoted before being prepared.
+
+=item _bval( $value [,$bind_type] ) -> SQL::DB::BindValue
+
+Returns an object which is recognized by L<SQL::DB> as something which
+should be bound (via a placeholder) before being prepared.
 
 =item _expr_binary( $op, $e1, $e2, $swap )
 
@@ -209,12 +193,6 @@ A method for building binary operator expressions.
 
 Does the same as Perl's 'join' built-in. but for SQL::DB::Expr objects.
 See BUGS below for why this is needed.
-
-=item _bexpr_join( $separator, @expressions )
-
-Does the same as Perl's 'join' built-in but for SQL::DB::Expr objects,
-but using _bexpr on each item of @expressions. See BUGS below for why
-this is needed.
 
 =item AND, OR
 

@@ -95,7 +95,7 @@ foreach my $handle (@handles) {
     my $actors = $db->irow('actors');
     ok $db->do(
         insert_into => $actors->(qw/id name/),
-        sql_values( 3, 'Mark3' )
+        sql_values( bv(3), 'Mark3' )
       ),
       'insert';
 
@@ -124,8 +124,8 @@ foreach my $handle (@handles) {
         my $iter = $db->iter(
             select => [ $actors->id, $actors->name ],
             from   => $actors,
-            where  => $actors->id == 1,
-            limit  => 1,
+            where => ( $actors->id == 1 ) . AND . ( $actors->name != 'Julie' ),
+            limit => 1,
         );
 
         isa_ok $iter, 'SQL::DB::Iter';
