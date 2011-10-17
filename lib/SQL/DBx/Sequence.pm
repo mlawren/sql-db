@@ -30,6 +30,14 @@ sub create_sequence {
         $self->conn->dbh->do( 'CREATE TABLE seq.' 
               . $name . ' ('
               . 'seq INTEGER PRIMARY KEY, x INTEGER )' );
+
+        $self->conn->dbh->do( "
+            CREATE TRIGGER seq.ai_$name AFTER INSERT ON $name
+            BEGIN
+                DELETE FROM $name WHERE seq != NEW.seq;
+            END;"
+        );
+
     }
     elsif ( $self->dbd eq 'Pg' ) {
         $self->conn->run(
