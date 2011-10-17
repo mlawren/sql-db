@@ -37,7 +37,7 @@ use overload
   fallback => 1,
   ;
 
-our $VERSION = '0.19_9';
+our $VERSION = '0.19_10';
 our $tcount  = {};
 
 has '_txt' => (

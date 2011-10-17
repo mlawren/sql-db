@@ -5,7 +5,7 @@ SQL::DBx::Deploy - Deployment support for SQL::DB
 
 =head1 VERSION
 
-0.19_9. Development release.
+0.19_10. Development release.
 
 =head1 SYNOPSIS
 

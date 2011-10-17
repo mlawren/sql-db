@@ -14,7 +14,7 @@ use Sub::Exporter -setup => {
     },
 };
 
-our $VERSION = '0.19_9';
+our $VERSION = '0.19_10';
 my %schema;
 
 # Ordinals for DBI->column_info() results

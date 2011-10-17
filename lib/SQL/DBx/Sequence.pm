@@ -5,7 +5,7 @@ use Moo::Role;
 use Log::Any qw/$log/;
 use Carp qw/croak carp confess/;
 
-our $VERSION = '0.19_9';
+our $VERSION = '0.19_10';
 
 after BUILD => sub {
     my $self = shift;
