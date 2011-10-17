@@ -64,26 +64,26 @@ foreach my $handle (@handles) {
     my $prev_id;
 
     $prev_id = $db->last_deploy_id('test');
-    ok $prev_id == 0, 'Nothing deployed yet: ' . $prev_id;
+    is $prev_id, 0, 'Nothing deployed yet: ' . $prev_id;
 
     $ret = $db->deploy('test');
-    ok $ret == 3, 'deployed to ' . $ret;
+    is $ret, 3, 'deployed to ' . $ret;
 
     $prev_id = $db->last_deploy_id('test');
-    ok $prev_id == 3, 'last id check';
+    is $prev_id, 3, 'last id check';
 
     $ret = $db->deploy('test');
-    ok $ret == 3, 'still deployed to ' . $ret;
+    is $ret, 3, 'still deployed to ' . $ret;
 
     $prev_id = $db->last_deploy_id('test');
-    ok $prev_id == 3, 'still last id check';
+    is $prev_id, 3, 'still last id check';
 
     # This is a fake increment of the __DATA__ section
     require test::Deploy::SQLite2 if ( $dsn =~ /:SQLite:/ );
     require test::Deploy::Pg2     if ( $dsn =~ /:Pg:/ );
 
     $ret = $db->deploy('test');
-    ok $ret == 4, 'upgraded to ' . $ret;
+    is $ret, 4, 'upgraded to ' . $ret;
 
     ok $db->do(
         insert_into => \'actors(id,name)',
