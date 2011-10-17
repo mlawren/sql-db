@@ -26,21 +26,6 @@ if ( !@handles ) {
     plan skip_all => "No database handles to test with";
 }
 
-my $deploy = {
-    SQLite => [
-        { 'sql'  => 'create table test (id integer, name varchar)' },
-        { 'perl' => '1' },
-    ],
-    Pg => [
-        { 'sql'  => 'create table test (id integer, name varchar)' },
-        { 'perl' => '2' },
-    ],
-    mysql => [
-        { 'sql'  => 'create table test (id integer, name varchar)' },
-        { 'perl' => '3' },
-    ],
-};
-
 my $tempdir;
 foreach my $handle (@handles) {
     chdir $cwd || die "chdir: $!";
