@@ -5,7 +5,7 @@ SQL::DB::Iter - SQL::DB database iterator
 
 =head1 VERSION
 
-0.97_3. Development release.
+0.19_8. Development release.
 
 =head1 SYNOPSIS
 

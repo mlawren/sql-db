@@ -5,7 +5,7 @@ SQL::DBx::Sequence - SQL::DB Role for sequence support
 
 =head1 VERSION
 
-0.97_3. Development release.
+0.19_8. Development release.
 
 =head1 SYNOPSIS
 
@@ -19,8 +19,8 @@ SQL::DBx::Sequence - SQL::DB Role for sequence support
 
 =head1 DESCRIPTION
 
-B<SQL::DBx::Sequence> is a Role class providing SQL sequence support for
-L<SQL::DB>.
+B<SQL::DBx::Sequence> is a Role class providing SQL sequence support
+for L<SQL::DB>.
 
 =head1 METHODS
 

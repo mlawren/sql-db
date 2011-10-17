@@ -7,7 +7,7 @@ use Carp qw/croak/;
 use SQL::DB::Expr qw/_expr_join/;
 use SQL::DB qw/sql_table sql_values/;
 
-our $VERSION = '0.97_3';
+our $VERSION = '0.19_8';
 
 # $db->insert_into('customers',
 #     values => {cid => 1, name => 'Mark'}
@@ -26,10 +26,12 @@ sub insert {
 
     @cols || croak 'insert_into requires columns/values';
 
-    my $ret = eval { $self->do(
-        insert_into => sql_table( $table, @cols ),
-        sql_values(@vals),
-    ) };
+    my $ret = eval {
+        $self->do(
+            insert_into => sql_table( $table, @cols ),
+            sql_values(@vals),
+        );
+    };
 
     if ($@) {
         croak $@;

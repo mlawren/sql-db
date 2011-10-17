@@ -7,7 +7,7 @@ use Carp qw/croak carp confess/;
 use YAML;
 use constant DEPLOY_TABLE => '_deploy';
 
-our $VERSION = '0.97_3';
+our $VERSION = '0.19_8';
 
 sub last_deploy_id {
     my $self = shift;
