@@ -5,7 +5,7 @@ SQL::DB::Schema - Table and column definitions for SQL::DB
 
 =head1 VERSION
 
-0.19_8. Development release.
+0.19_9. Development release.
 
 =head1 SYNOPSIS
 

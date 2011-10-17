@@ -5,7 +5,7 @@ App::sqldb_schema - generate a SQL::DB schema from a database
 
 =head1 VERSION
 
-0.19_8. Development release.
+0.19_9. Development release.
 
 =head1 DESCRIPTION
 
