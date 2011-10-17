@@ -15,12 +15,12 @@ requires 'Sub::Install'    => 0.04;
 requires 'Sub::Exporter'   => 0.04;
 requires 'DBIx::Connector' => 0;
 
-build_requires 'File::Temp'        => 0;
-build_requires 'Test::More'        => 0;
-build_requires 'Test::Database'    => 0;
-build_requires 'Test::Differences' => 0;
-build_requires 'DBD::SQLite'       => '1.26';
-build_requires 'FindBin'           => 0;
+test_requires 'File::Temp'        => 0;
+test_requires 'Test::More'        => 0;
+test_requires 'Test::Database'    => 0;
+test_requires 'Test::Differences' => 0;
+test_requires 'DBD::SQLite'       => '1.26';
+test_requires 'FindBin'           => 0;
 
 feature 'sqldb-schema',
   -default       => 1,
