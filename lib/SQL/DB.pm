@@ -376,38 +376,46 @@ sub _prepare {
                 $sth->bind_param( $i, $val, $type );
             }
 
-            return $sth;
+            return ( $query, $sth );
         },
     );
 }
 
 sub prepare {
     my $self = shift;
-    return $self->_prepare( 'prepare', @_ );
+    my ( $query, $sth ) = $self->_prepare( 'prepare', @_ );
+    return $sth;
 }
 
 sub prepare_cached {
     my $self = shift;
-    return $self->_prepare( 'prepare_cached', @_ );
+    my ( $query, $sth ) = $self->_prepare( 'prepare_cached', @_ );
+    return $sth;
 }
 
 sub sth {
     my $self = shift;
-    my $sth =
+    my ( $query, $sth ) =
         $self->cache_sth
       ? $self->_prepare( 'prepare_cached', @_ )
       : $self->_prepare( 'prepare',        @_ );
-    my $rv = $sth->execute();
+    my $rv = eval { $sth->execute() };
+    if ($@) {
+        die 'Error: ' . $query->_as_string . "\n$@";
+    }
     return $sth;
 }
 
 sub do {
     my $self = shift;
-    my $sth =
+    my ( $query, $sth ) =
         $self->cache_sth
       ? $self->_prepare( 'prepare_cached', @_ )
       : $self->_prepare( 'prepare',        @_ );
-    my $rv = $sth->execute();
+    my $rv = eval { $sth->execute() };
+    if ($@) {
+        die 'Error: ' . $query->_as_string . "\n$@";
+    }
     $log->debug( "-- Result:", $rv );
     $sth->finish();
     return $rv;
@@ -415,11 +423,14 @@ sub do {
 
 sub iter {
     my $self = shift;
-    my $sth =
+    my ( $query, $sth ) =
         $self->cache_sth
       ? $self->_prepare( 'prepare_cached', @_ )
       : $self->_prepare( 'prepare',        @_ );
-    my $rv = $sth->execute();
+    my $rv = eval { $sth->execute() };
+    if ($@) {
+        die 'Error: ' . $query->_as_string . "\n$@";
+    }
     $log->debug( "-- Result:", $rv );
     return SQL::DB::Iter->new( sth => $sth );
 }
