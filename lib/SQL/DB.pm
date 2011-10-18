@@ -148,8 +148,9 @@ around BUILDARGS => sub {
         $args{schema} = load_schema($sname);
     }
     else {
-        ( my $sname = "$args{dsn}" ) =~ s/[^a-zA-Z]/_/g;
-        $args{schema} = SQL::DB::Schema->new( name => $sname );
+
+        # auto-generate the name in a semi-random way
+        $args{schema} = SQL::DB::Schema->new( name => \%args . $args{dsn} );
     }
 
     my $attr = {
