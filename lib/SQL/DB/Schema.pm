@@ -91,7 +91,7 @@ sub define {
                 {
                     code => sub {
                         my $table_expr = shift;
-                        return '*';
+                        return $table_expr . '.*';
                     },
                     into => $urow,
                     as   => '_columns',
@@ -101,7 +101,8 @@ sub define {
                 {
                     code => sub {
                         my $table_expr = shift;
-                        return '*';
+                        return SQL::DB::Expr->new(
+                            _txt => [ $table_expr->_alias . '.*' ] );
                     },
                     into => $srow,
                     as   => '_columns',
