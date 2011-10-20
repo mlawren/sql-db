@@ -29,6 +29,7 @@ use constant SQL_FUNCTIONS => qw/
   sql_max
   sql_min
   sql_or
+  sql_replace
   sql_substr
   sql_sum
   sql_table
@@ -99,6 +100,8 @@ sub sql_length { sql_func( 'LENGTH', @_ ) }
 sub sql_lower { sql_func( 'LOWER', @_ ) }
 
 sub sql_or { _expr_join( ' OR ', @_ ) }
+
+sub sql_replace { sql_func( 'REPLACE', @_ ) }
 
 sub sql_max { sql_func( 'MAX', @_ ) }
 

@@ -451,6 +451,10 @@ Maps to "MIN(@args)".
 
 Maps to "$arg1 OR $arg2 OR ...".
 
+=item sql_replace(@args) -> L<SQL::DB::Expr>
+
+Maps to "REPLACE($arg1,$arg2 [,$arg3])".
+
 =item sql_substr(@args) -> L<SQL::DB::Expr>
 
 Maps to "SUBSTR($arg1, $arg2, ...)".
