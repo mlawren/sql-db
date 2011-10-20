@@ -78,7 +78,9 @@ sub sql_cast {
     return _expr_join( ' ', 'CAST(', $_[0], 'AS', $_[2], ')' );
 }
 
-sub sql_concat { _expr_binary( '||', $_[0], $_[1] ) }
+sub sql_concat {
+    _expr_join( ' || ', map { _quote($_) } @_ );
+}
 
 sub sql_count {
     my $e = sql_func( 'COUNT', @_ );
