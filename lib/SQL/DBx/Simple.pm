@@ -61,17 +61,17 @@ sub update {
         return 0;
     }
 
-    my $expr = SQL::DB::_expr_join(
-        ' AND ',
-        map    { $urow->$_ == $where->{$_} }
-          grep { $urow->can($_) } keys %$where
-    );
+    my $expr;
+    if ( my @keys = keys %$where ) {
+        $expr =
+          _expr_join( ' AND ',
+            map { $urow->$_ == $where->{$_} } grep { $urow->can($_) } @keys );
+    }
 
-    $expr || croak 'update requires a valid where clause';
     return $self->do(
         update => $urow,
         set    => \@updates,
-        where  => $expr,
+        $expr ? ( where => $expr ) : (),
     );
 }
 
@@ -87,8 +87,11 @@ sub delete {
     my $where = shift;
 
     my $urow = $self->urow($table);
-    my $expr =
-      _expr_join( ' AND ', map { $urow->$_ == $where->{$_} } keys %$where );
+
+    my $expr;
+    if ( my @keys = keys %$where ) {
+        $expr = _expr_join( ' AND ', map { $urow->$_ == $where->{$_} } @keys );
+    }
 
     return $self->do(
         delete_from => $urow,
@@ -113,9 +116,10 @@ sub select {
 
     @columns || croak 'select requires columns';
 
-    my $expr =
-      SQL::DB::_expr_join( ' AND ',
-        map { $srow->$_ == $where->{$_} } keys %$where );
+    my $expr;
+    if ( my @keys = keys %$where ) {
+        $expr = _expr_join( ' AND ', map { $srow->$_ == $where->{$_} } @keys );
+    }
 
     return $self->fetch(
         select => \@columns,
