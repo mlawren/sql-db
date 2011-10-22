@@ -435,6 +435,10 @@ Maps to "LENGTH(@args)".
 
 Maps to "LOWER(@args)".
 
+=item sql_ltrim(@args) -> L<SQL::DB::Expr>
+
+Maps to "LTRIM(@args)".
+
 =item sql_max(@args) -> L<SQL::DB::Expr>
 
 Maps to "MAX(@args)".
@@ -442,6 +446,10 @@ Maps to "MAX(@args)".
 =item sql_min(@args) -> L<SQL::DB::Expr>
 
 Maps to "MIN(@args)".
+
+=item sql_rtrim(@args) -> L<SQL::DB::Expr>
+
+Maps to "RTRIM(@args)".
 
 =item sql_sum(@args) -> L<SQL::DB::Expr>
 
