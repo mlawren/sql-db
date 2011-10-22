@@ -405,12 +405,10 @@ sub _bval {
 }
 
 sub _expr_join {
-    my $sep = shift;
-    return '' unless @_;
-    return $_[0] if @_ == 1;
-
+    my $sep  = shift;
     my $last = pop @_;
-    my $e    = SQL::DB::Expr->new(
+
+    my $e = SQL::DB::Expr->new(
         _txt => [
             (
                 map {
