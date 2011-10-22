@@ -92,7 +92,7 @@ sub _as_string {
     my $self     = shift;
     my $internal = shift;
 
-    return join( '', $self->_txts );
+    return join( '', map { defined $_ ? $_ : '*UNDEF*' } $self->_txts );
 }
 
 # A true internal function - don't use outside this package
