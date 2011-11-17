@@ -65,6 +65,16 @@ retrieved from other lexical scopes using the "load_schema" function.
 
 =back
 
+=head1 ATTRIBUTES
+
+=over 4
+
+=item name
+
+The name of the schema as given to the constructor.
+
+=back
+
 =head1 METHODS
 
 =over 4
