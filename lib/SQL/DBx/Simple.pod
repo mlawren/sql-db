@@ -5,7 +5,7 @@ SQL::DBx::Simple - Simple CRUD extension for SQL::DB
 
 =head1 VERSION
 
-0.19_10. Development release.
+0.19_11. Development release.
 
 =head1 SYNOPSIS
 
