@@ -5,20 +5,20 @@ use Moo::Role;
 use Log::Any qw/$log/;
 use Carp qw/croak carp confess/;
 use YAML;
-use constant DEPLOY_TABLE => '_deploy';
 
-our $VERSION = '0.19_11';
+our $VERSION      = '0.19_11';
+our $DEPLOY_TABLE = '_deploy';
 
 sub last_deploy_id {
     my $self = shift;
     my $app  = shift || croak 'deploy_id($app)';
     my $dbh  = $self->conn->dbh;
 
-    my $sth = $dbh->table_info( '%', '%', DEPLOY_TABLE );
+    my $sth = $dbh->table_info( '%', '%', $DEPLOY_TABLE );
     return 0 unless ( @{ $sth->fetchall_arrayref } );
 
     return $dbh->selectrow_array(
-        'SELECT count(id) FROM ' . DEPLOY_TABLE . ' WHERE app=?',
+        'SELECT seq FROM ' . $DEPLOY_TABLE . ' WHERE app=?',
         undef, $app );
 }
 
@@ -43,20 +43,42 @@ sub deploy {
         sub {
             my $dbh = $_;
 
-            my $sth = $dbh->table_info( '%', '%', DEPLOY_TABLE );
+            my $sth = $dbh->table_info( '%', '%', $DEPLOY_TABLE );
             my $_deploy = $dbh->selectall_arrayref($sth);
 
             unless (@$_deploy) {
-                $log->debug( 'Create table ' . DEPLOY_TABLE );
-                $dbh->do( '
-            CREATE TABLE ' . DEPLOY_TABLE . ' (
-                id INTEGER,
-                app VARCHAR(40) NOT NULL,
+                $log->debug( 'Create table ' . $DEPLOY_TABLE );
+                $dbh->do( "
+            CREATE TABLE $DEPLOY_TABLE (
+                app VARCHAR(40) NOT NULL PRIMARY KEY,
+                seq INTEGER NOT NULL DEFAULT 0,
                 ctime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 type VARCHAR(20),
-                data VARCHAR,
-                PRIMARY KEY (id,app)
-            )' );
+                data VARCHAR
+            )" );
+                $dbh->do( "
+CREATE TRIGGER au_$DEPLOY_TABLE AFTER UPDATE ON $DEPLOY_TABLE
+FOR EACH ROW
+BEGIN
+    UPDATE
+        $DEPLOY_TABLE
+    SET
+        seq = seq + 1
+    WHERE
+        app = OLD.app
+    ;
+END" );
+            }
+
+            my @current = $dbh->selectrow_array(
+                'SELECT COUNT(app) from ' . $DEPLOY_TABLE . ' WHERE app=?',
+                undef, $app );
+
+            unless ( $current[0] ) {
+                $dbh->do( '
+                    INSERT INTO ' . $DEPLOY_TABLE . '(app)
+                    VALUES(?)
+                ', undef, $app );
             }
 
             my $latest_change_id = $self->last_deploy_id($app);
@@ -75,24 +97,32 @@ sub deploy {
                     $log->debug( $cmd->{sql} );
                     eval { $dbh->do( $cmd->{sql} ) };
                     die $cmd->{sql} . $@ if $@;
-                    $dbh->do(
-                        'INSERT INTO '
-                          . DEPLOY_TABLE
-                          . '(id,app,type,data) VALUES(?,?,?,?)',
-                        undef, $count, $app, 'sql', $cmd->{sql}
-                    );
+                    $dbh->do( "
+UPDATE 
+    $DEPLOY_TABLE
+SET
+    type = ?,
+    data = ?
+WHERE
+    app = ?
+",
+                        undef, 'sql', $cmd->{sql}, $app );
                 }
 
                 if ( exists $cmd->{perl} ) {
                     $log->debug( $cmd->{perl} );
                     eval "$cmd->{perl}";
                     die $cmd->{perl} . $@ if $@;
-                    $dbh->do(
-                        'INSERT INTO '
-                          . DEPLOY_TABLE
-                          . '(id,app,type,data) VALUES(?,?,?,?)',
-                        undef, $count, $app, 'perl', $cmd->{perl}
-                    );
+                    $dbh->do( "
+UPDATE 
+    $DEPLOY_TABLE
+SET
+    type = ?,
+    data = ?
+WHERE
+    app = ?
+",
+                        undef, 'sql', $cmd->{perl}, $app );
                 }
             }
             $log->debug( 'Deployed to Change ID:', $count );

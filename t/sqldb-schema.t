@@ -40,7 +40,7 @@ foreach my $handle (@handles) {
     eval { $db->conn->dbh->do('DROP TABLE actors'); };
     eval { $db->conn->dbh->do('DROP TABLE films'); };
     eval {
-        $db->conn->dbh->do( 'DROP TABLE ' . SQL::DBx::Deploy::DEPLOY_TABLE );
+        $db->conn->dbh->do( 'DROP TABLE ' . $SQL::DBx::Deploy::DEPLOY_TABLE );
     };
     eval { $db->conn->dbh->do('DROP SEQUENCE seq_test'); };
 
