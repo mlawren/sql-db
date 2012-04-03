@@ -44,7 +44,7 @@ foreach my $handle (@handles) {
     };
     eval { $db->conn->dbh->do('DROP SEQUENCE seq_test'); };
 
-    $db->deploy('test');
+    $db->deploy('test::Deploy');
 
     my $pkg  = "test::Schema::" . $handle->dbd;
     my $file = "$FindBin::RealBin/lib/test/Schema/" . $handle->dbd . '.pm';

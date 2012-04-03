@@ -63,26 +63,26 @@ foreach my $handle (@handles) {
     my $ret;
     my $prev_id;
 
-    $prev_id = $db->last_deploy_id('test');
+    $prev_id = $db->last_deploy_id('test::Deploy');
     is $prev_id, 0, 'Nothing deployed yet: ' . $prev_id;
 
-    $ret = $db->deploy('test');
+    $ret = $db->deploy('test::Deploy');
     is $ret, 3, 'deployed to ' . $ret;
 
-    $prev_id = $db->last_deploy_id('test');
+    $prev_id = $db->last_deploy_id('test::Deploy');
     is $prev_id, 3, 'last id check';
 
-    $ret = $db->deploy('test');
+    $ret = $db->deploy('test::Deploy');
     is $ret, 3, 'still deployed to ' . $ret;
 
-    $prev_id = $db->last_deploy_id('test');
+    $prev_id = $db->last_deploy_id('test::Deploy');
     is $prev_id, 3, 'still last id check';
 
     # This is a fake increment of the __DATA__ section
     require test::Deploy::SQLite2 if ( $dsn =~ /:SQLite:/ );
     require test::Deploy::Pg2     if ( $dsn =~ /:Pg:/ );
 
-    $ret = $db->deploy('test');
+    $ret = $db->deploy('test::Deploy');
     is $ret, 4, 'upgraded to ' . $ret;
 
     ok $db->do(

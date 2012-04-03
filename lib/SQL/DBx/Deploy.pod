@@ -44,11 +44,11 @@ SQL::DBx::Deploy - Deployment support for SQL::DB
 
     my $db = SQL::DB->connect('dbi:SQLite:dbname=test');
 
-    # The '::Deploy::SQLite' part is auto appended
-    $db->deploy('MyApp');
+    # The '::SQLite' part is auto appended
+    $db->deploy('MyApp::Deploy');
 
     # Multiple calls are safe
-    $db->deploy('MyApp');
+    $db->deploy('MyApp::Deploy');
 
 =head1 DESCRIPTION
 

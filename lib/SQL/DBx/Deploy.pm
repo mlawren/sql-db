@@ -26,7 +26,7 @@ sub deploy {
     my $self = shift;
     my $app = shift || confess 'usage: deploy($app)';
 
-    my $class = $app . '::Deploy::' . $self->dbd;
+    my $class = $app . '::' . $self->dbd;
     eval "require $class;";
     confess $@ if $@;
 
