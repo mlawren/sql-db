@@ -18,7 +18,7 @@ sub last_deploy_id {
     return 0 unless ( @{ $sth->fetchall_arrayref } );
 
     return $dbh->selectrow_array(
-        'SELECT seq FROM ' . $DEPLOY_TABLE . ' WHERE app=?',
+        'SELECT COALESCE(MAX(seq),0) FROM ' . $DEPLOY_TABLE . ' WHERE app=?',
         undef, $app );
 }
 

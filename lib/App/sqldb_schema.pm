@@ -102,9 +102,9 @@ $opt->{package} - An SQL::DB::Schema definition
     use SQL::DB; # or anything that extends SQL::DB
 
     my \$db = SQL::DB->connect(
-        dsn      => \$dsn,
-        username => \$username,
-        password => \$password,
+        dsn      => 'dbi:$driver:...',
+        username => 'username',
+        password => 'password',
         schema   => '$shortpkg',
     );
 
