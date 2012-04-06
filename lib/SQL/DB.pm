@@ -53,7 +53,10 @@ our $VERSION = '0.19_11';
 
 sub bv { _bval(@_) }
 
-sub query { _query(@_) }
+sub query {
+    confess 'query is not a method' if eval { $_[0]->isa('SQL::DB') };
+    return _query(@_);
+}
 
 sub sql_and { _expr_join( ' AND ', @_ ) }
 
