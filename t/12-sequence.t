@@ -34,7 +34,6 @@ foreach my $handle (@handles) {
 
     if ( $handle->dbd eq 'SQLite' ) {
         $handle->driver->drop_database( $handle->name );
-        $handle->driver->drop_database( $handle->name . '.seq' );
     }
 
     my ( $dsn, $user, $pass ) = $handle->connection_info;
@@ -47,9 +46,21 @@ foreach my $handle (@handles) {
 
     eval { $db->conn->dbh->do('DROP SEQUENCE seq_testseq'); };
 
+    eval { $db->conn->dbh->selectrow_array("SELECT nextval('testseq')") };
+    ok $@, 'exception on no sequences func';
+
+    eval { $db->nextval('testseq') };
+    ok $@, 'exception on no sequences method' . $@;
+
     $db->create_sequence('testseq');
 
-    my ( $id1, $id2, $id3, $id4 );
+    eval { $db->conn->dbh->selectrow_array("SELECT nextval('JUNK')") };
+    ok $@, 'exception on non-existent func';
+
+    eval { $db->nextval('JUNK') };
+    ok $@, 'exception on non-existent method' . $@;
+
+    my ( $id1, $id2, $id3, $id4, $id5 );
 
     $id1 = $db->nextval('testseq');
     ok $id1, 'nextval:' . $id1;
@@ -57,28 +68,14 @@ foreach my $handle (@handles) {
     $id2 = $db->nextval('testseq');
     ok $id2 > $id1, "$id2 > $id1";
 
-    eval {
-        $db->txn(
-            sub {
-                $id3 = $db->nextval('testseq');
-                die;    # Force a ROLLBACK
-            }
-        );
-    };
+    $id3 = ( $db->conn->dbh->selectrow_array("SELECT nextval('testseq')") )[0];
+    ok $id3 > $id2, "$id3 > $id2 for nextval builtin";
 
-  TODO: {
-        local $TODO = "SQLite Sequence Rollback"
-          if ( $handle->dbd eq 'SQLite' );
+    $id4 = ( $db->conn->dbh->selectrow_array("SELECT currval('testseq')") )[0];
+    ok $id4 == $id3, "$id4 == $id3 for currval builtin";
 
-        $id4 = $db->nextval('testseq');
-        ok $id4 > $id3, "$id4 > $id3 after ROLLBACK";
-    }
-
-    if ( $handle->dbd eq 'SQLite' ) {
-        my $rows =
-          $db->conn->dbh->selectrow_array('SELECT count(seq) from seq.testseq');
-        is $rows, 1, 'SQLite rows deleted';
-    }
+    $id5 = ( $db->currval('testseq') )[0];
+    ok $id4 == $id5, "$id4 == $id3 for currval";
 }
 
 done_testing();

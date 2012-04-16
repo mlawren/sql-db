@@ -19,8 +19,28 @@ SQL::DBx::Sequence - SQL::DB Role for sequence support
 
 =head1 DESCRIPTION
 
-B<SQL::DBx::Sequence> is a Role class providing SQL sequence support
-for L<SQL::DB>.
+B<SQL::DBx::Sequence> is a role adding I<simple> SQL sequence support
+to L<SQL::DB>.  Sequences are emulated on SQLite, used directly for
+PostgreSQL, and are unsupported for everything else.
+
+This module may be beneficial for two reasons:
+
+=over
+
+=item SQLite user-defined functions
+
+As well as the extra methods composed into L<SQL::DB>, this role also
+adds nextval() and currval() functions to the SQL understood by SQLite.
+This means you can use them in trigger statements.
+
+=item A common API
+
+If you deploy your application to SQLite and PostgreSQL you can use the
+same sequence API across both, avoiding if/else branching in your code.
+
+=back
+
+All methods raise an exception on error.
 
 =head1 METHODS
 
@@ -28,18 +48,25 @@ for L<SQL::DB>.
 
 =item create_sequence( $name )
 
-Creates a sequence in the database. Takes the same arguments as
-Sequences are emulated on SQLite, used directly for PostgreSQL, and are
-unsupported for everything else.
-
-    $db->create_sequence( 'myseq' );
+Create a sequence in the database with name $name. An "INTEGER PRIMARY
+KEY AUTOINCREMENT" column in SQLite will automatically create a
+sequence named after the containing table. Likewise PostgreSQL
+automatically creates sequences named 'table_column_seq' for SERIAL
+column types.
 
 =item nextval( $name ) -> Int
 
-Advance the sequence to its next value and return that value. If $count
-is specified then a array of $count values are returned and the
-sequence incremented appropriately.  Sequences are emulated on SQLite,
-used directly for PostgreSQL, and are unsupported for everything else.
+Advance the sequence to its next value and return that value.
+
+=item currval( $name ) -> Int
+
+Return the current value of the sequence.
+
+=begin comment
+
+If $count is specified then a array of $count values are returned and
+the sequence incremented appropriately.
+
 
 =item setval( $name, $value )
 
@@ -48,6 +75,8 @@ Unimplemented.
 =item drop_sequence( $name )
 
 Unimplemented.
+
+=end comment
 
 =back
 
