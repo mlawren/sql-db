@@ -272,10 +272,6 @@ sub _prepare {
         sub {
             my $dbh = $_;
 
-            $log->debug( "/* $prepare */\n" . $query->_as_string );
-
-  #                $self->query_as_string( $query->_as_string, @bind_values ) );
-
             my @bind_values;
             my @bind_types;
 
@@ -382,6 +378,10 @@ sub _prepare {
                   . $self->query_as_string( $query->_as_string, @bind_values )
                   . "\n$@";
             }
+
+            $log->debug( "/* $prepare */\n"
+                  . $self->query_as_string( $query->_as_string, @bind_values )
+            );
 
             my $i = 0;
             foreach my $val (@bind_values) {
