@@ -471,7 +471,7 @@ sub current_timestamp {
     my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) = gmtime;
     $mon  += 1;
     $year += 1900;
-    return sprintf( '%04d-%02d-%02d %02d:%02d:%02d',
+    return sprintf( '%04d-%02d-%02d %02d:%02d:%02dZ',
         $year, $mon, $mday, $hour, $min, $sec );
 }
 

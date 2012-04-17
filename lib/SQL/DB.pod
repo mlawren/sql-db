@@ -353,7 +353,7 @@ is rolled back. See L<DBIx::Connector> for details.
 =item current_timestamp -> Str
 
 Returns the current UTC timestamp as a string in the form 'yyyy-mm-dd
-hh:mm:ss'.  The returned value remains constant during a transaction.
+hh:mm:ssZ'. The same value is always returned during a transaction.
 
 =item query_as_string($sql, @bind_values) -> Str
 
