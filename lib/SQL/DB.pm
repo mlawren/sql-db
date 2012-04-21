@@ -24,6 +24,7 @@ use constant SQL_FUNCTIONS => qw/
   sql_count
   sql_exists
   sql_func
+  sql_hex
   sql_length
   sql_lower
   sql_ltrim
@@ -101,6 +102,8 @@ sub sql_func {
     $e .= _expr_join( ', ', map { _quote($_) } @_ ) . ')';
     return $e;
 }
+
+sub sql_hex { sql_func( 'HEX', @_ ) }
 
 sub sql_length { sql_func( 'LENGTH', @_ ) }
 

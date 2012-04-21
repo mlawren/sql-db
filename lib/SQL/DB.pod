@@ -427,6 +427,10 @@ Maps to "EXISTS(@args)".
 
 Maps to "MYFUNC($arg1, $arg2, ...)".
 
+=item sql_hex(@args) -> L<SQL::DB::Expr>
+
+Maps to "HEX($arg1, $arg2, ...)".
+
 =item sql_length(@args) -> L<SQL::DB::Expr>
 
 Maps to "LENGTH(@args)".
