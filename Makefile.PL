@@ -19,7 +19,7 @@ test_requires 'File::Temp'        => 0;
 test_requires 'Test::More'        => 0;
 test_requires 'Test::Database'    => 1.11;
 test_requires 'Test::Differences' => 0;
-test_requires 'DBD::SQLite'       => '1.26';
+test_requires 'DBD::SQLite'       => '1.35';
 test_requires 'FindBin'           => 0;
 
 feature 'sqldb-schema',
