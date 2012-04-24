@@ -76,6 +76,12 @@ sub create_sequence {
                   . 'Ekag4iiB(x integer primary key autoincrement)' );
             $dbh->do('DROP TABLE IF EXISTS Ekag4iiB');
         }
+
+        # the sqlite_sequence table doesn't have any constraints so it
+        # would be possible to insert the same sequence twice. Check if
+        # one already exists
+        my $val = ( $dbh->selectrow_array( $seq_get, undef, $name ) )[0];
+        $val && croak "create_sequence: sequence already exists: $name";
         $dbh->do( 'INSERT INTO sqlite_sequence(name,seq) VALUES(?,?)',
             undef, $name, 0 );
     }
