@@ -10,3 +10,4 @@ blib
 .swp$
 SQL-DB.*
 TODO
+xt/
