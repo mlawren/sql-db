@@ -8,6 +8,7 @@ if ( eval { require App::Dispatcher } ) {
 name 'SQL-DB';
 license 'GPL';
 all_from 'lib/SQL/DB.pm';
+readme_from 'lib/SQL/DB.pod';
 
 requires 'Moo'             => '0.009011';
 requires 'Log::Any'        => 0;
