@@ -42,20 +42,20 @@ my $srow = $schema->srow('users');
 isa_ok $srow, 'SQL::DB::Schema::test::Srow::users';
 isa_ok $srow, 'SQL::DB::Expr';
 can_ok $srow, 'name', 'dob';
-is $srow->name->_btype,     'varchar',     'name is varchar';
-is $srow->dob->_btype,      'timestamp',   'dob is timestamp';
+is $srow->name->_type,      'varchar',     'name is varchar';
+is $srow->dob->_type,       'timestamp',   'dob is timestamp';
 is $srow->name->_as_string, 'users0.name', 'as string';
 my $sx = $srow->name == 'mark';
-like $sx->_as_string, qr/^users0.name = q{mark}/, $sx->_as_string;
+like $sx->_as_string, qr/^users0.name = bv{mark}::varchar/, $sx->_as_string;
 
 my $urow = $schema->urow('users');
 isa_ok $urow, 'SQL::DB::Schema::test::Urow::users';
 isa_ok $urow, 'SQL::DB::Expr';
 can_ok $urow, 'name', 'dob';
-is $urow->name->_btype,     'varchar',   'name is varchar';
-is $urow->dob->_btype,      'timestamp', 'dob is timestamp';
+is $urow->name->_type,      'varchar',   'name is varchar';
+is $urow->dob->_type,       'timestamp', 'dob is timestamp';
 is $urow->name->_as_string, 'name',      'as string';
-my $ux = $urow->name == SQL::DB::Expr::_bval('mark');
+my $ux = $urow->name == 'mark';
 like $ux->_as_string, qr/^name = bv{mark}::varchar/, $ux->_as_string;
 
 done_testing;

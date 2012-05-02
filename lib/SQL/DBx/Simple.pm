@@ -3,8 +3,8 @@ use strict;
 use warnings;
 use Moo::Role;
 use Log::Any qw/$log/;
-use Carp qw/croak/;
-use SQL::DB::Expr qw/_expr_join/;
+use Carp qw/confess/;
+use SQL::DB::Expr qw/_expr_join _bval/;
 use SQL::DB qw/sql_table sql_values/;
 
 our $VERSION = '0.19_11';
@@ -13,18 +13,25 @@ our $VERSION = '0.19_11';
 #     values => {cid => 1, name => 'Mark'}
 # );
 sub insert {
-    my $self = shift;
-    shift;
-    my $table = shift;
-    shift;
-    my $values = shift;
+    my $self       = shift;
+    my $str_into   = shift;
+    my $table      = shift;
+    my $str_values = shift;
+    my $values     = shift;
+
+    unless ($str_into eq 'into'
+        and $str_values eq 'values'
+        and ( ref $values eq 'HASH' || eval { $values->isa('HASH') } ) )
+    {
+        confess 'usage: insert(into => $table, values => $hashref)';
+    }
 
     my $urow = $self->urow($table);
 
     my @cols = sort grep { $urow->can($_) } keys %$values;
-    my @vals = map       { $values->{$_} } @cols;
+    my @vals = map { _bval( $values->{$_}, $urow->$_->_type ) } @cols;
 
-    @cols || croak 'insert_into requires columns/values';
+    @cols || confess 'insert_into requires columns/values';
 
     my $ret = eval {
         $self->do(
@@ -34,7 +41,7 @@ sub insert {
     };
 
     if ($@) {
-        croak $@;
+        confess $@;
     }
 
     return $ret;
@@ -114,7 +121,7 @@ sub select {
     my $srow = $self->srow($table);
     my @columns = map { $srow->$_ } @$list;
 
-    @columns || croak 'select requires columns';
+    @columns || confess 'select requires columns';
 
     my $expr;
     if ( my @keys = keys %$where ) {

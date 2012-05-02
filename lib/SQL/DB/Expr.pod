@@ -13,7 +13,7 @@ SQL::DB::Expr - Build SQL expressions with Perl
 
   my $col1 = SQL::DB::Expr->new(
     _txt => 'col1',
-    _btype => 'SQL_INTEGER',
+    _type => 'integer',
   );
 
   my $col2 = SQL::DB::Expr->new(
@@ -34,7 +34,7 @@ used directly.
 
     new(
         _txt     => $_txt,
-        _btype   => $bind_type,
+        _type    => $column_type,
         _multi   => $_multi,
     );
 
@@ -47,10 +47,10 @@ used directly.
 The SQL representation of the expression suitable for passing to DBI
 methods such as do(), selectall_arrayref(), prepare(), etc.
 
-=item _btype => Scalar
+=item _type => Scalar
 
-The DBD bind_type suitable for passing to a L<DBI> statement-handle
-bind_param() method.
+The column type definition. L<SQL::DB> converts this at query run time
+to a type suitable for passing to a L<DBI> I<bind_param()> method call.
 
 =item _multi => Bool
 

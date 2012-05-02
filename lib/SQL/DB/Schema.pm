@@ -4,7 +4,7 @@ use warnings;
 use Moo;
 use Log::Any qw/$log/;
 use Carp qw/confess/;
-use SQL::DB::Expr qw/_quote/;
+use SQL::DB::Expr qw/_bval/;
 use Sub::Install qw/install_sub/;
 use Sub::Exporter -setup => {
     exports => ['load_schema'],
@@ -64,7 +64,6 @@ sub BUILD {
     ( my $clean = $self->name ) =~ tr/a-zA-Z0-9/_/cs;
     $self->_package_root( __PACKAGE__ . '::' . $clean );
     $schema{ $self->name } = $self;
-    $log->debug( "Schema " . $self->name . " created" );
 }
 
 sub define {
@@ -111,7 +110,7 @@ sub define {
         }
         $tables->{$table}++;
 
-        my $col = $colref->[COLUMN_NAME];
+        my $col = lc $colref->[COLUMN_NAME];
 
         if ( $col eq 'new' ) {
             confess "Column name 'new' (table/view '$table') clashes with "
@@ -126,8 +125,8 @@ sub define {
                 code => sub {
                     my $table_expr = shift;
                     SQL::DB::Expr->new(
-                        _txt   => [ $table_expr->_alias . '.' . $col ],
-                        _btype => $type,
+                        _txt  => [ $table_expr->_alias . '.' . $col ],
+                        _type => $type,
                     );
                 },
                 into => $srow,
@@ -143,15 +142,14 @@ sub define {
                     if (@_) {
                         my $val = shift;
                         return SQL::DB::Expr->new(
-                            _txt     => [ $col . ' = ', _quote( $val, $type ) ],
-                            _btype   => $type,
-                            _bvalues => [$val],
+                            _txt  => [ $col . ' = ', _bval( $val, $type ) ],
+                            _type => $type,
                         );
                     }
 
                     return SQL::DB::Expr->new(
-                        _txt   => [$col],
-                        _btype => $type,
+                        _txt  => [$col],
+                        _type => $type,
                     );
                 },
                 into => $urow,
@@ -226,7 +224,7 @@ sub load_schema {
     elsif ( !exists $schema{$name} ) {
         confess "$name did not load properly";
     }
-    $log->debug("load_schema($name) succeeded");
+    $log->debug("Loaded $name");
     return $schema{$name};
 }
 

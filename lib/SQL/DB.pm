@@ -70,7 +70,7 @@ sub sql_case {
         $e .= '    ' . uc($keyword) . "\n        ";
 
         # Need to do this separately because
-        # SQL::DB::Quote doesn't know how to '.='
+        # SQL::DB::Expr::Quote doesn't know how to '.='
         $e .= _quote($item);
         $e .= "\n";
     }
@@ -90,7 +90,7 @@ sub sql_concat {
 
 sub sql_count {
     my $e = sql_func( 'COUNT', @_ );
-    $e->_btype('integer');
+    $e->_type('integer');
     return $e;
 }
 
@@ -280,22 +280,24 @@ sub _prepare {
 
             my $ref = $query->_txt;
             foreach my $i ( 0 .. $#{$ref} ) {
-                if ( ref $ref->[$i] eq 'SQL::DB::Quote' ) {
-                    if ( looks_like_number( $ref->[$i]->val ) ) {
-                        $ref->[$i] = $ref->[$i]->val;
-                    }
-                    else {
-                        $ref->[$i] = $dbh->quote( $ref->[$i]->val );
-                    }
+
+                if ( ref $ref->[$i] eq 'SQL::DB::Expr::Quote' ) {
+                    $ref->[$i] = $dbh->quote( $ref->[$i]->val );
+
+              #                    if ( looks_like_number( $ref->[$i]->val ) ) {
+              #                        $ref->[$i] = $ref->[$i]->val;
+              #                    }
+              #                    else {
+              #                    }
                 }
-                elsif ( ref $ref->[$i] eq 'SQL::DB::BindValue' ) {
+                elsif ( ref $ref->[$i] eq 'SQL::DB::Expr::BindValue' ) {
                     my $val  = $ref->[$i]->val;
                     my $type = $ref->[$i]->type;
 
                     # TODO: Ignore everything except binary/bytea?
-                    if ( ref $type eq 'HASH' ) {
-
-                        # pass it straight through
+                    if ( !defined $val ) {
+                        $ref->[$i] = $dbh->quote(undef);
+                        next;
                     }
                     elsif ( $type =~ /^bit/ ) {
                         $type = { TYPE => SQL_BIT };
@@ -316,31 +318,31 @@ sub _prepare {
                         $type = { TYPE => SQL_BIGINT };
                     }
                     elsif ( $type =~ /^float/ ) {
-                        push( @bind_types, { TYPE => SQL_FLOAT } );
+                        $type = { TYPE => SQL_FLOAT };
                     }
                     elsif ( $type =~ /^real/ ) {
-                        push( @bind_types, { TYPE => SQL_REAL } );
+                        $type = { TYPE => SQL_REAL };
                     }
                     elsif ( $type =~ /^double/ ) {
-                        push( @bind_types, { TYPE => SQL_DOUBLE } );
+                        $type = { TYPE => SQL_DOUBLE };
                     }
                     elsif ( $type =~ /^char/ ) {
-                        push( @bind_types, { TYPE => SQL_CHAR } );
+                        $type = { TYPE => SQL_CHAR };
                     }
                     elsif ( $type =~ /^varchar/ ) {
-                        push( @bind_types, { TYPE => SQL_VARCHAR } );
+                        $type = { TYPE => SQL_VARCHAR };
                     }
                     elsif ( $type =~ /^datetime/ ) {
-                        push( @bind_types, { TYPE => SQL_DATETIME } );
+                        $type = { TYPE => SQL_DATETIME };
                     }
                     elsif ( $type =~ /^date/ ) {
-                        push( @bind_types, { TYPE => SQL_DATE } );
+                        $type = { TYPE => SQL_DATE };
                     }
                     elsif ( $type =~ /^timestamp/ ) {
-                        push( @bind_types, { TYPE => SQL_TIMESTAMP } );
+                        $type = { TYPE => SQL_TIMESTAMP };
                     }
                     elsif ( $type =~ /^interval/ ) {
-                        push( @bind_types, { TYPE => SQL_INTERVAL } );
+                        $type = { TYPE => SQL_INTERVAL };
                     }
                     elsif ( $type =~ /^bin/ ) {
                         $type = { TYPE => SQL_BINARY };
@@ -356,14 +358,6 @@ sub _prepare {
                     }
                     elsif ( $type =~ /^bytea/ ) {
                         $type = { pg_type => eval 'DBD::Pg::PG_BYTEA' };
-                    }
-                    elsif ( looks_like_number($val) ) {
-                        if ( $val =~ /\./ ) {
-                            $type = { TYPE => SQL_FLOAT };
-                        }
-                        else {
-                            $type = { TYPE => SQL_INTEGER };
-                        }
                     }
                     else {
                         $type = { TYPE => SQL_VARCHAR };
@@ -382,15 +376,17 @@ sub _prepare {
                   . "\n$@";
             }
 
-            $log->debug( "/* $prepare */\n"
-                  . $self->query_as_string( $query->_as_string, @bind_values )
+            $log->debugf(
+                "/* $prepare with %d bind values*/\n%s",
+                scalar @bind_values,
+                $self->query_as_string( $query->_as_string, @bind_values )
             );
 
             my $i = 0;
             foreach my $val (@bind_values) {
                 $i++;
                 my $type = shift @bind_types;
-                $log->debugf( 'binding param %s as type %s', $i, $type );
+                $log->debugf( 'binding param %d as %s', $i, $type );
                 $sth->bind_param( $i, $val, $type );
             }
 
@@ -445,6 +441,7 @@ sub iter {
         $self->cache_sth
       ? $self->_prepare( 'prepare_cached', @_ )
       : $self->_prepare( 'prepare',        @_ );
+
     my $rv = eval { $sth->execute() };
     if ($@) {
         die 'Error: ' . $query->_as_string . "\n$@";
@@ -506,7 +503,7 @@ sub query_as_string {
 
     foreach (@_) {
         my $x = $_;    # don't update the original!
-        if ( defined($x) and $x =~ /[^[:graph:][:space:]]/ ) {
+        if ( defined($x) and $x =~ /[\P{IsPrint}]/ ) {
             $sql =~ s/\?/*BINARY DATA*/;
         }
         else {

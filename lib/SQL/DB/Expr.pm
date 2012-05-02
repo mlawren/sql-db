@@ -3,11 +3,13 @@ use strict;
 use warnings;
 use Moo;
 use Carp qw/ carp croak confess/;
+use DBI qw/looks_like_number/;
 use Sub::Exporter -setup => {
     exports => [
         qw/
           AND
           OR
+          _sql
           _quote
           _bval
           _expr_binary
@@ -40,6 +42,113 @@ use overload
 our $VERSION = '0.19_11';
 our $tcount  = {};
 
+# ########################################################################
+# FUNCTIONS
+# ########################################################################
+
+sub AND {
+    SQL::DB::Expr->new(
+        _txt   => [' AND '],
+        _logic => 1
+    );
+}
+
+sub OR {
+    SQL::DB::Expr->new(
+        _txt   => [' OR '],
+        _logic => 1
+    );
+}
+
+sub _sql {
+    my $val = shift;
+
+    return $val if ( ref $val ) =~ m/^SQL::DB::Expr/;
+
+    return SQL::DB::Expr::SQL->new( val => $val );
+}
+
+sub _quote {
+    my $val = shift;
+
+    return $val if ( ref $val ) =~ m/^SQL::DB::Expr/;
+
+    return SQL::DB::Expr::SQL->new( val => $val ) if looks_like_number($val);
+
+    return SQL::DB::Expr::Quote->new( val => $val );
+}
+
+sub _bval {
+    my ( $val, $type ) = @_;
+
+    return $val if ( ref $val ) =~ m/^SQL::DB::Expr/;
+
+    return SQL::DB::Expr::SQL->new( val => $val ) if looks_like_number($val);
+
+    return SQL::DB::Expr::BindValue->new( val => $val, type => $type );
+}
+
+sub _expr_join {
+    my $sep  = shift;
+    my $last = pop @_;
+
+    my $e = SQL::DB::Expr->new(
+        _txt => [
+            (
+                map {
+                    eval { $_->isa('SQL::DB::Expr') }
+                      ? ( $_->_txts, $sep )
+                      : ( $_, $sep )
+                  } @_
+            ),
+            eval { $last->isa('SQL::DB::Expr') } ? $last->_txts : $last
+        ]
+    );
+    return $e;
+}
+
+sub _query {
+    return $_[0] if ( @_ == 1 and eval { $_[0]->isa('SQL::DB::Expr') } );
+    my $e = SQL::DB::Expr->new;
+
+    eval {
+        while ( my ( $keyword, $item ) = splice( @_, 0, 2 ) )
+        {
+            if ( ref $keyword ) {
+                $e .= $keyword . "\n";
+            }
+            else {
+                ( my $tmp = uc($keyword) ) =~ s/_/ /g;
+                $e .= $tmp . "\n";
+            }
+
+            next unless defined $item;
+            if ( ref $item eq 'SQL::DB::Expr' ) {
+                $e .= '    ' . $item . "\n";
+            }
+            elsif ( ref $item eq 'ARRAY' ) {
+                my @new = map { ref $_ ? $_ : _bval($_) } @$item;
+                $e .= '    ' . _expr_join( ",\n    ", @new ) . "\n";
+            }
+            elsif ( ref $item eq 'SCALAR' ) {
+                $e .= '    ' . $$item . "\n";
+            }
+            else {
+                $e .= '    ' . $item . "\n";
+            }
+
+            $e->_multi(0);
+        }
+    };
+
+    confess "Bad Query: $@" if $@;
+    return $e;
+}
+
+# ########################################################################
+# OBJECT INTERFACE
+# ########################################################################
+
 has '_txt' => (
     is => 'rw',
     isa =>
@@ -49,10 +158,7 @@ has '_txt' => (
 
 has '_alias' => ( is => 'rw', );
 
-has '_btype' => (
-    is      => 'rw',
-    default => sub { '' },
-);
+has '_type' => ( is => 'rw', );
 
 has '_multi' => (
     is      => 'rw',
@@ -229,12 +335,12 @@ sub _expr_binary {
 
     # TODO add ( ) bracketing for multi expressions?
     if ($swap) {
-        $e .= _quote( $e2, $e1->_btype );
+        $e .= _bval( $e2, $e1->_type );
         $e .= ( ' ' . $op . ' ' ) . $e1;
     }
     else {
         $e .= $e1 . ( ' ' . $op . ' ' );
-        $e .= _quote( $e2, $e1->_btype );
+        $e .= _bval( $e2, $e1->_type );
     }
 
     $e->_multi(1);
@@ -276,7 +382,7 @@ sub in {
     }
     return
       $e1 . ' IN ('
-      . _expr_join( ', ', map { _quote( $_, $e1->_btype ) } @_ ) . ')';
+      . _expr_join( ', ', map { _bval( $_, $e1->_type ) } @_ ) . ')';
 }
 
 sub not_in {
@@ -287,7 +393,7 @@ sub not_in {
     return
         $e1
       . ' NOT IN ('
-      . _expr_join( ', ', map { _quote( $_, $e1->_btype ) } @_ ) . ')';
+      . _expr_join( ', ', map { _bval( $_, $e1->_type ) } @_ ) . ')';
 }
 
 sub between {
@@ -298,9 +404,9 @@ sub between {
         _txt => [
             $e1->_txts,
             ' BETWEEN ',
-            _quote( $_[0], $e1->_btype ),
+            _bval( $_[0], $e1->_type ),
             ' AND ',
-            _quote( $_[1], $e1->_btype )
+            _bval( $_[1], $e1->_type )
         ],
     );
     return $e;
@@ -314,9 +420,9 @@ sub not_between {
         _txt => [
             $e1->_txts,
             ' NOT BETWEEN ',
-            _quote( $_[0], $e1->_btype ),
+            _bval( $_[0], $e1->_type ),
             ' AND ',
-            _quote( $_[1], $e1->_btype )
+            _bval( $_[1], $e1->_type )
         ],
     );
     return $e;
@@ -342,7 +448,7 @@ sub like {
     my $e1   = shift;
     my $like = shift || croak 'like($value)';
     my $expr = $e1 . ' LIKE ';
-    $expr .= _quote( $like, $e1->_btype );
+    $expr .= _bval( $like, $e1->_type );
     $expr->_multi(0);
     return $expr;
 }
@@ -365,103 +471,22 @@ DESTROY {
     }
 }
 
-# ########################################################################
-# FUNCTIONS
-# ########################################################################
+package SQL::DB::Expr::SQL;
+use strict;
+use warnings;
+use Moo;
+use overload '""' => sub {
+    my $self = shift;
+    $self->val;
+  },
+  fallback => 1;
 
-sub AND {
-    SQL::DB::Expr->new(
-        _txt   => [' AND '],
-        _logic => 1
-    );
-}
+has val => (
+    is       => 'ro',
+    required => 1,
+);
 
-sub OR {
-    SQL::DB::Expr->new(
-        _txt   => [' OR '],
-        _logic => 1
-    );
-}
-
-sub _quote {
-    my ( $val, $type ) = @_;
-
-    if ( my $ref = ref $val ) {
-        if ( $ref eq 'SQL::DB::BindValue' and $type ) {
-            $val->type($type) unless $val->type;
-        }
-        return $val;
-    }
-
-    $type //= '';
-    return SQL::DB::Quote->new( val => $val );
-}
-
-sub _bval {
-    my ( $val, $type ) = @_;
-
-    $type //= '';
-    return SQL::DB::BindValue->new( val => $val, type => $type );
-}
-
-sub _expr_join {
-    my $sep  = shift;
-    my $last = pop @_;
-
-    my $e = SQL::DB::Expr->new(
-        _txt => [
-            (
-                map {
-                    eval { $_->isa('SQL::DB::Expr') }
-                      ? ( $_->_txts, $sep )
-                      : ( $_, $sep )
-                  } @_
-            ),
-            eval { $last->isa('SQL::DB::Expr') } ? $last->_txts : $last
-        ]
-    );
-    return $e;
-}
-
-sub _query {
-    return $_[0] if ( @_ == 1 and eval { $_[0]->isa('SQL::DB::Expr') } );
-    my $e = SQL::DB::Expr->new;
-
-    eval {
-        while ( my ( $keyword, $item ) = splice( @_, 0, 2 ) )
-        {
-            if ( ref $keyword ) {
-                $e .= $keyword . "\n";
-            }
-            else {
-                ( my $tmp = uc($keyword) ) =~ s/_/ /g;
-                $e .= $tmp . "\n";
-            }
-
-            next unless defined $item;
-            if ( ref $item eq 'SQL::DB::Expr' ) {
-                $e .= '    ' . $item . "\n";
-            }
-            elsif ( ref $item eq 'ARRAY' ) {
-                my @new = map { ref $_ ? $_ : _quote($_) } @$item;
-                $e .= '    ' . _expr_join( ",\n    ", @new ) . "\n";
-            }
-            elsif ( ref $item eq 'SCALAR' ) {
-                $e .= '    ' . $$item . "\n";
-            }
-            else {
-                $e .= '    ' . $item . "\n";
-            }
-
-            $e->_multi(0);
-        }
-    };
-
-    confess "Bad Query: $@" if $@;
-    return $e;
-}
-
-package SQL::DB::Quote;
+package SQL::DB::Expr::Quote;
 use strict;
 use warnings;
 use Moo;
@@ -476,7 +501,7 @@ has val => (
     required => 1,
 );
 
-package SQL::DB::BindValue;
+package SQL::DB::Expr::BindValue;
 use strict;
 use warnings;
 use Moo;
@@ -485,8 +510,8 @@ use overload '""' => sub {
     my $self = shift;
     return
         'bv{'
-      . ( defined $self->val ? $self->val  : 'undef' ) . '}::'
-      . ( $self->type        ? $self->type : 'auto' );
+      . ( defined $self->val  ? $self->val  : 'undef' ) . '}::'
+      . ( defined $self->type ? $self->type : '(none)' );
   },
   fallback => 1;
 
@@ -495,10 +520,6 @@ has val => (
     required => 1,
 );
 
-has type => (
-    is  => 'rw',
-    isa => sub { defined $_[0] || confess "Type must be defined"; },
-    default => sub { '' },
-);
+has type => ( is => 'rw', );
 
 1;
