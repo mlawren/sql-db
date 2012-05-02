@@ -380,7 +380,7 @@ sub _prepare {
                 "/* $prepare with %d bind values*/\n%s",
                 scalar @bind_values,
                 $self->query_as_string( $query->_as_string, @bind_values )
-            );
+            ) if $log->is_debug;
 
             my $i = 0;
             foreach my $val (@bind_values) {
