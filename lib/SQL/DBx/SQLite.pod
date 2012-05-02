@@ -1,0 +1,146 @@
+
+=head1 NAME
+
+SQL::DBx::SQLite - add various features to to SQLite
+
+=head1 VERSION
+
+0.19_11. Development release.
+
+=head1 SYNOPSIS
+
+    use SQL::DB;
+    use SQL::DBx::SQLite;
+
+    my $db = SQL::DB->connect($dsn);
+
+    $db->sqlite_create_function_sha1;
+    $db->sqlite_create_function_debug;
+
+    $db->conn->dbh->do( q{
+        CREATE TRIGGER calculate_hash AFTER UPDATE ON table
+        FOR EACH ROW
+        BEGIN
+            UPDATE
+                table
+            SET
+                sha1 = sha1_hex(source)
+            WHERE
+                id = NEW.id
+
+            SELECT debug('select * from table');
+        END;
+    });
+
+    $db->sqlite_create_sequence('table');
+    my $next_id = $db->nextval('table');
+
+    # Alternatively:
+
+    $db->sqlite_create_function_nextval;
+    $db->conn->dbh->do(q{
+        INSERT INTO table VALUES(nextval('table'), 'stuff');
+    });
+
+
+=head1 DESCRIPTION
+
+B<SQL::DBx::SQLite> adds various functions to the SQL syntax understood
+by SQLite, using the I<sqlite_create_function()> and
+I<sqlite_create_aggregate_function()> methods of L<DBD::SQLite>. It
+also adds a kind of sequence API to SQL::DB for SQLite databases.
+
+All user-defined SQLite functions are only valid for the current
+session.  They must be created each time you connect to the database.
+If you want that to happen automatically you might try something like
+the following in your class:
+
+    after BUILD => sub {
+        my $self = shift;
+        $self->sqlite_create_debug_function;
+    };
+
+=head1 METHODS
+
+=over
+
+=item sqlite_create_function_debug
+
+Add a debug() function to the SQL understood by SQLite;
+
+=item sqlite_create_function_sha1
+
+Add various SHA1 digest functions to the SQL understood by SQLite, The
+following have the same syntax in SQL as described in
+L<Digest::SQLite>:
+
+=over
+
+=item sha1
+
+Calculate the SQLite digest of all arguments concatenated together and
+return it in a 20-byte binary form. Unfortunately it seems that the
+underlying SQLite C sqlite_create_function() provides no way to
+identify the result as a blob, so you must always manually cast the
+result in SQL like so:
+
+    CAST(sha1(SQLITE_EXPRESSION) AS blob)
+
+=item sha1_hex
+
+Calculate the SQLite digest of all arguments concatenated together and
+return it in a 40-character hexidecimal form.
+
+=item sha1_base64
+
+Calculate the SQLite digest of all arguments concatenated together and
+return it in a 27-character base64 encoded form.
+
+=back
+
+Also created are I<agg_sha1>, I<agg_sha1_hex> and I<agg_sha1_base64>
+functions that serve the same purpose but as aggregate functions.
+
+=item sqlite_create_function_nextval
+
+Add a nextval() function to the SQL understood by SQLite. See also
+I<sql_nextval> from L<SQL::DB>.
+
+=item sqlite_create_function_currval
+
+Add a currval() function to the SQL understood by SQLite. See also
+I<sql_currval> from L<SQL::DB>.
+
+=item sqlite_create_sequence( $name )
+
+Create a sequence in the database with name $name. An "INTEGER PRIMARY
+KEY AUTOINCREMENT" column in SQLite will automatically create a
+sequence named after the containing table.
+
+=item nextval( $name ) -> Int
+
+Advance the sequence to its next value and return that value.
+
+=item currval( $name ) -> Int
+
+Return the current value of the sequence.
+
+=back
+
+=head1 SEE ALSO
+
+L<Digest::SHA1>, L<SQL::DB>, L<Moo::Role>
+
+=head1 AUTHOR
+
+Mark Lawrence E<lt>nomad@null.netE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2012 Mark Lawrence <nomad@null.net>
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 3 of the License, or (at your
+option) any later version.
+

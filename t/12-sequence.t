@@ -5,15 +5,8 @@ use Test::Database;
 use Cwd;
 use File::Temp qw/tempdir/;
 use SQL::DB;
-use SQL::DBx::Sequence;
+use SQL::DBx::SQLite;
 use SQL::DBx::Deploy;    # Remove this stuff
-
-can_ok(
-    'SQL::DB', qw/
-      create_sequence
-      nextval
-      /
-);
 
 my $cwd;
 BEGIN { $cwd = getcwd }
@@ -44,6 +37,9 @@ foreach my $handle (@handles) {
         password => $pass,
     );
 
+    $db->sqlite_create_function_nextval;
+    $db->sqlite_create_function_currval;
+
     eval { $db->conn->dbh->do('DROP SEQUENCE seq_testseq'); };
 
     eval { $db->conn->dbh->selectrow_array("SELECT nextval('testseq')") };
@@ -52,7 +48,7 @@ foreach my $handle (@handles) {
     eval { $db->nextval('testseq') };
     ok $@, 'exception on no sequences method' . $@;
 
-    $db->create_sequence('testseq');
+    $db->sqlite_create_sequence('testseq');
 
     eval { $db->conn->dbh->selectrow_array("SELECT nextval('JUNK')") };
     ok $@, 'exception on non-existent func';
