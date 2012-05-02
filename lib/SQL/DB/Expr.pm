@@ -467,7 +467,7 @@ DESTROY {
     my $self = shift;
     if ( my $alias = $self->_alias ) {
         $alias =~ m/^(.*?)(\d+)$/;
-        $tcount->{$1}->[$2] = undef;
+        delete $tcount->{$1}->[$2];
     }
 }
 
