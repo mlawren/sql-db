@@ -7,7 +7,7 @@ use Data::Dumper;
 use Perl::Tidy qw/perltidy/;
 use DBI;
 
-our $VERSION = '0.19_11';
+our $VERSION = '0.19_12';
 
 sub opt_spec {
     (

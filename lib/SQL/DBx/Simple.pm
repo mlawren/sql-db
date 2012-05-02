@@ -7,7 +7,7 @@ use Carp qw/confess/;
 use SQL::DB::Expr qw/_expr_join _bval/;
 use SQL::DB qw/sql_table sql_values/;
 
-our $VERSION = '0.19_11';
+our $VERSION = '0.19_12';
 
 # $db->insert_into('customers',
 #     values => {cid => 1, name => 'Mark'}
