@@ -7,7 +7,7 @@ use Carp qw/confess/;
 use SQL::DB::Expr qw/_bval/;
 use Sub::Install qw/install_sub/;
 
-our $VERSION = '0.19_13';
+our $VERSION = '0.19_14';
 
 # Ordinals for DBI->column_info() results
 use constant {
