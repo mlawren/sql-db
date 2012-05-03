@@ -7,7 +7,6 @@ use Cwd;
 use File::Temp qw/tempdir/;
 use SQL::DB ':all';
 use SQL::DBx::Deploy;
-use SQL::DBx::Simple;
 use FindBin;
 use lib "$FindBin::RealBin/lib";
 
@@ -156,8 +155,6 @@ foreach my $handle (@handles) {
 
     is sql_cast( $actors->id, as => 'char' )->_as_string,
       'CAST( actors0.id AS char )', 'CAST';
-
-    # DBx::Simple
 
     ok $db->delete(
         from  => 'actors',

@@ -10,14 +10,43 @@ SQL::DB - SQL database interface for Perl
 =head1 SYNOPSIS
 
     use SQL::DB ':all';
+    my $db = SQL::DB->connect( 'dbi:...', 'username', 'password' );
 
-    my $db = SQL::DB->connect($dsn, $username, $password);
+
+    # The very simple stuff
+
+    my $success = $db->insert(
+        into   => 'actors',
+        values => { id => 1, name => 'John Smith' },
+    );
+
+    my $count = $db->update(
+        'actors',
+        set   => { name => 'Jack Smith' },
+        where => { id   => 1, name => 'John Smith' },
+    );
+
+    my $count = $db->delete(
+        from  => 'actors',
+        where => { actor_id => 1, last_name => 'Jones' },
+    );
+
+    my $row = $db->select(
+        [ 'id', 'name' ],
+        from  => 'actors',
+        where => { id => 1 },
+    );
+
+    print $row->id . ':' . $row->name . "\n";
+
+
+    # The do-any-SQL-you-want stuff
 
     my $people = $db->irow('people');
 
     $db->do(
-        insert_into => $people->('id','name');
-        sql_values(1, 'A Name'),
+        insert_into => $people->( 'id', 'name' );
+          sql_values( 1, 'A Name' ),
     );
 
     # Anyone celebrating a birthday today gets a raise, with the
@@ -38,34 +67,40 @@ SQL::DB - SQL database interface for Perl
         from      => $people,
         left_join => $purchases,
         on        => $purchases->id == $people->id,
-        where     => $people->id->in(1,2,3) .AND.
-                       $people->name->like('%paul%'),
+        where => $people->id->in( 1, 2, 3 ) 
+          . AND
+          . $people->name->like('%paul%'),
         limit  => 1,
         offset => 1,
     );
+
     # then do stuff with $row->pid, $row->name etc
 
     my @rows = $db->fetch(
-        select => [ sql_coalesce($p->pid, $p->cid)->as('pcid') ],
+        select => [ sql_coalesce( $p->pid, $p->cid )->as('pcid') ],
         from   => $p,
         where  => $p->cid->is_not_null,
     );
+
     # coalesce column is available as $row->pcid
 
-    my $iter = $db->iter( @query ...);
-    while (my $row = $iter->next) {
+    my $iter = $db->iter( @query ... );
+    while ( my $row = $iter->next ) {
         print $row->column(), $row->some_other_column;
     }
 
     # If you want the data your own way you can still use the query
     # syntax:
-    my $sth = $db->sth( @query);
-    map { print join(',',@$_) ."\n" } $sth->fetchall_arrayref;
+    my $sth = $db->sth(@query);
+    map { print join( ',', @$_ ) . "\n" } $sth->fetchall_arrayref;
 
     # Transactions provided by DBIx::Connector
-    $db->txn( sub {
-        # multiple statements
-    });
+    $db->txn(
+        sub {
+
+            # multiple statements
+        }
+    );
 
 
 =head1 DESCRIPTION
@@ -79,10 +114,16 @@ to work just as hard as their Perl scripts.
 
 SQL::DB gives you access to aggregate expressions, joins, nested
 selects, unions and database-side operator invocations. Transactional
-support is provided via L<DBIx::Connector>. Binding non-integer
-non-string (eg binary) data types is handled transparently across
-different database types. For more basic needs you might consider
-starting with the L<SQL::DBx::Simple> extension.
+support is provided via L<DBIx::Connector>.  Security conscious coders
+will be pleased to know that all user-supplied values are bound
+properly using L<DBI> "bind_param()".  Binding binary data is handled
+transparently across different database types.
+
+SQL::DB offers a couple of very simple Create, Retrieve, Update and
+Delete (CRUD) action methods.  These are designed to get you up and
+running quickly when your query data is already inside a hash. The
+methods are abstractions of the real API, but should still read as much
+as possible like SQL.
 
 Although rows can be retrieved from the database as simple objects,
 SQL::DB does not attempt to be an Object-Relational-Mapper (ORM). There
@@ -93,7 +134,7 @@ SQL::DB uses the light-weight L<Log::Any> for logging.
 
 =head1 QUERY FORMAT
 
-An L<SQL::DB> query is composed from a list of scalars, schema objects,
+An SQL::DB query is composed from a list of scalars, schema objects,
 expressions, and arrays as follows.
 
 =over 4
@@ -360,6 +401,35 @@ hh:mm:ssZ'. The same value is always returned during a transaction.
 Pretty print an SQL query by inserting the bind values into the SQL
 itself.
 
+=item insert(into => $table, values => \%val) -> Int
+
+Insert a row into the database. Return the result of the underlying
+L<DBI> do() call which is typically the number of rows affected.
+
+=item update($table, set => \%values, where => \%expr) -> Int
+
+Update rows in the database. Return the result of the underlying L<DBI>
+do() call which is typically the number of rows affected.
+
+This method is retricted to the wholesale replacement of column values
+(no database-side calculations etc).  Multiple WHERE key/values are
+only 'AND'd together. An 'undef' value maps to SQL's NULL value.
+
+=item delete(from => $table, where => \%expr) -> Int
+
+Delete rows from the database. Return the result of the underlying
+L<DBI> do() call which is typically the number of rows affected.
+
+=item select(\@columns, from => $table, where => \%expr) -> @Obj
+
+Retrieve rows from the database as a list of objects in array context,
+or a single object in scalar context. These objects (blessed into a
+dynamically created class) have an accessor method for each column.
+
+The first argument to the select() method must be either an array
+reference of column names, or a single '*'. If the array reference is
+given only the columns specified will be retrieved from the database.
+
 =back
 
 =head1 CLASS FUNCTIONS
@@ -502,19 +572,9 @@ L<DBIx::Connector>, L<Log::Any>
 
 =head1 SUPPORT
 
-Feedback, testing, bug reports and patches are all welcome.
+SQL::DB is managed via Github:
 
-=over
-
-=item Bug Reporting
-
-    https://rt.cpan.org/Public/Bug/Report.html?Queue=SQL-DB
-
-=item Source Code
-
-    git clone git://github.com/mlawren/sql-db.git
-
-=back
+    http://github.com/mlawren/sql-db/
 
 =head1 AUTHOR
 

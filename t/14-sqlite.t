@@ -6,7 +6,6 @@ use Test::Database;
 use Cwd;
 use File::Temp qw/tempdir/;
 use SQL::DB qw/:all/;
-use SQL::DBx::Simple;
 use SQL::DBx::SQLite;
 use Digest::SHA1 qw/sha1 sha1_hex/;
 use Log::Any::Adapter;
