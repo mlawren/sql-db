@@ -28,9 +28,13 @@ feature 'sqldb-schema',
   -default                    => 1,
   'Data::Dumper'              => 0,
   'DBI'                       => 0,
+  'File::Basename'            => 0,
+  'File::ShareDir'            => 0,
   'File::Slurp'               => 0,
+  'File::Spec'                => 0,
   'Getopt::Long::Descriptive' => 0,
   'Term::Prompt'              => 0,
+  'Template::Tiny'            => 0,
   ;
 
 feature 'Deploy',
@@ -43,6 +47,7 @@ feature 'sqldb-deploy',
   'YAML'   => 0,
   ;
 
+install_share 'share';
 install_script 'bin/sqldb-schema';
 
 repository 'http://github.com/mlawren/sql-db.git/';
