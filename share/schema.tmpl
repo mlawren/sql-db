@@ -1,0 +1,50 @@
+package [% package -%];
+use strict;
+my [% definition -%];
+
+sub definition { $VAR1; }
+sub clear { undef $VAR1; }
+
+1;
+__END__
+
+=head1 NAME
+
+[% package -%] - An SQL::DB::Schema definition
+
+=head1 SYNOPSIS
+
+    use SQL::DB; # or anything that extends SQL::DB
+
+    my $db = SQL::DB->connect(
+        dsn      => 'dbi:[% driver -%]:...',
+        username => 'username',
+        password => 'password',
+        schema   => '[% shortpkg -%]',
+    );
+
+=head1 DESCRIPTION
+
+See L<sqldb-schema>(1) for details.
+
+Generated:
+
+    date:    [% date %]
+    program: [% program %]
+    source:  [% source %]
+
+=head1 AUTHOR
+
+Mark Lawrence E<lt>nomad\@null.netE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright 2011-2012 Mark Lawrence E<lt>nomad\@null.netE<gt>
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 3 of the License, or (at your
+option) any later version.
+
+=cut
+# vim: set tabstop=4 expandtab:
