@@ -6,7 +6,7 @@ use Cwd;
 use File::Temp qw/tempdir/;
 use SQL::DB ':all';
 use SQL::DBx::Deploy;
-use SQL::DB::Schema qw/load_schema/;
+use SQL::DB::Schema;
 use FindBin;
 use lib "$FindBin::RealBin/lib";
 
@@ -65,7 +65,7 @@ foreach my $handle (@handles) {
 
     ok -e $file, "$file generated";
 
-    my $schema = load_schema($pkg);
+    my $schema = SQL::DB::Schema->new( name => $pkg, load => 1 );
     isa_ok $schema, 'SQL::DB::Schema';
 
     is $schema->name, $pkg, $pkg;

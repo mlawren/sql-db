@@ -7,7 +7,7 @@ use Carp qw/croak carp confess/;
 use Storable qw/dclone/;
 use DBI ':sql_types', 'looks_like_number';
 use DBIx::Connector;
-use SQL::DB::Schema qw/load_schema/;
+use SQL::DB::Schema;
 use SQL::DB::Expr qw/:all/;
 use SQL::DB::Iter;
 
@@ -160,9 +160,11 @@ around BUILDARGS => sub {
 
     $args{dbd} = $dbd;
 
-    if ( my $sname = $args{schema} ) {
-        $sname .= '::' . $dbd;
-        $args{schema} = load_schema($sname);
+    if ( $args{schema} ) {
+        $args{schema} = SQL::DB::Schema->new(
+            name => $args{schema} . '::' . $dbd,
+            load => 1,
+        );
     }
     else {
 

@@ -6,16 +6,8 @@ use Log::Any qw/$log/;
 use Carp qw/confess/;
 use SQL::DB::Expr qw/_bval/;
 use Sub::Install qw/install_sub/;
-use Sub::Exporter -setup => {
-    exports => ['load_schema'],
-    groups  => {
-        all     => ['load_schema'],
-        default => [],
-    },
-};
 
 our $VERSION = '0.19_12';
-my %schema;
 
 # Ordinals for DBI->column_info() results
 use constant {
@@ -42,14 +34,16 @@ use constant {
 # Object definition
 
 has 'name' => (
-    is       => 'rw',
+    is       => 'ro',
     required => 1,
 );
 
-has '_package_root' => (
-    is       => 'rw',
-    init_arg => undef,
+has 'package_root' => (
+    is       => 'ro',
+    required => 1,
 );
+
+has 'load' => ( is => 'ro', );
 
 has '_tables' => (
     is       => 'ro',
@@ -59,18 +53,34 @@ has '_tables' => (
 
 sub _getglob { no strict 'refs'; \*{ $_[0] } }
 
+around BUILDARGS => sub {
+    my $orig  = shift;
+    my $class = shift;
+    my %args  = @_;
+
+    ( $args{package_root} = $args{name} ) =~ tr/a-zA-Z0-9/_/cs;
+    $args{package_root} = __PACKAGE__ . '::' . $args{package_root};
+
+    return $class->$orig(%args);
+};
+
 sub BUILD {
     my $self = shift;
-    ( my $clean = $self->name ) =~ tr/a-zA-Z0-9/_/cs;
-    $self->_package_root( __PACKAGE__ . '::' . $clean );
-    $schema{ $self->name } = $self;
+
+    if ( $self->load ) {
+        require Module::Load;
+        Module::Load::load( $self->name );
+        $self->define( $self->name->definition );
+        $self->name->clear;
+        $log->debug( 'Loaded schema', $self->name );
+    }
 }
 
 sub define {
     my $self = shift;
     my $data = shift;
 
-    my $package_root = $self->_package_root;
+    my $package_root = $self->package_root;
     my $tables       = $self->_tables;
 
     foreach my $colref (@$data) {
@@ -189,7 +199,7 @@ sub srow {
         if ( !exists $self->_tables->{$name} ) {
             confess "Table not defined in schema: $name";
         }
-        my $class = $self->_package_root . '::Srow::' . $name;
+        my $class = $self->package_root . '::Srow::' . $name;
         my $srow = $class->new( _txt => [$name], _alias => $name );
         return $srow unless (wantarray);
         push( @ret, $srow );
@@ -205,27 +215,12 @@ sub urow {
         if ( !exists $self->_tables->{$name} ) {
             confess "Table not defined in schema: $name";
         }
-        my $class = $self->_package_root . '::Urow::' . $name;
+        my $class = $self->package_root . '::Urow::' . $name;
         my $urow = $class->new( _txt => [$name] );
         return $urow unless (wantarray);
         push( @ret, $urow );
     }
     return @ret;
-}
-
-# Class functions
-
-sub load_schema {
-    my $name = shift;
-    eval "require $name;";
-    if ($@) {
-        confess $@;
-    }
-    elsif ( !exists $schema{$name} ) {
-        confess "$name did not load properly";
-    }
-    $log->debug("Loaded $name");
-    return $schema{$name};
 }
 
 1;

@@ -9,7 +9,7 @@ SQL::DB::Schema - Table and column definitions for SQL::DB
 
 =head1 SYNOPSIS
 
-    use SQL::DB::Schema qw/load_schema/;
+    use SQL::DB::Schema;
 
     my $schema = SQL::DB::Schema->new(name => 'myschema');
 
@@ -19,17 +19,12 @@ SQL::DB::Schema - Table and column definitions for SQL::DB
     ...
     $schema->define(@table_N_definition);
     
-    # Build INSERT expressions using irows:
-    my ($table_1, $table_3) = $schema->irow(qw/table_1, table_3/)
-
-    # Build INSERT/UPDATE/DELETE expressions using urows:
-    my ($table_1, $table_3) = $schema->urow(qw/table_1, table_3/)
-
-    # Build SELECT expressions using srows:
-    my ($table_1, $table_2) = $schema->srow(qw/table_1, table_2/)
+    my ($itable_1, $itable_3) = $schema->irow(qw/table_1, table_3/)
+    my ($utable_1, $utable_3) = $schema->urow(qw/table_1, table_3/)
+    my ($stable_1, $stable_2) = $schema->srow(qw/table_1, table_2/)
 
     # Retrieve a previously elsewhere created schema:
-    my $other = load_schema('other');
+    my $other = SQL::DB::Schema->new(name => 'My::Schema', load => 1);
 
 =head1 DESCRIPTION
 
@@ -41,27 +36,17 @@ you should never write such code by hand.  Schema information is either
 automatically retrieved by L<SQL::DB> at run-time or pre-generated with
 the L<sqldb-schema>(1) command-line program.
 
-A single function is exported on request:
-
-=over 4
-
-=item load_schema($name) -> SQL::DB::Schema
-
-$name + '::$driver' (where $driver is a DBD driver name) must be the
-name of a class which when loaded creates a schema called $name +
-'::$driver'. See L<sqldb-schema> for how to generate such a class.
-
-=back
-
 =head1 CONSTRUCTOR
 
 =over 4
 
-=item new(name => $name) -> SQL::DB::Schema
+=item new( name => $name, [ load => $load ] ) -> SQL::DB::Schema
 
-Create a new schema object. The 'name' attribute is required and must
-be unique. The created schema is stored in an internal hash and can be
-retrieved from other lexical scopes using the "load_schema" function.
+Create a new schema object. The $name attribute is required. If the
+optional $load is true then $name is assumed to be a Module name and
+will be loaded using L<Module::Load>. The module's schema will be
+retrieved using a C<definition()> class method and then cleared using a
+C<clear()> class method.
 
 =back
 
@@ -72,6 +57,14 @@ retrieved from other lexical scopes using the "load_schema" function.
 =item name
 
 The name of the schema as given to the constructor.
+
+=item package_root
+
+The name prefix for internally generated classes.
+
+=item load
+
+The value of the load argument given to the constructor.
 
 =back
 

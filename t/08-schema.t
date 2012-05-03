@@ -10,7 +10,6 @@ can_ok(
       define
       srow
       urow
-      load_schema
       /
 );
 
