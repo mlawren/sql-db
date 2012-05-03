@@ -2,7 +2,7 @@ NAME
     SQL::DB - SQL database interface for Perl
 
 VERSION
-    0.19_14. Development release.
+    0.19_15. Development release.
 
 SYNOPSIS
         use SQL::DB ':all';
@@ -472,11 +472,11 @@ CLASS FUNCTIONS
 COMPATABILITY
     All SQL::DB releases have so far been DEVELOPMENT!
 
-    SQL::DB jumped from version 0.18 to 0.19_14 due to a complete rewrite
+    SQL::DB jumped from version 0.18 to 0.19_15 due to a complete rewrite
     based on Moo. Lots of things were simplified, modules deleted,
     dependencies removed, etc. The API changed enough to almost give this
     distribution a new name, except I don't know of anyone using this apart
-    from myself. 0.19_14 will be the last release marked as development,
+    from myself. 0.19_15 will be the last release marked as development,
     0.99 will be a release candidate, and 1.00 will be the first stable
     release.
 

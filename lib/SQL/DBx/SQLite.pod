@@ -5,7 +5,7 @@ SQL::DBx::SQLite - add various features to to SQLite
 
 =head1 VERSION
 
-0.19_14. Development release.
+0.19_15. Development release.
 
 =head1 SYNOPSIS
 

@@ -13,7 +13,7 @@ sqldb-schema - generate a SQL::DB schema from a database
 
 =head1 VERSION
 
-0.19_14. Development release.
+0.19_15. Development release.
 
 =head1 SYNOPSIS
 
