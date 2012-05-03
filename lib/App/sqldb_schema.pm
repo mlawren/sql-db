@@ -6,7 +6,7 @@ use File::Slurp qw/write_file/;
 use Data::Dumper;
 use DBI;
 
-our $VERSION = '0.19_12';
+our $VERSION = '0.19_13';
 
 sub opt_spec {
     (
