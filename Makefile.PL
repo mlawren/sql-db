@@ -47,6 +47,12 @@ feature 'sqldb-deploy',
   'YAML'   => 0,
   ;
 
+feature 'SQLite',
+  -default                      => 1,
+  'Digest::SHA1'                => 0,
+  'Log::Any::Adapter::Dispatch' => 0,
+  ;
+
 install_share 'share';
 install_script 'bin/sqldb-schema';
 
