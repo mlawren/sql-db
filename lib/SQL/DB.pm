@@ -150,6 +150,8 @@ has 'cache_sth' => (
 
 has '_current_timestamp' => ( is => 'rw', init_arg => undef );
 
+my %schemas;
+
 around BUILDARGS => sub {
     my $orig  = shift;
     my $class = shift;
@@ -160,8 +162,8 @@ around BUILDARGS => sub {
 
     $args{dbd} = $dbd;
 
-    if ( $args{schema} ) {
-        $args{schema} = SQL::DB::Schema->new(
+    if ( my $name = $args{schema} ) {
+        $args{schema} = $schemas{$name} ||= SQL::DB::Schema->new(
             name => $args{schema} . '::' . $dbd,
             load => 1,
         );
