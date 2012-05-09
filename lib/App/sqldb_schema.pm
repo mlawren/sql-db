@@ -5,7 +5,7 @@ use Data::Dumper;
 use DBI;
 use File::Basename qw/dirname/;
 use File::Slurp qw/read_file write_file/;
-use File::ShareDir qw/dist_file/;
+use File::ShareDir::ProjectDistDir qw/dist_file/;
 use File::Spec;
 use OptArgs;
 use Template::Tiny;
@@ -107,10 +107,7 @@ sub run {
         driver     => $driver,
     };
 
-    my $develt =
-      File::Spec->catfile( dirname($0), File::Spec->updir, 'share',
-        'schema.tmpl' );
-    my $template = -e $develt ? $develt : dist_file( 'SQL-DB', 'schema.tmpl' );
+    my $template = dist_file( 'SQL-DB', 'schema.tmpl' );
     my $input = read_file($template);
     my $output;
 

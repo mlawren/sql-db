@@ -23,16 +23,16 @@ test_requires 'Test::Differences' => 0;
 test_requires 'Test::More'        => 0;
 
 feature 'sqldb-schema',
-  -default                    => 1,
-  'Data::Dumper'              => 0,
-  'DBI'                       => 0,
-  'File::Basename'            => 0,
-  'File::ShareDir'            => 0,
-  'File::Slurp'               => 0,
-  'File::Spec'                => 0,
-  'Getopt::Long::Descriptive' => 0,
-  'Term::Prompt'              => 0,
-  'Template::Tiny'            => 0,
+  -default                         => 1,
+  'Data::Dumper'                   => 0,
+  'DBI'                            => 0,
+  'File::Basename'                 => 0,
+  'File::ShareDir::ProjectDistDir' => 0,
+  'File::Slurp'                    => 0,
+  'File::Spec'                     => 0,
+  'Getopt::Long::Descriptive'      => 0,
+  'Term::Prompt'                   => 0,
+  'Template::Tiny'                 => 0,
   ;
 
 feature 'Deploy',
