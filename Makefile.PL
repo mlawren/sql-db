@@ -42,11 +42,6 @@ feature 'Deploy',
   'YAML'   => 0,
   ;
 
-feature 'sqldb-deploy',
-  -default => 1,
-  'YAML'   => 0,
-  ;
-
 feature 'SQLite',
   -default                      => 1,
   'Digest::SHA1'                => 0,
