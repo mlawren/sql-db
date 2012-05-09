@@ -1,9 +1,9 @@
 #!perl
 use strict;
 use warnings;
-use App::sqldb_schema::Dispatcher;
+use App::sqldb_schema;
 
-App::sqldb_schema::Dispatcher->run;
+App::sqldb_schema->run;
 
 __END__
 
@@ -17,15 +17,15 @@ sqldb-schema - generate a SQL::DB schema from a database
 
 =head1 SYNOPSIS
 
-  sqldb-schema [options] DSN PACKAGE [OUTFILE]
+  sqldb-schema [options] DATABASE PACKAGE [OUTFILE]
 
 =head1 DESCRIPTION
 
 B<sqldb-schema> is a helper for building L<SQL::DB>-based Perl
-applications. Given a Data Source Name (DSN) (or SQLite filename) and a
+applications. Given a Data Source Name (dbi:) or SQLite filename and a
 Perl package class, B<sqldb-schema> will connect to the database and
 output a Perl module that can be used by L<SQL::DB::Schema> at runtime.
-Output is printed to STDOUT if OUTFILE is not specified.
+ Output is printed to STDOUT if OUTFILE is not specified.
 
 Use of B<sqldb-schema> is not necessary for L<SQL::DB> applications,
 but could be an important optimisation to minimize database calls in

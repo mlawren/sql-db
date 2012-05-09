@@ -13,7 +13,7 @@ This is the implementation of the L<sqldb-schema> application.
 
 =head1 SEE ALSO
 
-L<sqldb-schema>, L<App::Dispatcher::Tutorial>
+L<sqldb-schema>
 
 =head1 AUTHOR
 

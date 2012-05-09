@@ -7,59 +7,82 @@ use File::Basename qw/dirname/;
 use File::Slurp qw/read_file write_file/;
 use File::ShareDir qw/dist_file/;
 use File::Spec;
+use OptArgs;
 use Template::Tiny;
 use Term::Prompt;
 
 our $VERSION = '0.19.1';
 
-sub opt_spec {
-    (
-        [ "username|u=s", "DSN user name" ],
-        [ "password|p=s", "DSN password" ],
-        [ "dbschema|d=s", "Database Schema name" ],
-    );
-}
+opt username => (
+    isa     => 'Str',
+    alias   => 'u',
+    comment => 'DSN user name',
+);
 
-sub arg_spec {
-    (
-        [ "dsn=s",     "DSN",             { required => 1 }, ],
-        [ "package=s", "Package name",    { required => 1 }, ],
-        [ "outfile=s", "output filename", { default  => '-' }, ],
-    );
-}
+opt password => (
+    isa     => 'Str',
+    alias   => 'p',
+    comment => 'DSN password',
+);
+
+opt dbschema => (
+    isa     => 'Str',
+    alias   => 'd',
+    comment => 'Database Schema name',
+);
+
+arg database => (
+    isa      => 'Str',
+    comment  => 'filename (SQLite) or DBI connection string',
+    required => 1,
+);
+
+arg package => (
+    isa      => 'Str',
+    comment  => 'Name of the generated Perl package',
+    required => 1,
+);
+
+arg outfile => (
+    isa     => 'Str',
+    comment => 'Destination filename',
+    default => '-',
+);
 
 sub run {
-    my ( $class, $opt ) = @_;
+    my $class = shift;
+    my $opts  = optargs(@_);
 
-    $opt->{dsn} = 'dbi:SQLite:dbname=' . $opt->{dsn} if -f $opt->{dsn};
+    $opts->{database} = 'dbi:SQLite:dbname=' . $opts->database
+      if -f $opts->database;
 
     my ( $scheme, $driver, $attr_string, $attr_hash, $driver_dsn ) =
-      DBI->parse_dsn( $opt->dsn );
+      DBI->parse_dsn( $opts->database );
 
-    die "Could not parse DSN: " . $opt->dsn . "\n" unless $driver;
+    die "Could not parse DSN: " . $opts->database . "\n" unless $driver;
 
-    if ( $driver ne 'SQLite' and not $opt->{username} ) {
-        $opt->{username} = prompt( 'x', 'Username:', '', '' );
+    if ( $driver ne 'SQLite' and not $opts->{username} ) {
+        $opts->{username} = prompt( 'x', 'Username:', '', '' );
     }
 
-    if ( $driver ne 'SQLite' and not $opt->{password} ) {
-        $opt->{password} = prompt( 'p', 'Password:', '', '' );
+    if ( $driver ne 'SQLite' and not $opts->{password} ) {
+        $opts->{password} = prompt( 'p', 'Password:', '', '' );
         print "\n";
     }
 
-    if ( $driver eq 'SQLite' and !$opt->{dbschema} ) {
-        $opt->{dbschema} = 'main';
+    if ( $driver eq 'SQLite' and !$opts->{dbschema} ) {
+        $opts->{dbschema} = 'main';
     }
 
-    if ( $driver eq 'Pg' and !$opt->{dbschema} ) {
-        $opt->{dbschema} = 'public';
+    if ( $driver eq 'Pg' and !$opts->{dbschema} ) {
+        $opts->{dbschema} = 'public';
     }
 
-    my $dbh = DBI->connect( $opt->dsn, $opt->username, $opt->password )
+    my $dbh = DBI->connect( $opts->database, $opts->username, $opts->password )
       || die "connect: " . DBI->errstr;
 
     my $sth =
-      $dbh->table_info( '%', $opt->{dbschema}, '%',
+      $dbh->table_info( '%', $opts->{dbschema}, '%',
         "'TABLE','VIEW','GLOBAL TEMPORARY','LOCAL TEMPORARY'" );
 
     my @columns;
@@ -72,15 +95,15 @@ sub run {
     local $Data::Dumper::Indent   = 0;
     local $Data::Dumper::Maxdepth = 0;
 
-    ( my $shortpkg = $opt->{package} ) =~ s/(.*)::.*/$1/;
+    ( my $shortpkg = $opts->{package} ) =~ s/(.*)::.*/$1/;
 
     my $stash = {
-        package    => $opt->{package},
+        package    => $opts->{package},
         definition => Dumper( \@columns ),
         shortpkg   => $shortpkg,
         date       => scalar localtime,
         program    => __PACKAGE__,
-        source     => $opt->dsn,
+        source     => $opts->database,
         driver     => $driver,
     };
 
@@ -93,11 +116,11 @@ sub run {
 
     Template::Tiny->new->process( \$input, $stash, \$output );
 
-    if ( $opt->outfile eq '-' ) {
+    if ( $opts->outfile eq '-' ) {
         print $output;
     }
     else {
-        write_file( $opt->outfile, $output );
+        write_file( $opts->outfile, $output );
     }
 }
 
