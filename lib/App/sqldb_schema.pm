@@ -10,7 +10,7 @@ use File::Spec;
 use Template::Tiny;
 use Term::Prompt;
 
-our $VERSION = '0.19_15';
+our $VERSION = '0.19.1';
 
 sub opt_spec {
     (
