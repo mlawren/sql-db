@@ -1,14 +1,14 @@
 package App::sqldb_schema;
 use strict;
 use warnings;
-use Term::Prompt;
+use Data::Dumper;
+use DBI;
 use File::Basename qw/dirname/;
 use File::Slurp qw/read_file write_file/;
 use File::ShareDir qw/dist_file/;
 use File::Spec;
-use Data::Dumper;
-use DBI;
 use Template::Tiny;
+use Term::Prompt;
 
 our $VERSION = '0.19_15';
 
