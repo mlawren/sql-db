@@ -51,7 +51,7 @@ feature 'SQLite',
 install_share 'share';
 install_script 'bin/sqldb-schema';
 
-repository 'http://github.com/mlawren/sql-db.git/';
+repository 'http://github.com/mlawren/sql-db/';
 
 auto_install;
 
