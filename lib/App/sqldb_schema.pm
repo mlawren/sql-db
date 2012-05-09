@@ -34,8 +34,9 @@ sub run {
     $opt->{dsn} = 'dbi:SQLite:dbname=' . $opt->{dsn} if -f $opt->{dsn};
 
     my ( $scheme, $driver, $attr_string, $attr_hash, $driver_dsn ) =
-      DBI->parse_dsn( $opt->dsn )
-      or die "Could not parse DSN: " . $opt->dsn;
+      DBI->parse_dsn( $opt->dsn );
+
+    die "Could not parse DSN: " . $opt->dsn . "\n" unless $driver;
 
     if ( $driver ne 'SQLite' and not $opt->{username} ) {
         $opt->{username} = prompt( 'x', 'Username:', '', '' );
@@ -55,7 +56,7 @@ sub run {
     }
 
     my $dbh = DBI->connect( $opt->dsn, $opt->username, $opt->password )
-      || die "Could not connect: " . DBI->errstr;
+      || die "connect: " . DBI->errstr;
 
     my $sth =
       $dbh->table_info( '%', $opt->{dbschema}, '%',
