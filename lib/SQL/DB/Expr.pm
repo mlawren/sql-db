@@ -435,12 +435,13 @@ sub as {
     if ( $e1->_multi > 0 ) {
         my $expr = SQL::DB::Expr->new( _txt => ['('] );
         $expr .= $e1;
-        $expr .= ') AS ' . $as;
+        $expr .= ') AS ';
+        $expr .= _quote($as);
         return $expr;
     }
 
-    $as = ' AS ' . $as;    # this must be done first
-    my $expr = $e1 . $as;
+    my $expr = $e1 . ' AS ';
+    $expr .= _quote($as);
     return $expr;
 }
 
