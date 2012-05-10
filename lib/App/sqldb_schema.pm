@@ -53,13 +53,13 @@ sub run {
     my $class = shift;
     my $opts  = optargs(@_);
 
-    $opts->{database} = 'dbi:SQLite:dbname=' . $opts->database
-      if -f $opts->database;
+    $opts->{database} = 'dbi:SQLite:dbname=' . $opts->{database}
+      if -f $opts->{database};
 
     my ( $scheme, $driver, $attr_string, $attr_hash, $driver_dsn ) =
-      DBI->parse_dsn( $opts->database );
+      DBI->parse_dsn( $opts->{database} );
 
-    die "Could not parse DSN: " . $opts->database . "\n" unless $driver;
+    die "Could not parse DSN: " . $opts->{database} . "\n" unless $driver;
 
     if ( $driver ne 'SQLite' and not $opts->{username} ) {
         $opts->{username} = prompt( 'x', 'Username:', '', '' );
@@ -78,7 +78,8 @@ sub run {
         $opts->{dbschema} = 'public';
     }
 
-    my $dbh = DBI->connect( $opts->database, $opts->username, $opts->password )
+    my $dbh =
+      DBI->connect( $opts->{database}, $opts->{username}, $opts->{password} )
       || die "connect: " . DBI->errstr;
 
     my $sth =
@@ -103,7 +104,7 @@ sub run {
         shortpkg   => $shortpkg,
         date       => scalar localtime,
         program    => __PACKAGE__,
-        source     => $opts->database,
+        source     => $opts->{database},
         driver     => $driver,
     };
 
@@ -113,11 +114,11 @@ sub run {
 
     Template::Tiny->new->process( \$input, $stash, \$output );
 
-    if ( $opts->outfile eq '-' ) {
+    if ( $opts->{outfile} eq '-' ) {
         print $output;
     }
     else {
-        write_file( $opts->outfile, $output );
+        write_file( $opts->{outfile}, $output );
     }
 }
 
