@@ -1,9 +1,9 @@
 #!perl
 use strict;
 use warnings;
-use App::sqldb_schema;
+use OptArgs qw/dispatch/;
 
-App::sqldb_schema->run;
+dispatch(qw/run App::sqldb_schema/);
 
 __END__
 
