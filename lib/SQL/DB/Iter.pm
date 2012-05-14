@@ -56,6 +56,16 @@ sub BUILD {
 
 sub next {
     my $self = shift;
+    return $self->object;
+}
+
+sub all {
+    my $self = shift;
+    return $self->objects;
+}
+
+sub object {
+    my $self = shift;
     return if ( $self->_done );
 
     my @values = $self->sth->fetchrow_array;
@@ -67,14 +77,65 @@ sub next {
     return bless \@values, $self->class;
 }
 
-sub all {
+sub objects {
+    my $self = shift;
+    my $all  = $self->arrays;
+
+    my $class = $self->class;
+
+    foreach ( 0 .. $#{$all} ) {
+        bless $all->[$_], $class;
+    }
+
+    $self->finish;
+    return @$all if wantarray;
+    return $all;
+}
+
+sub hash {
+    my $self = shift;
+    return if ( $self->_done );
+
+    my $ref = $self->sth->fetchrow_hashref('NAME_lc');
+
+    if ( !$ref ) {
+        $self->finish;
+        return;
+    }
+    return $ref;
+}
+
+sub hashes {
     my $self = shift;
     my @all;
-    while ( my @values = $self->sth->fetchrow_array ) {
-        push( @all, bless \@values, $self->class );
+    while ( my $ref = $self->sth->fetchrow_array ) {
+        push( @all, $ref );
     }
     $self->finish;
-    return @all;
+    return @all if wantarray;
+    return \@all;
+}
+
+sub array {
+    my $self = shift;
+    return if ( $self->_done );
+
+    my $ref = $self->sth->fetchrow_arrayref;
+
+    if ( !$ref ) {
+        $self->finish;
+        return;
+    }
+    return $ref;
+}
+
+sub arrays {
+    my $self = shift;
+
+    my $all = $self->sth->fetchall_arrayref;
+    $self->finish;
+    return @$all if wantarray;
+    return $all;
 }
 
 sub finish {

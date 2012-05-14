@@ -77,6 +77,36 @@ undef when there is no more data.
 Returns all remaining rows from the statement handle as a list of
 objects. Returns the empty list if no data is available.
 
+=item object -> $obj
+
+Returns the next row from the statement handle as an object. Returns
+undef when there is no more data.
+
+=item objects -> @objects
+
+Returns all remaining rows from the statement handle as a list of
+objects. Returns the empty list if no data is available.
+
+=item hash -> $HashRef
+
+Returns the next row from the statement handle as a reference to a
+hash. Returns undef when there is no more data.
+
+=item hashes -> @HashRefs
+
+Returns all remaining rows from the statement handle as a list of
+references to hashes. Returns the empty list if no data is available.
+
+=item array -> $ArrayRef
+
+Returns the next row from the statement handle as a reference to an
+array. Returns undef when there is no more data.
+
+=item arrays -> @ArrayRefs
+
+Returns all remaining rows from the statement handle as a list of
+references to arrays. Returns the empty list if no data is available.
+
 =item finish
 
 Calls finish() on the DBI statement handle and internally records that
