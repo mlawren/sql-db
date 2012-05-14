@@ -5,7 +5,7 @@ use Moo::Role;
 use Log::Any qw/$log/;
 use Carp qw/croak carp confess/;
 
-our $VERSION = '0.19.1';
+our $VERSION = '0.191.0';
 
 sub sqlite_create_function_debug {
     my $self = shift;

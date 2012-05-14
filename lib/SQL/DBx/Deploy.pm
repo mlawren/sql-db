@@ -6,7 +6,7 @@ use Log::Any qw/$log/;
 use Carp qw/croak carp confess/;
 use YAML;
 
-our $VERSION      = '0.19.1';
+our $VERSION      = '0.191.0';
 our $DEPLOY_TABLE = '_deploy';
 
 sub last_deploy_id {

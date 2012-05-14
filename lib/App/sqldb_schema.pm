@@ -11,7 +11,7 @@ use OptArgs;
 use Template::Tiny;
 use Term::Prompt;
 
-our $VERSION = '0.19.1';
+our $VERSION = '0.191.0';
 
 opt username => (
     isa     => 'Str',
