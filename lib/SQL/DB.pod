@@ -352,7 +352,16 @@ the associated L<DBI::st> statement handle. Croaks on error.
 This method is useful if you want to obtain the data with one of the
 L<DBI> fetchrow_hashref(), fetchall_arrayref() etc methods.
 
-=item fetch(@query) -> @rows
+=item object(@query) -> $object
+
+Prepares (a SELECT) @query using either prepare() or prepare_cached()
+(depending on the "cache_sth" attribute) and execute()'s it. Croaks on
+error.
+
+Returns a single array-based object and closes the underlying statement
+handle.  The object has accessor methods for each column selected.
+
+=item objects(@query) -> @objects
 
 Prepares (a SELECT) @query using either prepare() or prepare_cached()
 (depending on the "cache_sth" attribute) and execute()'s it. Croaks on
@@ -366,14 +375,29 @@ Be aware that calling this method can consume large amounts of memory
 if there are lots of rows to be retrieved. Consider using iter()
 instead.
 
-=item fetch1(@query) -> $row
+=item fetch1
 
-Prepares (a SELECT) @query using either prepare() or prepare_cached()
-(depending on the "cache_sth" attribute) and execute()'s it. Croaks on
-error.
+An alias for object().
 
-Returns a single array-based object and closes the underlying statement
-handle.  The object has accessor methods for each column selected.
+=item fetch
+
+An alias for objects().
+
+=item hash
+
+Same as for object() but returns a hashref instead.
+
+=item hashes
+
+Same as for objects() but returns hashrefs instead.
+
+=item array
+
+Same as for object() but returns an arrayref instead.
+
+=item arrays
+
+Same as for objects() but returns arrayrefs instead.
 
 =item iter( @query ) -> L<SQL::DB::Iter>
 

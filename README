@@ -302,7 +302,16 @@ METHODS
         This method is useful if you want to obtain the data with one of the
         DBI fetchrow_hashref(), fetchall_arrayref() etc methods.
 
-    fetch(@query) -> @rows
+    object(@query) -> $object
+        Prepares (a SELECT) @query using either prepare() or
+        prepare_cached() (depending on the "cache_sth" attribute) and
+        execute()'s it. Croaks on error.
+
+        Returns a single array-based object and closes the underlying
+        statement handle. The object has accessor methods for each column
+        selected.
+
+    objects(@query) -> @objects
         Prepares (a SELECT) @query using either prepare() or
         prepare_cached() (depending on the "cache_sth" attribute) and
         execute()'s it. Croaks on error.
@@ -315,14 +324,23 @@ METHODS
         memory if there are lots of rows to be retrieved. Consider using
         iter() instead.
 
-    fetch1(@query) -> $row
-        Prepares (a SELECT) @query using either prepare() or
-        prepare_cached() (depending on the "cache_sth" attribute) and
-        execute()'s it. Croaks on error.
+    fetch1
+        An alias for object().
 
-        Returns a single array-based object and closes the underlying
-        statement handle. The object has accessor methods for each column
-        selected.
+    fetch
+        An alias for objects().
+
+    hash
+        Same as for object() but returns a hashref instead.
+
+    hashes
+        Same as for objects() but returns hashrefs instead.
+
+    array
+        Same as for object() but returns an arrayref instead.
+
+    arrays
+        Same as for objects() but returns arrayrefs instead.
 
     iter( @query ) -> SQL::DB::Iter
         Prepares (a SELECT) @query using either prepare() or

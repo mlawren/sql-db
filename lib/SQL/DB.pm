@@ -441,6 +441,8 @@ sub do {
 
 sub iter {
     my $self = shift;
+    confess 'iter(@query)' unless @_;
+
     my ( $query, $sth ) =
         $self->cache_sth
       ? $self->_prepare( 'prepare_cached', @_ )
@@ -466,6 +468,45 @@ sub fetch1 {
 
     $iter->finish;
     return $first;
+}
+
+sub array {
+    my $self = shift;
+    my $iter = $self->iter(@_);
+    my $ref  = $iter->array;
+    $iter->finish;
+    return $ref;
+}
+
+sub arrays {
+    my $self = shift;
+    return $self->iter(@_)->arrays;
+}
+
+sub hash {
+    my $self = shift;
+    my $iter = $self->iter(@_);
+    my $ref  = $iter->hash;
+    $iter->finish;
+    return $ref;
+}
+
+sub hashes {
+    my $self = shift;
+    return $self->iter(@_)->hashes;
+}
+
+sub object {
+    my $self   = shift;
+    my $iter   = $self->iter(@_);
+    my $object = $iter->object;
+    $iter->finish;
+    return $object;
+}
+
+sub objects {
+    my $self = shift;
+    return $self->iter(@_)->objects;
 }
 
 sub current_timestamp {
