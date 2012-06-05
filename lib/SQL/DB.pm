@@ -238,6 +238,8 @@ sub _load_tables {
         $self->schema->define( $sth->fetchall_arrayref );
         $seen{$table}++;
     }
+    my @still_not_known = $self->schema->not_known(@_);
+    confess "tables not in database: @still_not_known" if @still_not_known;
 }
 
 sub irow {
