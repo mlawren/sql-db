@@ -18,15 +18,14 @@ sub sqlite_create_function_debug {
         'debug', -1,
         sub {
             if ( @_ && defined $_[0] && $_[0] =~ m/^select/i ) {
-                my $sth = $dbh->prepare("@_");
-                $sth->execute;
-                use Data::Dumper;
-                while ( my $ref = $sth->fetchrow_hashref ) {
-                    $log->debug( Dumper($ref) );
-                }
-
-              #                map {$log->debug(@$_)}@{$sth->fetchall_arrayref};
-              #                $sth->dump_results;
+                my $sql = shift;
+                my $sth = $dbh->prepare($sql);
+                $sth->execute(@_);
+                $log->debug(
+                    join( "\n",
+                        map { DBI::neat_list($_) }
+                          @{ $sth->fetchall_arrayref } )
+                );
             }
             else {
                 $log->debug( map { defined $_ ? $_ : 'NULL' } @_ );
