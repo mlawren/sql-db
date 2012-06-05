@@ -188,32 +188,29 @@ sub currval {
 Moo::Role->apply_role_to_package( 'SQL::DB', __PACKAGE__ );
 
 package SQL::DBx::SQLite::agg_sha1;
-
-sub new {
-    bless { d => Digest::SHA1->new }, shift;
-}
+our @ISA = ('Digest::SHA1');
 
 sub step {
     my $self = shift;
-    $self->{d}->add( grep { defined $_ } @_ );
+    $self->add( grep { defined $_ } @_ );
 }
 
 sub finalize {
-    $_[0]->{d}->digest;
+    $_[0]->digest;
 }
 
 package SQL::DBx::SQLite::agg_sha1_hex;
 our @ISA = ('SQL::DBx::SQLite::agg_sha1');
 
 sub finalize {
-    $_[0]->{d}->hexdigest;
+    $_[0]->hexdigest;
 }
 
 package SQL::DBx::SQLite::agg_sha1_base64;
 our @ISA = ('SQL::DBx::SQLite::agg_sha1');
 
 sub finalize {
-    $_[0]->{d}->b64digest;
+    $_[0]->b64digest;
 }
 
 1;
