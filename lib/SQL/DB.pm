@@ -377,7 +377,7 @@ sub _prepare {
 
             my $sth = eval { $dbh->$prepare( $query->_as_string ) };
             if ($@) {
-                die 'Error: '
+                confess 'Error: '
                   . $self->query_as_string( $query->_as_string, @bind_values )
                   . "\n$@";
             }
@@ -421,7 +421,7 @@ sub sth {
       : $self->_prepare( 'prepare',        @_ );
     my $rv = eval { $sth->execute() };
     if ($@) {
-        die 'Error: ' . $query->_as_string . "\n$@";
+        confess 'Error: ' . $query->_as_string . "\n$@";
     }
     return $sth;
 }
@@ -434,7 +434,7 @@ sub do {
       : $self->_prepare( 'prepare',        @_ );
     my $rv = eval { $sth->execute() };
     if ($@) {
-        die 'Error: ' . $query->_as_string . "\n$@";
+        confess 'Error: ' . $query->_as_string . "\n$@";
     }
     $log->debug( "-- Result:", $rv );
     $sth->finish();
@@ -452,7 +452,7 @@ sub iter {
 
     my $rv = eval { $sth->execute() };
     if ($@) {
-        die 'Error: ' . $query->_as_string . "\n$@";
+        confess 'Error: ' . $query->_as_string . "\n$@";
     }
     $log->debug( "-- Result:", $rv );
     return SQL::DB::Iter->new( sth => $sth );
