@@ -9,7 +9,6 @@ readme_from 'lib/SQL/DB.pod';
 
 requires 'DBIx::Connector' => 0;
 requires 'Log::Any'        => 0;
-requires 'Module::Load'    => 0;
 requires 'Moo'             => '0.009011';
 requires 'OptArgs'         => 0;
 requires 'Sub::Install'    => 0.04;

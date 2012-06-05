@@ -68,11 +68,12 @@ sub BUILD {
     my $self = shift;
 
     if ( $self->load ) {
-        require Module::Load;
-        Module::Load::load( $self->name );
-        $self->define( $self->name->definition );
-        $self->name->clear;
-        $log->debug( 'Loaded schema', $self->name );
+        my $class = $self->name;
+        confess $@ unless eval "require $class;";
+
+        $self->define( $class->definition );
+        $class->clear;
+        $log->debug( 'Loaded schema', $class );
     }
 }
 

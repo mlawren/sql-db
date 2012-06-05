@@ -44,9 +44,9 @@ the L<sqldb-schema>(1) command-line program.
 
 Create a new schema object. The $name attribute is required. If the
 optional $load is true then $name is assumed to be a Module name and
-will be loaded using L<Module::Load>. The module's schema will be
-retrieved using a C<definition()> class method and then cleared using a
-C<clear()> class method.
+will be C<required>. The module's schema will be retrieved using a
+C<definition()> class method and then cleared using a C<clear()> class
+method.
 
 =back
 
