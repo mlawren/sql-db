@@ -3,7 +3,6 @@ use strict;
 use warnings;
 use Moo;
 use Carp qw/ carp croak confess/;
-use DBI qw/looks_like_number/;
 use Sub::Exporter -setup => {
     exports => [
         qw/
@@ -73,8 +72,6 @@ sub _quote {
 
     return $val if ( ref $val ) =~ m/^SQL::DB::Expr/;
 
-    return SQL::DB::Expr::SQL->new( val => $val ) if looks_like_number($val);
-
     return SQL::DB::Expr::Quote->new( val => $val );
 }
 
@@ -82,8 +79,6 @@ sub _bval {
     my ( $val, $type ) = @_;
 
     return $val if ( ref $val ) =~ m/^SQL::DB::Expr/;
-
-    return SQL::DB::Expr::SQL->new( val => $val ) if looks_like_number($val);
 
     return SQL::DB::Expr::BindValue->new( val => $val, type => $type );
 }

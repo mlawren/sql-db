@@ -305,6 +305,10 @@ sub _prepare {
                         $ref->[$i] = $dbh->quote(undef);
                         next;
                     }
+                    elsif ( !defined $type ) {
+
+                        # leave it undefined
+                    }
                     elsif ( $type =~ /^bit/ ) {
                         $type = { TYPE => SQL_BIT };
                     }
@@ -317,8 +321,9 @@ sub _prepare {
                     elsif ( $type =~ /^decimal/ ) {
                         $type = { TYPE => SQL_DECIMAL };
                     }
-                    elsif ( $type =~ /^int/ ) {
+                    elsif ( $type =~ /^int/ and $val =~ m/^\d+$/ ) {
                         $type = { TYPE => SQL_INTEGER };
+                        $ref->[$i] = $val;
                     }
                     elsif ( $type =~ /^bigint/ ) {
                         $type = { TYPE => SQL_BIGINT };
@@ -366,6 +371,8 @@ sub _prepare {
                         $type = { pg_type => eval 'DBD::Pg::PG_BYTEA' };
                     }
                     else {
+
+                        # best guess, or should we undef this?
                         $type = { TYPE => SQL_VARCHAR };
                     }
 
