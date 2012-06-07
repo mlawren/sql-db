@@ -50,8 +50,7 @@ arg outfile => (
 );
 
 sub run {
-    my $class = shift;
-    my $opts  = optargs(@_);
+    my $opts = shift;
 
     $opts->{database} = 'dbi:SQLite:dbname=' . $opts->{database}
       if -f $opts->{database};
