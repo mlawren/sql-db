@@ -108,7 +108,8 @@ sub hash {
 sub hashes {
     my $self = shift;
     my @all;
-    while ( my $ref = $self->sth->fetchrow_array ) {
+
+    while ( my $ref = $self->sth->fetchrow_hashref('NAME_lc') ) {
         push( @all, $ref );
     }
     $self->finish;
