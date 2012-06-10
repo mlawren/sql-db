@@ -81,11 +81,11 @@ Maps '!' to 'NOT'.
 
 =item _expr_eq
 
-Maps '==' to "==".
+Maps '==' and 'eq' to "=".
 
 =item _expr_ne
 
-Maps '!=' to "!=".
+Maps '!=' and 'ne' to "!=".
 
 =item _expr_bitand
 
