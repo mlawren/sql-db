@@ -607,18 +607,10 @@ sub insert {
       if @invalid;
     confess 'insert_into requires columns/values' unless @cols;
 
-    my $ret = eval {
-        $self->do(
-            insert_into => sql_table( $table, @cols ),
-            sql_values(@vals),
-        );
-    };
-
-    if ($@) {
-        confess $@;
-    }
-
-    return $ret;
+    return $self->do(
+        insert_into => sql_table( $table, @cols ),
+        sql_values(@vals),
+    );
 }
 
 # $db->update('purchases',
