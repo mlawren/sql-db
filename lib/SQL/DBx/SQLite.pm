@@ -42,12 +42,16 @@ sub sqlite_create_function_sha1 {
     return unless $self->dbd eq 'SQLite';
 
     require Digest::SHA1;
+    require Encode;
     my $dbh = $self->conn->dbh;
 
     $dbh->sqlite_create_function(
         'sha1', -1,
         sub {
-            Digest::SHA1::sha1( grep { defined $_ } @_ );
+            Digest::SHA1::sha1(
+                map { utf8::is_utf8($_) ? Encode::encode_utf8($_) : $_ }
+                grep { defined $_ } @_
+            );
         }
     );
 
@@ -55,7 +59,10 @@ sub sqlite_create_function_sha1 {
         'sha1_hex',
         -1,
         sub {
-            Digest::SHA1::sha1_hex( grep { defined $_ } @_ );
+            Digest::SHA1::sha1_hex(
+                map { utf8::is_utf8($_) ? Encode::encode_utf8($_) : $_ }
+                grep { defined $_ } @_
+            );
         }
     );
 
@@ -63,7 +70,10 @@ sub sqlite_create_function_sha1 {
         'sha1_base64',
         -1,
         sub {
-            Digest::SHA1::sha1_base64( grep { defined $_ } @_ );
+            Digest::SHA1::sha1_base64(
+                map { utf8::is_utf8($_) ? Encode::encode_utf8($_) : $_ }
+                grep { defined $_ } @_
+            );
         }
     );
 
@@ -191,7 +201,8 @@ our @ISA = ('Digest::SHA1');
 
 sub step {
     my $self = shift;
-    $self->add( grep { defined $_ } @_ );
+    $self->add( map { utf8::is_utf8($_) ? Encode::encode_utf8($_) : $_ }
+          grep { defined $_ } @_ );
 }
 
 sub finalize {
