@@ -1,6 +1,7 @@
 package SQL::DB::Expr;
 use strict;
 use warnings;
+use DBI qw/looks_like_number :sql_types/;
 use Moo;
 use Carp qw/ carp croak confess/;
 use Sub::Exporter -setup => {
@@ -192,10 +193,129 @@ sub _clone {
 }
 
 sub _as_string {
-    my $self     = shift;
-    my $internal = shift;
+    my $self = shift;
 
     return join( '', map { defined $_ ? $_ : '*UNDEF*' } $self->_txts );
+}
+
+sub _as_pretty {
+    my $self = shift;
+    my $dbh  = shift;
+
+    my $sql;
+
+    foreach my $token ( $self->_txts ) {
+        if ( ref $token eq 'SQL::DB::Expr::Quote' ) {
+            $sql .= $dbh->quote( $token->val );
+        }
+        elsif ( ref $token eq 'SQL::DB::Expr::BindValue' ) {
+            my $val  = $token->val;
+            my $type = $token->type;
+
+            if ( !defined $val ) {
+                $sql .= $dbh->quote(undef);
+                next;
+            }
+            elsif ( $val =~ /[\P{IsPrint}]/ ) {
+                $sql .= '/*BINARY DATA*/';
+            }
+            elsif ( looks_like_number($val) ) {
+                $sql .= $val;
+            }
+            else {
+                ( my $x = $val ) =~ s/\n.*/\.\.\./s;
+                $sql .= $dbh->quote($val);
+            }
+        }
+        else {
+            $sql .= $token;
+        }
+    }
+    return $sql . ';';
+
+}
+
+my %type_map = (
+    biginteger          => { TYPE => SQL_BIGINT },
+    bigint              => { TYPE => SQL_BIGINT },
+    binary              => { TYPE => SQL_BINARY },
+    'binary varying'    => { TYPE => SQL_VARBINARY },
+    bin                 => { TYPE => SQL_BINARY },
+    bit                 => { TYPE => SQL_BIT },
+    blob                => { TYPE => SQL_BLOB },
+    character           => { TYPE => SQL_CHAR },
+    'character varying' => { TYPE => SQL_VARCHAR },
+    char                => { TYPE => SQL_CHAR },
+    clob                => { TYPE => SQL_CLOB },
+    datetime            => { TYPE => SQL_DATETIME },
+    date                => { TYPE => SQL_DATE },
+    decimal             => { TYPE => SQL_DECIMAL },
+    double              => { TYPE => SQL_DOUBLE },
+    float               => { TYPE => SQL_FLOAT },
+    integer             => { TYPE => SQL_INTEGER },
+    interval            => { TYPE => SQL_INTERVAL },
+    int                 => { TYPE => SQL_INTEGER },
+    numeric             => { TYPE => SQL_NUMERIC },
+    real                => { TYPE => SQL_REAL },
+    smallinteger        => { TYPE => SQL_SMALLINT },
+    smallint            => { TYPE => SQL_SMALLINT },
+    text                => { TYPE => SQL_VARCHAR },
+    timestamp           => { TYPE => SQL_TIMESTAMP },
+    varbin              => { TYPE => SQL_VARBINARY },
+    varchar             => { TYPE => SQL_VARCHAR },
+);
+
+sub _sql_values_types {
+    my $self = shift;
+    my $dbh  = shift;
+
+    my $sql;
+    my @values;
+    my @types;
+
+    foreach my $token ( $self->_txts ) {
+
+        if ( ref $token eq 'SQL::DB::Expr::Quote' ) {
+            $sql .= $dbh->quote( $token->val );
+        }
+        elsif ( ref $token eq 'SQL::DB::Expr::BindValue' ) {
+            my $val  = $token->val;
+            my $type = $token->type;
+
+            if ( !defined $val ) {
+                $sql .= $dbh->quote(undef);
+                next;
+            }
+            elsif ( defined $type ) {
+                push( @values, $val );
+                if ( $type_map{$type} ) {
+                    push( @types, $type_map{$type} );
+                }
+                elsif ( $type eq 'bytea' ) {
+                    push( @types, { pg_type => eval 'DBD::Pg::PG_BYTEA' } );
+                }
+                else {
+                    warn "No mapping for type $type";
+                    push( @types, undef );
+                }
+
+                $sql .= '?';
+
+                # leave it undefined
+            }
+            else {
+                warn "No bind type for $val";
+                push( @values, $val );
+                push( @types,  undef );
+                $sql .= '?';
+            }
+        }
+        else {
+            $sql .= $token;
+        }
+    }
+
+    return ( $sql, \@values, \@types );
 }
 
 # A true internal function - don't use outside this package

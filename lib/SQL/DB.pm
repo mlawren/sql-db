@@ -280,125 +280,23 @@ sub _prepare {
     return $self->conn->run(
         sub {
             my $dbh = $_;
+            my ( $sql, $values, $types ) = $query->_sql_values_types($dbh);
 
-            my @bind_values;
-            my @bind_types;
-
-            my $ref = $query->_txt;
-            foreach my $i ( 0 .. $#{$ref} ) {
-
-                if ( ref $ref->[$i] eq 'SQL::DB::Expr::Quote' ) {
-                    $ref->[$i] = $dbh->quote( $ref->[$i]->val );
-
-              #                    if ( looks_like_number( $ref->[$i]->val ) ) {
-              #                        $ref->[$i] = $ref->[$i]->val;
-              #                    }
-              #                    else {
-              #                    }
-                }
-                elsif ( ref $ref->[$i] eq 'SQL::DB::Expr::BindValue' ) {
-                    my $val  = $ref->[$i]->val;
-                    my $type = $ref->[$i]->type;
-
-                    # TODO: Ignore everything except binary/bytea?
-                    if ( !defined $val ) {
-                        $ref->[$i] = $dbh->quote(undef);
-                        next;
-                    }
-                    elsif ( !defined $type ) {
-
-                        # leave it undefined
-                    }
-                    elsif ( $type =~ /^bit/ ) {
-                        $type = { TYPE => SQL_BIT };
-                    }
-                    elsif ( $type =~ /^smallint/ ) {
-                        $type = { TYPE => SQL_SMALLINT };
-                    }
-                    elsif ( $type =~ /^numeric/ ) {
-                        $type = { TYPE => SQL_NUMERIC };
-                    }
-                    elsif ( $type =~ /^decimal/ ) {
-                        $type = { TYPE => SQL_DECIMAL };
-                    }
-                    elsif ( $type =~ /^int/ and $val =~ m/^\d+$/ ) {
-                        $type = { TYPE => SQL_INTEGER };
-                        $ref->[$i] = $val;
-                    }
-                    elsif ( $type =~ /^bigint/ ) {
-                        $type = { TYPE => SQL_BIGINT };
-                    }
-                    elsif ( $type =~ /^float/ ) {
-                        $type = { TYPE => SQL_FLOAT };
-                    }
-                    elsif ( $type =~ /^real/ ) {
-                        $type = { TYPE => SQL_REAL };
-                    }
-                    elsif ( $type =~ /^double/ ) {
-                        $type = { TYPE => SQL_DOUBLE };
-                    }
-                    elsif ( $type =~ /^char/ ) {
-                        $type = { TYPE => SQL_CHAR };
-                    }
-                    elsif ( $type =~ /^varchar/ ) {
-                        $type = { TYPE => SQL_VARCHAR };
-                    }
-                    elsif ( $type =~ /^datetime/ ) {
-                        $type = { TYPE => SQL_DATETIME };
-                    }
-                    elsif ( $type =~ /^date/ ) {
-                        $type = { TYPE => SQL_DATE };
-                    }
-                    elsif ( $type =~ /^timestamp/ ) {
-                        $type = { TYPE => SQL_TIMESTAMP };
-                    }
-                    elsif ( $type =~ /^interval/ ) {
-                        $type = { TYPE => SQL_INTERVAL };
-                    }
-                    elsif ( $type =~ /^bin/ ) {
-                        $type = { TYPE => SQL_BINARY };
-                    }
-                    elsif ( $type =~ /^varbin/ ) {
-                        $type = { TYPE => SQL_VARBINARY };
-                    }
-                    elsif ( $type =~ /^blob/ ) {
-                        $type = { TYPE => SQL_BLOB };
-                    }
-                    elsif ( $type =~ /^clob/ ) {
-                        $type = { TYPE => SQL_CLOB };
-                    }
-                    elsif ( $type =~ /^bytea/ ) {
-                        $type = { pg_type => eval 'DBD::Pg::PG_BYTEA' };
-                    }
-                    else {
-
-                        # best guess, or should we undef this?
-                        $type = { TYPE => SQL_VARCHAR };
-                    }
-
-                    push( @bind_values, $val );
-                    push( @bind_types,  $type );
-                    $ref->[$i] = '?';
-                }
-            }
-
-            my $sth = eval { $dbh->$prepare( $query->_as_string ) };
+            my $sth = eval { $dbh->$prepare($sql) };
             if ($@) {
-                confess 'Error: '
-                  . $self->query_as_string( $query->_as_string, @bind_values )
-                  . "\n$@";
+                confess 'Error: ' . $query->_as_pretty($dbh) . "\n$@";
             }
 
             $log->debugf(
                 "/* $prepare with %d bind values*/\n%s",
-                scalar @bind_values,
-                $self->query_as_string( $query->_as_string, @bind_values )
+                scalar @$values,
+                $query->_as_pretty($dbh)
             ) if $log->is_debug;
 
             my $i = 0;
-            foreach my $val (@bind_values) {
+            foreach my $val (@$values) {
                 $i++;
-                my $type = shift @bind_types;
+                my $type = shift @$types;
                 $log->debugf( 'binding param %d as %s', $i, $type );
                 $sth->bind_param( $i, $val, $type );
             }
@@ -428,7 +326,7 @@ sub sth {
       : $self->_prepare( 'prepare',        @_ );
     my $rv = eval { $sth->execute() };
     if ($@) {
-        confess 'Error: ' . $query->_as_string . "\n$@";
+        confess 'Error: ' . $query->_as_pretty( $self->conn->dbh ) . "\n$@";
     }
     return $sth;
 }
@@ -441,7 +339,7 @@ sub do {
       : $self->_prepare( 'prepare',        @_ );
     my $rv = eval { $sth->execute() };
     if ($@) {
-        confess 'Error: ' . $query->_as_string . "\n$@";
+        confess 'Error: ' . $query->_as_pretty( $self->conn->dbh ) . "\n$@";
     }
     $log->debug( "-- Result:", $rv );
     $sth->finish();
@@ -459,7 +357,7 @@ sub iter {
 
     my $rv = eval { $sth->execute() };
     if ($@) {
-        confess 'Error: ' . $query->_as_string . "\n$@";
+        confess 'Error: ' . $query->_as_pretty( $self->conn->dbh ) . "\n$@";
     }
     $log->debug( "-- Result:", $rv );
     return SQL::DB::Iter->new( sth => $sth );
@@ -548,36 +446,6 @@ sub txn {
     }
 
     return $wantarray ? @ret : $ret[0];
-}
-
-sub query_as_string {
-    my $self = shift;
-    my $sql  = shift || confess 'usage: query_as_string($sql,@values)';
-    my $dbh  = $self->conn->dbh;
-
-    foreach (@_) {
-        my $x = $_;    # don't update the original!
-        if ( defined($x) and $x =~ /[\P{IsPrint}]/ ) {
-            $sql =~ s/\?/*BINARY DATA*/;
-        }
-        else {
-            my $quote;
-            if ( defined $x ) {
-                if ( looks_like_number($x) ) {
-                    $quote = $x;
-                }
-                else {
-                    $x =~ s/\n.*/\.\.\./s;
-                    $quote = $dbh->quote("$x");
-                }
-            }
-            else {
-                $quote = $dbh->quote(undef);
-            }
-            $sql =~ s/\?/$quote/;
-        }
-    }
-    return $sql . ';';
 }
 
 # $db->insert_into('customers',

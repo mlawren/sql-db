@@ -75,6 +75,15 @@ Makes a deep copy of the object.
 Returns a string representation of the expression, providing
 surrounding brackets for '_multi' expressions.
 
+=item _as_pretty($dbh) -> Str
+
+Returns the expression as an SQL string with values interpolated.
+
+=item _sql_values_types($dbh) -> ($sql, \@values, \@types)
+
+Returns an SQL string with placeholder values, an array of values and
+an array of L<DBI> bind types.
+
 =item _expr_not
 
 Maps '!' to 'NOT'.
