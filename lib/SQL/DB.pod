@@ -427,13 +427,11 @@ itself.
 
 =item insert(into => $table, values => \%val) -> Int
 
-Insert a row into the database. Return the result of the underlying
-L<DBI> do() call which is typically the number of rows affected.
+Insert a row into the database and return the number of rows affected.
 
 =item update($table, set => \%values, where => \%expr) -> Int
 
-Update rows in the database. Return the result of the underlying L<DBI>
-do() call which is typically the number of rows affected.
+Update rows in the database and return the number of rows affected.
 
 This method is retricted to the wholesale replacement of column values
 (no database-side calculations etc).  Multiple WHERE key/values are
@@ -441,8 +439,7 @@ only 'AND'd together. An 'undef' value maps to SQL's NULL value.
 
 =item delete(from => $table, where => \%expr) -> Int
 
-Delete rows from the database. Return the result of the underlying
-L<DBI> do() call which is typically the number of rows affected.
+Delete rows from the database and return the number of rows affected.
 
 =item select(\@columns, from => $table, where => \%expr) -> @Obj
 

@@ -475,7 +475,7 @@ sub insert {
       if @invalid;
     confess 'insert_into requires columns/values' unless @cols;
 
-    return $self->do(
+    return 0 + $self->do(
         insert_into => sql_table( $table, @cols ),
         sql_values(@vals),
     );
@@ -509,7 +509,7 @@ sub update {
             map { $urow->$_ == $where->{$_} } grep { $urow->can($_) } @keys );
     }
 
-    return $self->do(
+    return 0 + $self->do(
         update => $urow,
         set    => \@updates,
         $expr ? ( where => $expr ) : (),
@@ -534,7 +534,7 @@ sub delete {
         $expr = _expr_join( ' AND ', map { $urow->$_ == $where->{$_} } @keys );
     }
 
-    return $self->do(
+    return 0 + $self->do(
         delete_from => $urow,
         $expr ? ( where => $expr ) : (),
     );
