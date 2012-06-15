@@ -4,10 +4,11 @@ use Test::More;
 use Test::Database;
 use Cwd;
 use File::Temp qw/tempdir/;
+use Path::Class;
 use SQL::DB ':all';
 use SQL::DBx::Deploy;
-use FindBin;
-use lib "$FindBin::RealBin/lib";
+use FindBin qw/$Bin/;
+use lib "$Bin/lib";
 
 BEGIN {
     unless ( eval { require YAML; } ) {
@@ -61,26 +62,24 @@ foreach my $handle (@handles) {
     my $ret;
     my $prev_id;
 
-    $prev_id = $db->last_deploy_id('test::Deploy');
+    $prev_id = $db->last_deploy_id;
     is $prev_id, 0, 'Nothing deployed yet: ' . $prev_id;
 
-    $ret = $db->deploy('test::Deploy');
+    my $file1 = file( $Bin, 'deploy',  $handle->dbd . '.yaml' );
+    my $file2 = file( $Bin, 'deploy2', $handle->dbd . '.yaml' );
+    $ret = $db->deploy_file($file1);
     is $ret, 3, 'deployed to ' . $ret;
 
-    $prev_id = $db->last_deploy_id('test::Deploy');
+    $prev_id = $db->last_deploy_id;
     is $prev_id, 3, 'last id check';
 
-    $ret = $db->deploy('test::Deploy');
+    $ret = $db->deploy_file($file1);
     is $ret, 3, 'still deployed to ' . $ret;
 
-    $prev_id = $db->last_deploy_id('test::Deploy');
+    $prev_id = $db->last_deploy_id;
     is $prev_id, 3, 'still last id check';
 
-    # This is a fake increment of the __DATA__ section
-    require test::Deploy::SQLite2 if ( $dsn =~ /:SQLite:/ );
-    require test::Deploy::Pg2     if ( $dsn =~ /:Pg:/ );
-
-    $ret = $db->deploy('test::Deploy');
+    $ret = $db->deploy_file($file2);
     is $ret, 4, 'upgraded to ' . $ret;
 
     ok $db->do(

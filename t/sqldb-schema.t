@@ -4,11 +4,12 @@ use Test::More;
 use Test::Database;
 use Cwd;
 use File::Temp qw/tempdir/;
+use Path::Class;
 use SQL::DB ':all';
 use SQL::DBx::Deploy;
 use SQL::DB::Schema;
-use FindBin;
-use lib "$FindBin::RealBin/lib";
+use FindBin qw/$Bin/;
+use lib "$Bin/lib";
 
 my $cwd;
 BEGIN { $cwd = getcwd }
@@ -44,7 +45,7 @@ foreach my $handle (@handles) {
     };
     eval { $db->conn->dbh->do('DROP SEQUENCE seq_test'); };
 
-    $db->deploy('test::Deploy');
+    $db->deploy_file( file( $Bin, 'deploy', $handle->dbd . '.yaml' ) );
 
     my $pkg  = "test::Schema::" . $handle->dbd;
     my $file = "$FindBin::RealBin/lib/test/Schema/" . $handle->dbd . '.pm';

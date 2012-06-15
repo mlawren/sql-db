@@ -1,10 +1,3 @@
-package test::Deploy::SQLite;
-
-1;
-
-# Only ADD lines to this file. Never delete them!
-
-__DATA__
 - sql: |
    CREATE TABLE actors (
        id integer primary key,
@@ -19,3 +12,10 @@ __DATA__
 
 - perl: |
    print "Perl sections are eval'd\n";
+
+- sql: |
+   CREATE TABLE film_actors (
+       actor_id integer references actors(id),
+       film_id integer references films(id),
+       primary key (actor_id,film_id)
+   )

@@ -4,14 +4,14 @@ use warnings;
 use Moo::Role;
 use Log::Any qw/$log/;
 use Carp qw/croak carp confess/;
-use YAML;
+use YAML qw/LoadFile/;
 
 our $VERSION      = '0.191.0';
 our $DEPLOY_TABLE = '_deploy';
 
 sub last_deploy_id {
     my $self = shift;
-    my $app  = shift || croak 'deploy_id($app)';
+    my $app  = shift || 'default';
     my $dbh  = $self->conn->dbh;
 
     my $sth = $dbh->table_info( '%', '%', $DEPLOY_TABLE );
@@ -22,22 +22,17 @@ sub last_deploy_id {
         undef, $app );
 }
 
+sub deploy_file {
+    my $self = shift;
+    my $file = shift;
+    my $app  = shift || 'default';
+    $self->deploy( LoadFile($file) );
+}
+
 sub deploy {
     my $self = shift;
-    my $app = shift || confess 'usage: deploy($app)';
-
-    my $class = $app . '::' . $self->dbd;
-    eval "require $class;";
-    confess $@ if $@;
-
-    my $fh = eval "\\*${class}::DATA";
-    my $start_pos = eval { tell $fh };
-    die "$class has no __DATA__ section" if $@;
-
-    my $yaml = do { local $/; <$fh> };
-    seek $fh, $start_pos, 0;
-
-    my $ref = Load($yaml);
+    my $ref  = shift;
+    my $app  = shift || 'default';
 
     return $self->conn->txn(
         sub {
