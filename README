@@ -366,12 +366,11 @@ METHODS
         itself.
 
     insert(into => $table, values => \%val) -> Int
-        Insert a row into the database. Return the result of the underlying
-        DBI do() call which is typically the number of rows affected.
+        Insert a row into the database and return the number of rows
+        affected.
 
     update($table, set => \%values, where => \%expr) -> Int
-        Update rows in the database. Return the result of the underlying DBI
-        do() call which is typically the number of rows affected.
+        Update rows in the database and return the number of rows affected.
 
         This method is retricted to the wholesale replacement of column
         values (no database-side calculations etc). Multiple WHERE
@@ -379,8 +378,8 @@ METHODS
         NULL value.
 
     delete(from => $table, where => \%expr) -> Int
-        Delete rows from the database. Return the result of the underlying
-        DBI do() call which is typically the number of rows affected.
+        Delete rows from the database and return the number of rows
+        affected.
 
     select(\@columns, from => $table, where => \%expr) -> @Obj
         Retrieve rows from the database as a list of objects in array
