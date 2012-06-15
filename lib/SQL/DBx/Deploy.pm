@@ -58,7 +58,7 @@ sub deploy {
             )" );
                 $dbh->do( "
 CREATE TRIGGER au_$DEPLOY_TABLE AFTER UPDATE ON $DEPLOY_TABLE
-FOR EACH ROW
+FOR EACH ROW WHEN OLD.seq = NEW.seq
 BEGIN
     UPDATE
         $DEPLOY_TABLE
