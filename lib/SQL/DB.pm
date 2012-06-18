@@ -282,16 +282,16 @@ sub _prepare {
             my $dbh = $_;
             my ( $sql, $values, $types ) = $query->_sql_values_types($dbh);
 
-            my $sth = eval { $dbh->$prepare($sql) };
-            if ($@) {
-                confess 'Error: ' . $query->_as_pretty($dbh) . "\n$@";
-            }
-
             $log->debugf(
                 "/* $prepare with %d bind values*/\n%s",
                 scalar @$values,
                 $query->_as_pretty($dbh)
             ) if $log->is_debug;
+
+            my $sth = eval { $dbh->$prepare($sql) };
+            if ($@) {
+                confess $@ . "Statement was:\n" . $dbh->{Statement};
+            }
 
             my $i = 0;
             foreach my $val (@$values) {
