@@ -54,7 +54,7 @@ foreach my $handle (@handles) {
     ok !-e $file, "$file doesn't exist";
 
     my $cmd =
-        "$^X $FindBin::RealBin/../blib/script/sqldb-schema -u " . " '"
+        "$^X $FindBin::RealBin/sqldb-schema -u " . " '"
       . $handle->username . "' " . " '"
       . $handle->dsn . "' "
       . " $pkg $file";
