@@ -70,7 +70,7 @@ Add a debug() function to the SQL understood by SQLite;
 
 =item sqlite_create_function_sha1
 
-Add various SHA1 digest functions to the SQL understood by SQLite, The
+Add various SHA digest functions to the SQL understood by SQLite, The
 following have the same syntax in SQL as described in
 L<Digest::SQLite>:
 
@@ -129,7 +129,7 @@ Return the current value of the sequence.
 
 =head1 SEE ALSO
 
-L<Digest::SHA1>, L<SQL::DB>, L<Moo::Role>
+L<Digest::SHA>, L<SQL::DB>, L<Moo::Role>
 
 =head1 AUTHOR
 

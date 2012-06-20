@@ -42,7 +42,7 @@ feature 'Deploy',
 
 feature 'SQLite',
   -default                      => 1,
-  'Digest::SHA1'                => 0,
+  'Digest::SHA'                 => 0,
   'Log::Any::Adapter::Dispatch' => 0,
   ;
 

@@ -10,10 +10,10 @@ use File::Slurp qw/read_file/;
 
 BEGIN {
     eval q{
-        use Digest::SHA1 qw/sha1 sha1_hex/;
+        use Digest::SHA qw/sha1 sha1_hex/;
         require Log::Any::Adapter::Dispatch;
         use Log::Any::Adapter;
-    } or plan skip_all => 'No Digest::SHA1 or Log::Any::Adapter::Dispatch';
+    } or plan skip_all => 'No Digest::SHA or Log::Any::Adapter::Dispatch';
 }
 
 my $cwd;

@@ -41,14 +41,14 @@ sub sqlite_create_function_sha1 {
 
     return unless $self->dbd eq 'SQLite';
 
-    require Digest::SHA1;
+    require Digest::SHA;
     require Encode;
     my $dbh = $self->conn->dbh;
 
     $dbh->sqlite_create_function(
         'sha1', -1,
         sub {
-            Digest::SHA1::sha1(
+            Digest::SHA::sha1(
                 map { utf8::is_utf8($_) ? Encode::encode_utf8($_) : $_ }
                 grep { defined $_ } @_
             );
@@ -59,7 +59,7 @@ sub sqlite_create_function_sha1 {
         'sha1_hex',
         -1,
         sub {
-            Digest::SHA1::sha1_hex(
+            Digest::SHA::sha1_hex(
                 map { utf8::is_utf8($_) ? Encode::encode_utf8($_) : $_ }
                 grep { defined $_ } @_
             );
@@ -70,7 +70,7 @@ sub sqlite_create_function_sha1 {
         'sha1_base64',
         -1,
         sub {
-            Digest::SHA1::sha1_base64(
+            Digest::SHA::sha1_base64(
                 map { utf8::is_utf8($_) ? Encode::encode_utf8($_) : $_ }
                 grep { defined $_ } @_
             );
@@ -197,12 +197,14 @@ sub currval {
 Moo::Role->apply_role_to_package( 'SQL::DB', __PACKAGE__ );
 
 package SQL::DBx::SQLite::agg_sha1;
-our @ISA = ('Digest::SHA1');
+our @ISA = ('Digest::SHA');
 
 sub step {
     my $self = shift;
-    $self->add( map { utf8::is_utf8($_) ? Encode::encode_utf8($_) : $_ }
-          grep { defined $_ } @_ );
+    $self->add(
+        map { utf8::is_utf8($_) ? Encode::encode_utf8($_) : $_ }
+        grep { defined $_ } @_
+    );
 }
 
 sub finalize {
