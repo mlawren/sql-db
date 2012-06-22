@@ -5,7 +5,6 @@ use Moo;
 use Log::Any qw/$log/;
 use Carp qw/croak carp confess/;
 use Storable qw/dclone/;
-use DBI ':sql_types', 'looks_like_number';
 use DBIx::Connector;
 use SQL::DB::Schema;
 use SQL::DB::Expr qw/:all/;
