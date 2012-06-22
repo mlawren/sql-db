@@ -1,3 +1,5 @@
+die "SQL::DB is not supported on Perl v$]" if $] eq '5.010000';
+
 # Load the Module::Install bundled in ./inc/
 use inc::Module::Install;
 
