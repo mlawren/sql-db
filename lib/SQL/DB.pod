@@ -137,7 +137,7 @@ SQL::DB uses the light-weight L<Log::Any> for logging.
 An SQL::DB query is composed from a list of scalars, schema objects,
 expressions, and arrays as follows.
 
-=over 4
+=over
 
 =item Scalars
 
@@ -208,14 +208,14 @@ appear in the final SQL joined together by commas (',').
 
 =head1 CONSTRUCTORS
 
-=over 4
+=over
 
 =item new( %args )
 
 Connect to a database and return a new SQL::DB handle. Arguments are as
 follows:
 
-=over 4
+=over
 
 =item dsn
 
@@ -241,13 +241,48 @@ sqlite_unicode, and mysql_enable_utf8 default to 1.
 Whether to use the L<DBI> prepare_cached() method. See ATTRIBUTES
 below.
 
-=item schema
+=item table_info
 
-The name of the schema class (less the '::Driver' part) associated with
-this handle. See the command-line tool L<sqldb-schema>(1) for details.
+A reference to a hash containing the table information for the
+database. This is typically the value returned from an earlier call to
+the C<deployed_table_info> method of L<SQL::DBx::Deploy>.
+
+Use of this parameter is not necessary for L<SQL::DB> applications, but
+could be an important optimisation to minimize database calls in
+applications with more than a trivial number of tables. This is more
+interesting for remote database engines such as PostgreSQL with a
+higher query latency than for local database engines such as SQLite.
+
+The standard usage scenario is as follows: After any change to the
+table/column structure of the database you can the save table
+information to a file:
+
+    use File::Slurp;
+    use SQL::DB;
+    use SQL::DBx::Deploy;
+    use YAML::Tiny;
+
+    my $db = SQL::DB->connect(...);
+    DumpFile('table_info.yaml', $db->deployed_table_info);
+
+Then in your application code you set the C<table_info> parameter when
+you instantiate your SQL::DB object:
+
+    package MyApp;
+    use SQL::DB;
+    use YAML::Tiny;
+
+    my $db = SQL::DB->new(
+        dsn        => 'dbi:Pg:dbname=myapp',
+        dbuser     => 'username',
+        dbpass     => '******',
+        table_info => LoadFile('table_info.yaml'),
+    );
+
+Now any calls to "urow" or "srow" on the $db object will not need to
+query the database to know the table structure.
 
 =back
-
 
 =item connect( $dsn, [ $username, $password, $attr ] )
 
@@ -283,18 +318,22 @@ creating statement handles. Otherwise prepare() will be used.
 
 =over 4
 
-=item irow( @tables ) -> @coderef
+=item irows( @tables ) -> @coderef
 
-Returns coderefs for generating table/column strings.  In scalar
-context returns a single coderef. Calling the coderef with column name
-arguments returns a string of the form 'table(col1,col2)'.
+Returns coderefs for generating table/column strings.  Calling the
+coderefs with column name arguments returns a string of the form
+'table(col1,col2)'.
 
 These refs can be used with the do() method for INSERT queries.
 
-=item urow( @tables ) -> @URow
+=item irow( $table ) => &coderef
+
+A singular/scalar version of C<irows>.
+
+=item urows( @tables ) -> @URow
 
 Returns schema objects representing database tables/rows for
-update-style SQL. In scalar context returns a single object.
+update-style SQL.
 
 These objects have a method for each table column.  Each column object
 has the following methods: is_null(), is_not_null(), in(), not_in(),
@@ -304,10 +343,14 @@ L<SQL::DB::Expr> for details).
 These objects can be used with the do() method for UPDATE and DELETE
 queries.
 
-=item srow( @tables ) -> @SRow
+=item urow( $table ) => $SQL::DB::Expr
+
+A singular/scalar version of C<urows>.
+
+=item srows( @tables ) -> @SRow
 
 Returns schema objects representing database tables/rows for
-select-style SQL. In scalar context returns a single object.
+select-style SQL.
 
 These objects have a method for each table column.  Each column object
 has the following methods: is_null(), is_not_null(), in(), not_in(),
@@ -316,6 +359,10 @@ L<SQL::DB::Expr> for details).
 
 These objects can be used with the do(), sth(), fetch(), fetch1(), and
 iter() methods for SELECT queries.
+
+=item srow( $table ) => $SQL::DB::Expr
+
+A singular/scalar version of C<srows>.
 
 =item prepare( @query ) -> ($sth, $query)
 

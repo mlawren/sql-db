@@ -14,7 +14,9 @@ SQL::DBx::Deploy - Deployment support for SQL::DB
 
     my $db = SQL::DB->connect('dbi:SQLite:dbname=test');
 
-    $db->deploy_file('mysql.yaml');
+    $db->deploy($arrayref);
+    $db->deploy_file('statements.sql');
+    $db->deploy_dir('/location');
 
 =head1 DESCRIPTION
 
@@ -23,27 +25,40 @@ support to L<SQL::DB>.  The approach is extremely simple, based on the
 number of statements already executed.  SQL::DBx::Deploy keeps track of
 what has been run through a table in your database called '_deploy'.
 
-B<You should only ever add new statements to your source yaml file!>
+B<You should only ever add new statements to your sources!>
 
 =head1 METHODS
 
 =over 4
 
-=item deploy($arrayref, [$app])
-
-Deploy the SQL statements in $arrayref which have not already been
-deployed for application $app (if given, 'default' otherwise).
-$arrayref is an array of hashrefs containing a single key/value pair.
-The key must be either I<sql> or I<perl>.
-
-=item deploy_file($file, [$app])
-
-Load the YAML text in $file and deploy it using deploy().
-
 =item last_deploy_id( [$app] )
 
 Returns the count of all deployment statements for application $app (or
-'default').
+'default') that have already been deployed.
+
+=item deploy($arrayref, [$app])
+
+Deploys the statements in $arrayref which have not already been
+deployed for application $app (if given, 'default' otherwise).
+$arrayref is an array of hashrefs containing a single key/value pair.
+The key must be either I<sql> or I<pl>. Returns a two item list: the
+first value is the old deploy ID, the second value is the new deploy
+id.
+
+=item deploy_file($file, [$app])
+
+Deploys the contents of $file (which must end in F<.sql> or F<.pl>)
+using deploy().
+
+=item deploy_dir($directory, [$app])
+
+Loads the SQL F<*.sql> or Perl F<*.pl> files found in $directory and
+deploys them using deploy().
+
+=item deployed_table_info([ $schema ])
+
+Returns a structure which you can save (any way you like) and use as
+the C<schema> argument to the C<new> method of L<SQL::DB>.
 
 =back
 

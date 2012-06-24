@@ -43,8 +43,6 @@ has 'package_root' => (
     required => 1,
 );
 
-has 'load' => ( is => 'ro', );
-
 has '_tables' => (
     is       => 'ro',
     init_arg => undef,
@@ -63,19 +61,6 @@ around BUILDARGS => sub {
 
     return $class->$orig(%args);
 };
-
-sub BUILD {
-    my $self = shift;
-
-    if ( $self->load ) {
-        my $class = $self->name;
-        confess $@ unless eval "require $class;";
-
-        $self->define( $class->definition );
-        $class->clear;
-        $log->debug( 'Loaded schema', $class );
-    }
-}
 
 sub define {
     my $self = shift;
@@ -178,47 +163,44 @@ sub not_known {
     return grep { !exists $tables->{$_} } @_;
 }
 
-sub irow {
+sub irows {
     my $self = shift;
 
     my @ret;
     foreach my $name (@_) {
         if ( !exists $self->_tables->{$name} ) {
-            confess "Table not defined in schema: $name";
+            die "Table not defined in schema: $name";
         }
         push( @ret, sub { $name . '(' . join( ',', @_ ) . ')' } );
-        return $ret[0] unless (wantarray);
     }
     return @ret;
 }
 
-sub srow {
+sub srows {
     my $self = shift;
 
     my @ret;
     foreach my $name (@_) {
         if ( !exists $self->_tables->{$name} ) {
-            confess "Table not defined in schema: $name";
+            die "Table not defined in schema: $name";
         }
         my $class = $self->package_root . '::Srow::' . $name;
         my $srow = $class->new( _txt => [$name], _alias => $name );
-        return $srow unless (wantarray);
         push( @ret, $srow );
     }
     return @ret;
 }
 
-sub urow {
+sub urows {
     my $self = shift;
 
     my @ret;
     foreach my $name (@_) {
         if ( !exists $self->_tables->{$name} ) {
-            confess "Table not defined in schema: $name";
+            die "Table not defined in schema: $name";
         }
         my $class = $self->package_root . '::Urow::' . $name;
         my $urow = $class->new( _txt => [$name] );
-        return $urow unless (wantarray);
         push( @ret, $urow );
     }
     return @ret;

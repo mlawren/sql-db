@@ -3,16 +3,6 @@ use warnings;
 use Test::More;
 use SQL::DB::Schema;
 
-can_ok(
-    'SQL::DB::Schema', qw/
-      new
-      not_known
-      define
-      srow
-      urow
-      /
-);
-
 my $schema = SQL::DB::Schema->new( name => 'test' );
 isa_ok $schema, 'SQL::DB::Schema';
 
@@ -21,7 +11,7 @@ isa_ok $schema, 'SQL::DB::Schema';
 
 ok $schema->not_known('unknown'), 'not_known()';
 
-eval { $schema->srow('unknown') };
+eval { $schema->srows('unknown') };
 ok $@, 'Bombs on unknown tables';
 
 $schema->define(
@@ -33,11 +23,11 @@ $schema->define(
 
 ok !$schema->not_known('users'), 'table users is NOT not_known()';
 
-my $irow = $schema->irow('users');
+my ($irow) = $schema->irows('users');
 isa_ok $irow, 'CODE';
 is $irow->( 'col1', 'col2' ), 'users(col1,col2)', 'irow expansion';
 
-my $srow = $schema->srow('users');
+my ($srow) = $schema->srows('users');
 isa_ok $srow, 'SQL::DB::Schema::test::Srow::users';
 isa_ok $srow, 'SQL::DB::Expr';
 can_ok $srow, 'name', 'dob';
@@ -47,7 +37,7 @@ is $srow->name->_as_string, 'users0.name', 'as string';
 my $sx = $srow->name == 'mark';
 like $sx->_as_string, qr/^users0.name = bv{mark}::varchar/, $sx->_as_string;
 
-my $urow = $schema->urow('users');
+my ($urow) = $schema->urows('users');
 isa_ok $urow, 'SQL::DB::Schema::test::Urow::users';
 isa_ok $urow, 'SQL::DB::Expr';
 can_ok $urow, 'name', 'dob';

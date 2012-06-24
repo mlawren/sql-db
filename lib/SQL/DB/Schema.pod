@@ -11,20 +11,18 @@ SQL::DB::Schema - Table and column definitions for SQL::DB
 
     use SQL::DB::Schema;
 
-    my $schema = SQL::DB::Schema->new(name => 'myschema');
+    my $schema = SQL::DB::Schema->new( name => 'myschema' );
 
     $schema->define(@table_1_definition);
     $schema->define(@table_2_definition);
     $schema->define(@table_3_definition);
-    ...
+    # ...
     $schema->define(@table_N_definition);
     
-    my ($itable_1, $itable_3) = $schema->irow(qw/table_1, table_3/)
-    my ($utable_1, $utable_3) = $schema->urow(qw/table_1, table_3/)
-    my ($stable_1, $stable_2) = $schema->srow(qw/table_1, table_2/)
+    my ($itable_1, $itable_3) = $schema->irows(qw/table_1, table_3/)
+    my ($utable_1, $utable_3) = $schema->urows(qw/table_1, table_3/)
+    my ($stable_1, $stable_2) = $schema->srows(qw/table_1, table_2/)
 
-    # Retrieve a previously elsewhere created schema:
-    my $other = SQL::DB::Schema->new(name => 'My::Schema', load => 1);
 
 =head1 DESCRIPTION
 
@@ -33,20 +31,24 @@ by L<SQL::DB> for creating SQL queries.
 
 The SYNOPSIS and this documentation show how this module is used but
 you should never write such code by hand.  Schema information is either
-automatically retrieved by L<SQL::DB> at run-time or pre-generated with
-the L<sqldb-schema>(1) command-line program.
+automatically retrieved by L<SQL::DB> at run-time or pre-generated
+using C<deployed_table_info()> from L<SQL::DBx::Deploy>.
 
 =head1 CONSTRUCTOR
 
 =over 4
 
-=item new( name => $name, [ load => $load ] ) -> SQL::DB::Schema
+=item new( name => $name ) -> SQL::DB::Schema
 
-Create a new schema object. The $name attribute is required. If the
-optional $load is true then $name is assumed to be a Module name and
-will be C<required>. The module's schema will be retrieved using a
-C<definition()> class method and then cleared using a C<clear()> class
-method.
+Create a new schema object with the following parameters:
+
+=over
+
+=item name
+
+The name of the schema. The name is required and should be unique.
+
+=back
 
 =back
 
@@ -61,10 +63,6 @@ The name of the schema as given to the constructor.
 =item package_root
 
 The name prefix for internally generated classes.
-
-=item load
-
-The value of the load argument given to the constructor.
 
 =back
 
@@ -83,31 +81,32 @@ column information is given.
 
 Returns the @tables which are not known in the schema.
 
-=item irow( $table, [ $table2 ] ) -> CODEref
+=item irows( $table, [ $table2 ] ) -> @CODErefs
 
 Returns coderefs representing $table(s). Each coderef called with
 column names returns a string suitable for an INSERT operation.  These
 coderefs can be used in L<SQL::DB>'s "do()" method (for INSERT
-queries).
+queries). Raises an exception if a non-existing table is requested.
 
-=item urow( $table, [ $table2 ] ) -> SQL::DB::Expr based objects
+=item urows( $table, [ $table2 ] ) -> @SQL::DB::Expr
 
 Returns objects representing abstract rows from $table(s). Each object
 has a method for each column in the table. These urow objects can be
-used in L<SQL::DB>'s "do()" method (UPDATE or DELETE queries).
+used in L<SQL::DB>'s "do()" method (UPDATE or DELETE queries). Raises
+an exception if a non-existing table is requested.
 
-=item srow( $table, [ $table2 ] ) -> SQL::DB::Expr based objects
+=item srows( $table, [ $table2 ] ) -> @SQL::DB::Expr
 
 Returns objects representing abstract rows from $table(s). Each object
 has a method for each column in the table. These srow objects can be
 used in L<SQL::DB> "fetch()" and "fetch1()" methods (for SELECT
-queries).
+queries). Raises an exception if a non-existing table is requested.
 
 =back
 
 =head1 SEE ALSO
 
-L<SQL::DB>, L<sqldb-schema>
+L<SQL::DBx::Deploy>
 
 =head1 AUTHOR
 

@@ -4,7 +4,6 @@ use warnings;
 use Moo;
 use Log::Any qw/$log/;
 use Carp qw/croak carp confess/;
-use Storable qw/dclone/;
 use DBIx::Connector;
 use SQL::DB::Schema;
 use SQL::DB::Expr qw/:all/;
@@ -140,6 +139,15 @@ has 'conn' => ( is => 'ro' );
 
 has 'dbd' => ( is => 'ro' );
 
+has 'table_info' => (
+    is  => 'ro',
+    isa => sub {
+        ref $_[0] eq 'HASH'
+          || confess 'table_info must be a HASH ref';
+    },
+    default => sub { {} },
+);
+
 has 'schema' => ( is => 'ro' );
 
 has 'cache_sth' => (
@@ -161,17 +169,8 @@ around BUILDARGS => sub {
 
     $args{dbd} = $dbd;
 
-    if ( my $name = $args{schema} ) {
-        $args{schema} = $schemas{$name} ||= SQL::DB::Schema->new(
-            name => $args{schema} . '::' . $dbd,
-            load => 1,
-        );
-    }
-    else {
-
-        # auto-generate the name in a semi-random way
-        $args{schema} = SQL::DB::Schema->new( name => \%args . $args{dsn} );
-    }
+    # auto-generate the name in a semi-random way
+    $args{schema} = SQL::DB::Schema->new( name => \%args . $args{dsn}, );
 
     my $attr = {
         PrintError => 0,
@@ -231,44 +230,67 @@ sub _load_tables {
 
     my %seen;
     foreach my $table (@_) {
-        next if $seen{$table};
+        next if $seen{$table}++;
+
+        if ( my $info = $self->table_info->{$table} ) {
+            $self->schema->define($info);
+            next;
+        }
+
         $log->debug( 'Loading table schema: ' . $table );
         my $sth = $self->conn->dbh->column_info( '%', '%', $table, '%' );
         $self->schema->define( $sth->fetchall_arrayref );
-        $seen{$table}++;
     }
     my @still_not_known = $self->schema->not_known(@_);
     confess "tables not in database: @still_not_known" if @still_not_known;
 }
 
-sub irow {
+sub irows {
     my $self = shift;
 
-    if ( my @unknown = $self->schema->not_known(@_) ) {
-        $self->_load_tables(@unknown);
-    }
+    my @results = eval { $self->schema->irows(@_) };
+    return @results unless $@;
 
-    return $self->schema->irow(@_);
+    $self->_load_tables( $self->schema->not_known(@_) );
+    return $self->schema->irows(@_);
+}
+
+sub irow {
+    my $self = shift;
+    die 'irow($row)' if @_ != 1;
+    return ( $self->irows(shift) )[0];
+}
+
+sub urows {
+    my $self = shift;
+
+    my @results = eval { $self->schema->urows(@_) };
+    return @results unless $@;
+
+    $self->_load_tables( $self->schema->not_known(@_) );
+    return $self->schema->urows(@_);
 }
 
 sub urow {
     my $self = shift;
+    die 'urow($row)' if @_ != 1;
+    return ( $self->urows(shift) )[0];
+}
 
-    if ( my @unknown = $self->schema->not_known(@_) ) {
-        $self->_load_tables(@unknown);
-    }
+sub srows {
+    my $self = shift;
 
-    return $self->schema->urow(@_);
+    my @results = eval { $self->schema->srows(@_) };
+    return @results unless $@;
+
+    $self->_load_tables( $self->schema->not_known(@_) );
+    return $self->schema->srows(@_);
 }
 
 sub srow {
     my $self = shift;
-
-    if ( my @unknown = $self->schema->not_known(@_) ) {
-        $self->_load_tables(@unknown);
-    }
-
-    return $self->schema->srow(@_);
+    die 'srow($row)' if @_ != 1;
+    return ( $self->srows(shift) )[0];
 }
 
 sub _prepare {

@@ -1,86 +1,27 @@
 use strict;
 use warnings;
-use Test::More;
-use Test::Database;
-use Cwd;
-use File::Temp qw/tempdir/;
+use FindBin qw/$Bin/;
 use Path::Class;
 use SQL::DB ':all';
 use SQL::DBx::Deploy;
-use FindBin qw/$Bin/;
-use lib "$Bin/lib";
+use Test::More;
+use Test::Database;
 
-BEGIN {
-    unless ( eval { require YAML; } ) {
-        plan skip_all => "Feature Deploy YAML not enabled";
-    }
-}
+foreach my $handle ( Test::Database->handles(qw/SQLite Pg mysql/) ) {
+    diag "Running with " . $handle->dbd;
+    $handle->driver->drop_database($_) for $handle->driver->databases;
 
-can_ok( 'SQL::DB', qw/deploy last_deploy_id/ );
-
-my $cwd;
-BEGIN { $cwd = getcwd }
-
-my $subs;
-
-my @handles = Test::Database->handles(qw/ SQLite Pg mysql /);
-
-if ( !@handles ) {
-    plan skip_all => "No database handles to test with";
-}
-
-my $tempdir;
-foreach my $handle (@handles) {
-    chdir $cwd || die "chdir: $!";
-    $tempdir = tempdir( CLEANUP => 1 );
-    chdir $tempdir || die "chdir: $!";
-
-    my ( $dsn, $user, $pass ) = $handle->connection_info;
-
-    if ( $handle->dbd eq 'SQLite' ) {
-        $handle->driver->drop_database( $handle->name );
-        $handle->driver->drop_database( $handle->name . '.seq' );
-    }
-
-    my $db = SQL::DB->new(
-        dsn      => $dsn,
-        username => $user,
-        password => $pass,
-    );
-
+    my $db = SQL::DB->connect( $handle->connection_info );
     isa_ok( $db, 'SQL::DB' );
 
-    # Clean up any previous runs (mostly for Pg's sake)
-    eval { $db->conn->dbh->do('DROP TABLE film_actors'); };
-    eval { $db->conn->dbh->do('DROP TABLE actors'); };
-    eval { $db->conn->dbh->do('DROP TABLE films'); };
-    eval {
-        $db->conn->dbh->do( 'DROP TABLE ' . $SQL::DBx::Deploy::DEPLOY_TABLE );
-    };
-    eval { $db->conn->dbh->do('DROP SEQUENCE seq_test'); };
+    $db = SQL::DB->new(
+        dsn      => $handle->dsn,
+        username => $handle->username,
+        password => $handle->password,
+    );
+    isa_ok( $db, 'SQL::DB' );
 
-    my $ret;
-    my $prev_id;
-
-    $prev_id = $db->last_deploy_id;
-    is $prev_id, 0, 'Nothing deployed yet: ' . $prev_id;
-
-    my $file1 = file( $Bin, 'deploy',  $handle->dbd . '.yaml' );
-    my $file2 = file( $Bin, 'deploy2', $handle->dbd . '.yaml' );
-    $ret = $db->deploy_file($file1);
-    is $ret, 3, 'deployed to ' . $ret;
-
-    $prev_id = $db->last_deploy_id;
-    is $prev_id, 3, 'last id check';
-
-    $ret = $db->deploy_file($file1);
-    is $ret, 3, 'still deployed to ' . $ret;
-
-    $prev_id = $db->last_deploy_id;
-    is $prev_id, 3, 'still last id check';
-
-    $ret = $db->deploy_file($file2);
-    is $ret, 4, 'upgraded to ' . $ret;
+    $db->deploy_dir( dir($Bin)->subdir('deploy') );
 
     ok $db->do(
         insert_into => \'actors(id,name)',
@@ -188,12 +129,3 @@ foreach my $handle (@handles) {
 }
 
 done_testing();
-
-# So that File::Temp doesn't complain if it can't remove $tempdir when
-# $tempdir goes out of scope;
-END {
-    chdir $cwd;
-}
-
-1;
-
