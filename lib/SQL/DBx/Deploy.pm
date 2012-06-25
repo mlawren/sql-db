@@ -83,7 +83,7 @@ END" );
 
                 exists $cmd->{sql}
                   || exists $cmd->{pl}
-                  || die "Missing 'sql' or 'pl' key for id " . $count;
+                  || confess "Missing 'sql' or 'pl' key for id " . $count;
 
                 if ( exists $cmd->{sql} ) {
                     $log->debug( $cmd->{sql} );
@@ -156,8 +156,11 @@ sub _load_deploy_file {
             }
         }
     }
-    else {
+    elsif ( $type eq 'pl' ) {
         push( @items, { $type => $input } );
+    }
+    else {
+        die "Cannot deploy file of type '$type': $file";
     }
 
     return @items;
@@ -180,7 +183,7 @@ sub deploy_dir {
     my @files;
     while ( my $file = $dir->next ) {
         push( @files, $file )
-          if $file =~ m/.*\.(sql)|(pl)$/ and -f $file;
+          if $file =~ m/.+\.((sql)|(pl))$/ and -f $file;
     }
 
     my @items =
