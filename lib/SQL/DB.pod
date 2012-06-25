@@ -642,7 +642,7 @@ L<DBIx::Connector>, L<Log::Any>
 
 SQL::DB is managed via Github:
 
-    http://github.com/mlawren/sql-db/
+    https://github.com/mlawren/sql-db/tree/devel
 
 SQL::DB follows a semantic versioning scheme:
 
