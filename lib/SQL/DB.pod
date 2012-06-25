@@ -257,7 +257,6 @@ The standard usage scenario is as follows: After any change to the
 table/column structure of the database you can the save table
 information to a file:
 
-    use File::Slurp;
     use SQL::DB;
     use SQL::DBx::Deploy;
     use YAML::Tiny;

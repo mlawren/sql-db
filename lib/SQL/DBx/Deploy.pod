@@ -58,7 +58,7 @@ deploys them using deploy().
 =item deployed_table_info([ $schema ])
 
 Returns a structure which you can save (any way you like) and use as
-the C<schema> argument to the C<new> method of L<SQL::DB>.
+the C<table_info> parameter to the C<new> method of L<SQL::DB>.
 
 =back
 
