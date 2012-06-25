@@ -257,7 +257,7 @@ sub irows {
 
 sub irow {
     my $self = shift;
-    die 'irow($row)' if @_ != 1;
+    croak 'irow($row)' if @_ != 1;
     return ( $self->irows(shift) )[0];
 }
 
@@ -273,7 +273,7 @@ sub urows {
 
 sub urow {
     my $self = shift;
-    die 'urow($row)' if @_ != 1;
+    croak 'urow($row)' if @_ != 1;
     return ( $self->urows(shift) )[0];
 }
 
@@ -289,7 +289,7 @@ sub srows {
 
 sub srow {
     my $self = shift;
-    die 'srow($row)' if @_ != 1;
+    croak 'srow($row)' if @_ != 1;
     return ( $self->srows(shift) )[0];
 }
 
