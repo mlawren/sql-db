@@ -183,7 +183,9 @@ sub deploy_dir {
           if $file =~ m/.*\.(sql)|(pl)$/ and -f $file;
     }
 
-    my @items = map { _load_deploy_file($_) } sort @files;
+    my @items =
+      map  { _load_deploy_file($_) }
+      sort { $a->stringify cmp $b->stringify } @files;
     $self->deploy( \@items, $app );
 }
 
