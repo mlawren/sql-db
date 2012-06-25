@@ -170,7 +170,7 @@ around BUILDARGS => sub {
     $args{dbd} = $dbd;
 
     # auto-generate the name in a semi-random way
-    $args{schema} = SQL::DB::Schema->new( name => \%args . $args{dsn}, );
+    $args{schema} = SQL::DB::Schema->new( name => \%args );
 
     my $attr = {
         PrintError => 0,
