@@ -97,7 +97,7 @@ sub _expr_join {
                     eval { $_->isa('SQL::DB::Expr') }
                       ? ( $_->_txts, $sep )
                       : ( $_, $sep )
-                  } @_
+                } @_
             ),
             eval { $last->isa('SQL::DB::Expr') } ? $last->_txts : $last
         ]
@@ -309,6 +309,9 @@ sub _sql_values_types {
                 push( @types,  undef );
                 $sql .= '?';
             }
+        }
+        elsif ( !defined $token ) {
+            warn 'undefined token received! SQL so far:' . $sql;
         }
         else {
             $sql .= $token;
