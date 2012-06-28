@@ -86,7 +86,7 @@ END" );
                   || confess "Missing 'sql' or 'pl' key for id " . $count;
 
                 if ( exists $cmd->{sql} ) {
-                    $log->debug( $cmd->{sql} );
+                    $log->debug( "-- change #$count\n" . $cmd->{sql} );
                     eval { $dbh->do( $cmd->{sql} ) };
                     die $cmd->{sql} . $@ if $@;
                     $dbh->do( "
@@ -102,7 +102,7 @@ WHERE
                 }
 
                 if ( exists $cmd->{pl} ) {
-                    $log->debug( $cmd->{pl} );
+                    $log->debug( "# change #$count\n" . $cmd->{pl} );
                     my $tmp = File::Temp->new;
                     print $tmp $cmd->{pl};
                     system( $^X, $tmp->filename ) == 0 or die "system failed";

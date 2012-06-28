@@ -22,7 +22,8 @@ sub sqlite_create_function_debug {
                 my $sth = $dbh->prepare($sql);
                 $sth->execute(@_);
                 $log->debug(
-                    join( "\n",
+                    $sql . "\n"
+                      . join( "\n",
                         map { DBI::neat_list($_) }
                           @{ $sth->fetchall_arrayref } )
                 );
