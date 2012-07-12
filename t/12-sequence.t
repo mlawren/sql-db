@@ -5,7 +5,7 @@ use SQL::DBx::SQLite;
 use Test::More;
 use Test::Database;
 
-foreach my $handle ( Test::Database->handles(qw/SQLite Pg mysql/) ) {
+foreach my $handle ( Test::Database->handles(qw/SQLite/) ) {
 
     if ( $handle->dbd eq 'SQLite' ) {
         $handle->driver->drop_database( $handle->name );

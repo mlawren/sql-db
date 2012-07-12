@@ -24,23 +24,16 @@ sub last_deploy_id {
         undef, $app );
 }
 
-sub deploy {
+sub _create_deploy_table_SQLite {
     my $self = shift;
-    my $ref  = shift;
-    my $app  = shift || 'default';
+    my $dbh  = shift;
 
-    confess 'deploy(ARRAYREF)' unless ref $ref eq 'ARRAY';
+    my $sth = $dbh->table_info( '%', '%', $DEPLOY_TABLE );
+    my $_deploy = $dbh->selectall_arrayref($sth);
 
-    return $self->conn->txn(
-        sub {
-            my $dbh = $_;
-
-            my $sth = $dbh->table_info( '%', '%', $DEPLOY_TABLE );
-            my $_deploy = $dbh->selectall_arrayref($sth);
-
-            unless (@$_deploy) {
-                $log->debug( 'Create table ' . $DEPLOY_TABLE );
-                $dbh->do( "
+    unless (@$_deploy) {
+        $log->debug( 'Create table ' . $DEPLOY_TABLE );
+        $dbh->do( "
             CREATE TABLE $DEPLOY_TABLE (
                 app VARCHAR(40) NOT NULL PRIMARY KEY,
                 seq INTEGER NOT NULL DEFAULT 0,
@@ -48,7 +41,7 @@ sub deploy {
                 type VARCHAR(20),
                 data VARCHAR
             )" );
-                $dbh->do( "
+        $dbh->do( "
 CREATE TRIGGER au_$DEPLOY_TABLE AFTER UPDATE ON $DEPLOY_TABLE
 FOR EACH ROW WHEN OLD.seq = NEW.seq
 BEGIN
@@ -60,7 +53,25 @@ BEGIN
         app = OLD.app
     ;
 END" );
-            }
+    }
+}
+
+sub deploy {
+    my $self = shift;
+    my $ref  = shift;
+    my $app  = shift || 'default';
+
+    confess 'deploy(ARRAYREF)' unless ref $ref eq 'ARRAY';
+
+    return $self->conn->txn(
+        sub {
+            my $dbh = $_;
+
+            my $name = '_create_deploy_table_' . $self->dbd;
+            my $sub  = $self->can($name)
+              || die __PACKAGE__ . ' does not implement ' . $self->dbd;
+
+            $self->$sub($dbh);
 
             my @current = $dbh->selectrow_array(
                 'SELECT COUNT(app) from ' . $DEPLOY_TABLE . ' WHERE app=?',

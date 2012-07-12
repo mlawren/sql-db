@@ -7,7 +7,7 @@ use SQL::DBx::Deploy;
 use Test::More;
 use Test::Database;
 
-foreach my $handle ( Test::Database->handles(qw/SQLite Pg mysql/) ) {
+foreach my $handle ( Test::Database->handles(qw/SQLite/) ) {
     diag "Running with " . $handle->dbd;
     $handle->driver->drop_database($_) for $handle->driver->databases;
 
