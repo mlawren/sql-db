@@ -1,0 +1,60 @@
+
+=head1 NAME
+
+Test::SQL::DB - Clean database support for SQL::DB
+
+=head1 VERSION
+
+0.191.0. Development release.
+
+=head1 SYNOPSIS
+
+    use SQL::DB;
+    use Test::More;
+    use Test::SQL::DB;
+
+    my $db = SQL::DB->connect('dbi:SQLite:dbname=test');
+
+    # After this you can run your tests with a freshly
+    # cleaned database.
+    $db->_clean_database();
+
+
+=head1 DESCRIPTION
+
+B<Test::SQL::DB> adds support to L<SQL::DB> for cleaning out your
+database. This is mostly useful when running L<SQL::DB> related tests
+with something like L<Test::Database> where you don't know who was
+doing what with your test database.
+
+This module currently only works with SQLite and PostgreSQL databases.
+
+=head1 METHODS
+
+=over 4
+
+=item _clean_database
+
+B<*WARNING*> This method EATS YOUR DATA! B<*WARNING*>
+
+Drops all tables, sequences, triggers and functions from the database.
+
+=back
+
+=head1 SEE ALSO
+
+L<SQL::DB>, L<Moo::Role>
+
+=head1 AUTHOR
+
+Mark Lawrence E<lt>nomad@null.netE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2011 Mark Lawrence <nomad@null.net>
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 3 of the License, or (at your
+option) any later version.
+

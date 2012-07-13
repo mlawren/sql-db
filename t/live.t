@@ -4,12 +4,12 @@ use FindBin qw/$Bin/;
 use Path::Class;
 use SQL::DB ':all';
 use SQL::DBx::Deploy;
-use Test::More;
 use Test::Database;
+use Test::More;
+use Test::SQL::DB;
 
-foreach my $handle ( Test::Database->handles(qw/SQLite/) ) {
+foreach my $handle ( Test::Database->handles(qw/SQLite Pg/) ) {
     diag "Running with " . $handle->dbd;
-    $handle->driver->drop_database($_) for $handle->driver->databases;
 
     my $db = SQL::DB->connect( $handle->connection_info );
     isa_ok( $db, 'SQL::DB' );
@@ -20,6 +20,8 @@ foreach my $handle ( Test::Database->handles(qw/SQLite/) ) {
         password => $handle->password,
     );
     isa_ok( $db, 'SQL::DB' );
+
+    $db->_clean_database();
 
     $db->deploy_dir( dir($Bin)->subdir('deploy') );
 

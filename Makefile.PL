@@ -38,6 +38,8 @@ test_requires 'Test::More'                  => 0;
 
 repository 'http://github.com/mlawren/sql-db/';
 
+install_share 'share';
+
 auto_install;
 
 WriteAll;
