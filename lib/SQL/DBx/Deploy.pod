@@ -31,6 +31,16 @@ B<You should only ever add new statements to your sources!>
 
 =over 4
 
+=item run_file($file, [$app])
+
+Runs the contents of $file (which must end in F<.sql> or F<.pl>)
+against the database.
+
+=item run_dir($directory, [$app])
+
+Runs the SQL F<*.sql> or Perl F<*.pl> files found in $directory against
+the database.
+
 =item last_deploy_id( [$app] )
 
 Returns the count of all deployment statements for application $app (or

@@ -229,7 +229,6 @@ CONSTRUCTORS
             the table/column structure of the database you can the save
             table information to a file:
 
-                use File::Slurp;
                 use SQL::DB;
                 use SQL::DBx::Deploy;
                 use YAML::Tiny;
@@ -548,7 +547,7 @@ SEE ALSO
 SUPPORT
     SQL::DB is managed via Github:
 
-        http://github.com/mlawren/sql-db/
+        https://github.com/mlawren/sql-db/tree/devel
 
     SQL::DB follows a semantic versioning scheme:
 
