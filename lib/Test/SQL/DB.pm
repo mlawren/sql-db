@@ -1,7 +1,8 @@
 package Test::SQL::DB;
 use strict;
 use warnings;
-use File::ShareDir;
+use File::ShareDir qw/dist_dir/;
+use Log::Any qw/$log/;
 use Moo::Role;
 use Path::Class;
 use SQL::DBx::Deploy;
@@ -29,8 +30,8 @@ sub _clean_database {
     }
     else {
         # The "installed" case
-        $self->run_dir(
-            File::ShareDir::dist_dir( 'SQL-DB', $self->dbd, 'clean' ) );
+        my $distdir = dir( dist_dir('SQL-DB'), $self->dbd, 'clean' );
+        $self->run_dir($distdir);
     }
 }
 

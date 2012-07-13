@@ -107,12 +107,15 @@ sub _run_cmds {
             confess "Missing 'sql' or 'pl' key";
         }
     }
+
+    return scalar @$ref;
 }
 
 sub run_file {
     my $self = shift;
     my $file = shift;
 
+    $log->debug("run_file($file)");
     $self->_run_cmds( _load_file($file) );
 }
 
@@ -121,6 +124,7 @@ sub run_dir {
     my $dir = dir(shift) || confess 'deploy_dir($dir)';
 
     confess "directory not found: $dir" unless -d $dir;
+    $log->debug("run_dir($dir)");
 
     my @files;
     while ( my $file = $dir->next ) {
@@ -141,6 +145,7 @@ sub deploy {
     my $app  = shift || 'default';
 
     confess 'deploy(ARRAYREF)' unless ref $ref eq 'ARRAY';
+    $log->debug("deploy($app)");
 
     # The lib ("prove -Ilib t/*") case:
     my $dir1 =
@@ -153,14 +158,17 @@ sub deploy {
       ->parent->parent->parent->parent->parent->subdir( 'share', $self->dbd );
 
     if ( -d $dir1 ) {
-        $self->run_dir( $dir1->subdir('deploy') );
+        $self->run_dir( $dir1->subdir('deploy') )
+          || die "Failed to run $dir1";
     }
     elsif ( -d $dir2 ) {
-        $self->run_dir( $dir2->subdir('deploy') );
+        $self->run_dir( $dir2->subdir('deploy') )
+          || die "Failed to run $dir1";
     }
     else {
         # The "installed" case
-        $self->run_dir( dist_dir( 'SQL-DB', $self->dbd, 'deploy' ) );
+        my $distdir = dir( dist_dir('SQL-DB'), $self->dbd, 'deploy' );
+        $self->run_dir($distdir) || die "Failed to run $distdir";
     }
 
     my $dbh = $self->conn->dbh;
@@ -228,6 +236,7 @@ sub deploy_file {
     my $self = shift;
     my $file = shift;
     my $app  = shift;
+    $log->debug("deploy_file($file)");
     $self->deploy( [ _load_file($file) ], $app );
 }
 
@@ -237,6 +246,7 @@ sub deploy_dir {
     my $app  = shift;
 
     confess "directory not found: $dir" unless -d $dir;
+    $log->debug("deploy_dir($dir)");
 
     my @files;
     while ( my $file = $dir->next ) {
