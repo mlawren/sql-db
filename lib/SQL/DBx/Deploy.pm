@@ -33,45 +33,52 @@ sub _load_file {
       unless $type =~ s/.*\.(.+)$/$1/;
 
     my $input = read_file $file;
+    my $end   = '';
+    my $item  = '';
     my @items;
 
     if ( $type eq 'sql' ) {
 
-        while ($input) {
-            $input =~ s/(^[\s\n]+)|(\s\n]+$)//;
-            $input =~ s/^\s*--.*\n//gm;
-            $input =~ s!/\*.*?\*/!!gsm;
-            last unless $input;
+        $input =~ s/^\s*--.*\n//gm;
+        $input =~ s!/\*.*?\*/!!gsm;
 
-            if ( $input =~ m/^CREATE (OR REPLACE )?FUNCTION/i ) {
-                if ( $input =~ s/(.+?LANGUAGE [^\n]+)//ims ) {
-                    push( @items, { sql => $1 } );
+        while ( $input =~ s/(.*\n)// ) {
+            my $try = $1;
+
+            if ($end) {
+                if ( $try =~ m/$end/ ) {
+                    $item .= $try;
+
+                    if ( $try =~ m/;/ ) {
+                        $item =~ s/(^[\s\n]+)|(\s\n]+$)//;
+                        push( @items, { sql => $item } );
+                        $item = '';
+                    }
+
+                    $end = '';
                 }
                 else {
-                    die "fatal: invalid input in $file starting with:\n$input";
-                }
-            }
-            elsif ( $input =~ m/^CREATE TRIGGER/i ) {
-
-                # PostgreSQL trigger
-                if ( $input =~ s/(.+? EXECUTE PROCEDURE .*?;)//ims ) {
-                    push( @items, { sql => $1 } );
+                    $item .= $try;
                 }
 
-                # SQLite trigger
-                elsif ( $input =~ s/(.+?^END;([^\n]*))//ims ) {
-                    push( @items, { sql => $1 } );
-                }
-                else {
-                    die "fatal: invalid input in $file starting with:\n$input";
-                }
             }
-            elsif ( $input =~ s/(.+?;)([^\n]*)$//ms ) {
-                push( @items, { sql => $1 } );
+            elsif ( $try =~ m/;/ ) {
+                $item .= $try;
+                $item =~ s/(^[\s\n]+)|(\s\n]+$)//;
+                push( @items, { sql => $item } );
+                $item = '';
+            }
+            elsif ( $try =~ m/^\s*CREATE( OR REPLACE)? FUNCTION.*AS (\S*)/i ) {
+                $end = $2;
+                $end =~ s/\$/\\\$/g;
+                $item .= $try;
+            }
+            elsif ( $try =~ m/^\s*CREATE TRIGGER/i ) {
+                $end = qr/(EXECUTE PROCEDURE)|(^END)/i;
+                $item .= $try;
             }
             else {
-                ( my $line = $input ) =~ s/\n.*//ms;
-                die "fatal: invalid input in $file starting with:\n$input";
+                $item .= $try;
             }
         }
     }
@@ -93,12 +100,12 @@ sub _run_cmds {
 
     foreach my $cmd (@$ref) {
         if ( exists $cmd->{sql} ) {
-            $log->debug( $cmd->{sql} );
+            $log->debug( "-- _run_cmd\n" . $cmd->{sql} );
             eval { $dbh->do( $cmd->{sql} ) };
             die $cmd->{sql} . "\n" . $@ if $@;
         }
         elsif ( exists $cmd->{pl} ) {
-            $log->debug( $cmd->{pl} );
+            $log->debug( "-- _run_cmd\n" . $cmd->{pl} );
             my $tmp = File::Temp->new;
             print $tmp $cmd->{pl};
             system( $^X, $tmp->filename ) == 0 or die "system failed";
@@ -215,6 +222,9 @@ WHERE
             $log->debug( "# change #$count\n" . $cmd->{pl} );
             my $tmp = File::Temp->new;
             print $tmp $cmd->{pl};
+
+            # TODO stop and restart the transaction (if any) around
+            # this
             system( $^X, $tmp->filename ) == 0 or die "system failed";
             $dbh->do( "
 UPDATE 
