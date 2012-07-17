@@ -1,3 +1,25 @@
+CREATE OR REPLACE FUNCTION make_plpgsql() RETURNS VOID AS $$
+CREATE LANGUAGE plpgsql;
+$$ LANGUAGE SQL;
+
+SELECT
+    CASE WHEN
+        EXISTS(
+            SELECT
+                1
+            FROM
+                pg_catalog.pg_language
+            WHERE
+                lanname='plpgsql'
+        )
+    THEN
+        NULL
+    ELSE
+        make_plpgsql()
+    END;
+
+DROP FUNCTION make_plpgsql();
+
 CREATE OR REPLACE FUNCTION create_deploy_table() RETURNS VOID AS $$
 BEGIN
     CREATE TABLE _deploy (
@@ -19,9 +41,7 @@ DROP FUNCTION create_deploy_table();
 
 CREATE OR REPLACE FUNCTION deploy_autoinc() RETURNS trigger AS $$
 BEGIN
-    RAISE NOTICE 'seq=%s', NEW.seq;
     NEW.seq := NEW.seq + 1;
-    RAISE NOTICE 'seq=%s', NEW.seq;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;

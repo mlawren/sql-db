@@ -89,6 +89,7 @@ sub _load_file {
         die "Cannot load file of type '$type': $file";
     }
 
+    $log->debug( scalar @items . ' statements' );
     return @items;
 }
 
@@ -98,9 +99,12 @@ sub _run_cmds {
 
     my $dbh = $self->conn->dbh;
 
+    $log->debug( 'running ' . scalar @$ref . ' statements' );
+    my $i = 1;
+
     foreach my $cmd (@$ref) {
         if ( exists $cmd->{sql} ) {
-            $log->debug( "-- _run_cmd\n" . $cmd->{sql} );
+            $log->debug( "-- _run_cmd $i\n" . $cmd->{sql} );
             eval { $dbh->do( $cmd->{sql} ) };
             die $cmd->{sql} . "\n" . $@ if $@;
         }
@@ -113,6 +117,8 @@ sub _run_cmds {
         else {
             confess "Missing 'sql' or 'pl' key";
         }
+
+        $i++;
     }
 
     return scalar @$ref;
