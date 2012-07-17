@@ -61,7 +61,7 @@ BEGIN
     FOR rec IN SELECT
             'DROP LANGUAGE ' || lanname || ';' AS name
         FROM
-            pg_language
+            pg_catalog.pg_language
         WHERE
             lanispl
     LOOP
