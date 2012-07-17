@@ -30,8 +30,7 @@ BEGIN
         data VARCHAR
     );
 
-EXCEPTION WHEN duplicate_table THEN
-    -- Do nothing
+    EXCEPTION WHEN duplicate_table THEN -- Do nothing
 END;
 $$ LANGUAGE plpgsql;
 
