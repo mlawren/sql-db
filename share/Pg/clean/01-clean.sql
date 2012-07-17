@@ -1,3 +1,25 @@
+DROP FUNCTION IF EXISTS make_plpgsql();
+
+CREATE OR REPLACE FUNCTION make_plpgsql() RETURNS VOID AS $$
+CREATE LANGUAGE plpgsql;
+$$ LANGUAGE SQL;
+
+SELECT
+    CASE WHEN
+        EXISTS(
+            SELECT
+                1
+            FROM
+                pg_catalog.pg_language
+            WHERE
+                lanname='plpgsql'
+        )
+    THEN
+        NULL
+    ELSE
+        make_plpgsql()
+    END;
+
 DROP FUNCTION IF EXISTS remove_all();
 
 CREATE FUNCTION remove_all() RETURNS void AS $$
