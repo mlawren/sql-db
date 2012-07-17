@@ -58,6 +58,16 @@ BEGIN
         cmd := cmd || rec.name;
     END LOOP;
 
+    FOR rec IN SELECT
+            'DROP LANGUAGE ' || lanname || ';' AS name
+        FROM
+            pg_language
+        WHERE
+            lanispl
+    LOOP
+        cmd := cmd || rec.name;
+    END LOOP;
+
     EXECUTE cmd;
     RETURN;
 END;
