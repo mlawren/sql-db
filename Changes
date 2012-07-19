@@ -1,5 +1,10 @@
 0.19_11 (2011-11-18)
 
+v0.191.0_3 - Thu Jul 19 14:17:21 2012
+	test release
+
+	.
+
     API Changes:
         - This is a major rewrite, almost to the point where the
           SQL::DB name should change. However, since *all* releases
