@@ -11,3 +11,4 @@ blib
 SQL-DB.*
 TODO
 xt/
+.releaserc
