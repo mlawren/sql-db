@@ -16,15 +16,24 @@ requires 'Sub::Install'    => 0.04;
 requires 'Sub::Exporter'   => 0.04;
 
 feature 'Deploy',
-  -default      => 1,
-  'File::Slurp' => 0,
-  'File::Temp'  => 0,
-  'Path::Class' => 0,
+  -default         => 1,
+  'File::ShareDir' => 0,
+  'File::Slurp'    => 0,
+  'File::Temp'     => 0,
+  'Path::Class'    => 0,
   ;
 
 feature 'SQLite',
   -default      => 1,
   'Digest::SHA' => 0,
+  ;
+
+feature 'Test::SQL::DB',
+  -default         => 1,
+  'File::ShareDir' => 0,
+  'Moo::Role'      => 0,
+  'Log::Any'       => 0,
+  'Path::Class'    => 0,
   ;
 
 test_requires 'DBD::SQLite'                 => '1.35';
