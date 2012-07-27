@@ -9,30 +9,37 @@ version '0.191.0_3';
 all_from 'lib/SQL/DB.pm';
 readme_from 'lib/SQL/DB.pod';
 
-requires 'DBIx::Connector' => 0;
-requires 'Log::Any'        => 0;
-requires 'Moo'             => '0.009011';
-requires 'Sub::Install'    => 0.04;
-requires 'Sub::Exporter'   => 0.04;
+feature 'SQL::DB',
+  -default          => 1,
+  'DBIx::Connector' => 0,
+  'Log::Any'        => 0,
+  'Moo'             => '0.009011',
+  'Sub::Install'    => 0.04,
+  'Sub::Exporter'   => 0.04,
+  ;
 
-feature 'Deploy',
+feature 'SQL::DBx::Deploy',
   -default         => 1,
   'File::ShareDir' => 0,
   'File::Slurp'    => 0,
   'File::Temp'     => 0,
+  'Log::Any'       => 0,
+  'Moo::Role'      => 0,
   'Path::Class'    => 0,
   ;
 
-feature 'SQLite',
+feature 'SQL::DBx::SQLite',
   -default      => 1,
   'Digest::SHA' => 0,
+  'Log::Any'    => 0,
+  'Moo::Role'   => 0,
   ;
 
 feature 'Test::SQL::DB',
   -default         => 1,
   'File::ShareDir' => 0,
-  'Moo::Role'      => 0,
   'Log::Any'       => 0,
+  'Moo::Role'      => 0,
   'Path::Class'    => 0,
   ;
 
