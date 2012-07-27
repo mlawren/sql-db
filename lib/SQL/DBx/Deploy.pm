@@ -152,13 +152,10 @@ sub run_dir {
     $self->_run_cmds( \@items );
 }
 
-sub deploy {
+sub _setup_deploy {
     my $self = shift;
-    my $ref  = shift;
-    my $app  = shift || 'default';
 
-    confess 'deploy(ARRAYREF)' unless ref $ref eq 'ARRAY';
-    $log->debug("deploy($app)");
+    $log->debug("_setup_deploy");
 
     # The lib ("prove -Ilib t/*") case:
     my $dir1 =
@@ -183,6 +180,24 @@ sub deploy {
         my $distdir = dir( dist_dir('SQL-DB'), $self->dbd, 'deploy' );
         $self->run_dir($distdir) || die "Failed to run $distdir";
     }
+}
+
+sub deploy {
+    my $self = shift;
+    my $ref  = shift;
+    my $app  = shift || 'default';
+
+    $log->debug("deploy($app)");
+    $self->_setup_deploy;
+    $self->_deploy( $ref, $app );
+}
+
+sub _deploy {
+    my $self = shift;
+    my $ref  = shift;
+    my $app  = shift || 'default';
+
+    confess 'deploy(ARRAYREF)' unless ref $ref eq 'ARRAY';
 
     my $dbh = $self->conn->dbh;
     my @current =
@@ -253,7 +268,8 @@ sub deploy_file {
     my $file = shift;
     my $app  = shift;
     $log->debug("deploy_file($file)");
-    $self->deploy( [ _load_file($file) ], $app );
+    $self->_setup_deploy;
+    $self->_deploy( [ _load_file($file) ], $app );
 }
 
 sub deploy_dir {
@@ -263,6 +279,7 @@ sub deploy_dir {
 
     confess "directory not found: $dir" unless -d $dir;
     $log->debug("deploy_dir($dir)");
+    $self->_setup_deploy;
 
     my @files;
     while ( my $file = $dir->next ) {
@@ -274,7 +291,7 @@ sub deploy_dir {
       map  { _load_file($_) }
       sort { $a->stringify cmp $b->stringify } @files;
 
-    $self->deploy( \@items, $app );
+    $self->_deploy( \@items, $app );
 }
 
 sub deployed_table_info {
