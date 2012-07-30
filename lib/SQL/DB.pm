@@ -492,7 +492,7 @@ sub insert {
     my @invalid = sort grep { !$urow->can($_) } keys %$values;
     my @vals = map { _bval( $values->{$_}, $urow->$_->_type ) } @cols;
 
-    $log->warn( "columns not in table '$table': @invalid\n    at", caller )
+    $log->debug( "columns not in table '$table': @invalid\n    at", caller )
       if @invalid;
     confess 'insert_into requires columns/values' unless @cols;
 
