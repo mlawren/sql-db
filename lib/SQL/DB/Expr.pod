@@ -5,7 +5,7 @@ SQL::DB::Expr - Build SQL expressions with Perl
 
 =head1 VERSION
 
-0.191.0. Development release.
+0.971.0. Development release.
 
 =head1 SYNOPSIS
 

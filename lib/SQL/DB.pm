@@ -46,7 +46,7 @@ use Sub::Exporter -setup => {
     },
 };
 
-our $VERSION = '0.191.0';
+our $VERSION = '0.971.0';
 
 ### CLASS FUNCTIONS ###
 
