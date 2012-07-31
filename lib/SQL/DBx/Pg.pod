@@ -1,0 +1,56 @@
+
+=head1 NAME
+
+SQL::DBx::Pg - add various features to Pg
+
+=head1 VERSION
+
+0.971.0. Development release.
+
+=head1 SYNOPSIS
+
+    use SQL::DB;
+    use SQL::DBx::Pg;
+
+    my $db = SQL::DB->connect($dsn);
+
+    $db->nextval('sequence');
+    $db->currval('sequence');
+
+
+=head1 DESCRIPTION
+
+B<SQL::DBx::Pg> adds the I<nextval()> and I<currval()> convenience
+methods to L<SQL::DB>.
+
+=head1 METHODS
+
+=over
+
+=item nextval( $name ) -> Int
+
+Advance the sequence to its next value and return that value.
+
+=item currval( $name ) -> Int
+
+Return the current value of the sequence.
+
+=back
+
+=head1 SEE ALSO
+
+L<SQL::DB>, L<Moo::Role>
+
+=head1 AUTHOR
+
+Mark Lawrence E<lt>nomad@null.netE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2012 Mark Lawrence <nomad@null.net>
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 3 of the License, or (at your
+option) any later version.
+
