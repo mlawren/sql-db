@@ -132,7 +132,7 @@ foreach (
     [ $e1 . _sql(" LIKE 'x'"),      "e1 LIKE 'x'" ],
 
     [ $e2->like('stuff'), 'e2 LIKE bv{stuff}::e2type' ],
-    [ $e1->as('junk'),    'e1 AS q{junk}' ],
+    [ $e1->as('junk'),    'e1 AS "junk"' ],
 
     [ !$e1->is_null,       'NOT e1 IS NULL' ],
     [ !$e1->like('stuff'), 'NOT e1 LIKE bv{stuff}::(none)' ],
@@ -148,14 +148,15 @@ foreach (
         'NOT (e1 = e2) AND NOT (e1 = e2)'
     ],
     [
-        !( $e1 == $e2 ) . OR . !( $e1 == $e2 ), 'NOT (e1 = e2) OR NOT (e1 = e2)'
+        !( $e1 == $e2 ) . OR . !( $e1 == $e2 ),
+        'NOT (e1 = e2) OR NOT (e1 = e2)'
     ],
     [
         !( !( $e1 == $e2 ) . OR . !( $e1 == $e2 ) ),
         'NOT (NOT (e1 = e2) OR NOT (e1 = e2))'
     ],
     [
-          ( ( $e1 == $e2 ) . OR . !( $e1 == $e2 ) ) 
+          ( ( $e1 == $e2 ) . OR . !( $e1 == $e2 ) )
         . AND
           . !( !( $e1 == $e2 ) . OR . !( $e1 == $e2 ) ),
         '((e1 = e2) OR NOT (e1 = e2)) AND NOT (NOT (e1 = e2) OR NOT (e1 = e2))'
@@ -165,7 +166,7 @@ foreach (
 
     [
         ( ( $e1 == $e2 ) . AND . ( $e1 == $e2 ) )->as('junk'),
-        '((e1 = e2) AND (e1 = e2)) AS q{junk}'
+        '((e1 = e2) AND (e1 = e2)) AS "junk"'
     ],
     [
         $e1->between( 'x', 34 ) . AND . $ce3,

@@ -558,14 +558,11 @@ sub as {
     if ( $e1->_multi > 0 ) {
         my $expr = SQL::DB::Expr->new( _txt => ['('] );
         $expr .= $e1;
-        $expr .= ') AS ';
-        $expr .= _quote($as);
+        $expr .= ') AS "' . $as . '"';
         return $expr;
     }
 
-    my $expr = $e1 . ' AS ';
-    $expr .= _quote($as);
-    return $expr;
+    return $e1 . ' AS "' . $as . '"';
 }
 
 sub like {
