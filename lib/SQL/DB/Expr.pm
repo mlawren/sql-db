@@ -294,6 +294,9 @@ sub _sql_values_types {
                 elsif ( $type eq 'bytea' ) {
                     push( @types, { pg_type => eval 'DBD::Pg::PG_BYTEA' } );
                 }
+                elsif ( $type eq 'inet' ) {
+                    push( @types, { pg_type => eval 'DBD::Pg::PG_INET' } );
+                }
                 else {
                     warn "No mapping for type $type";
                     push( @types, undef );
