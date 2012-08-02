@@ -5,7 +5,7 @@ SQL::DBx::Pg - add various features to Pg
 
 =head1 VERSION
 
-0.971.0. Development release.
+0.971.1. Development release.
 
 =head1 SYNOPSIS
 
