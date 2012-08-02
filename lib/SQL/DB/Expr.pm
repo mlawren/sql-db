@@ -313,10 +313,7 @@ sub _sql_values_types {
                 # leave it undefined
             }
             else {
-                warn "No bind type for $val";
-                push( @values, $val );
-                push( @types,  undef );
-                $sql .= '?';
+                $sql .= $dbh->quote($val);
             }
         }
         elsif ( !defined $token ) {
