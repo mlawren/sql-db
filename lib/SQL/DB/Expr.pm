@@ -300,6 +300,9 @@ sub _sql_values_types {
                 elsif ( $type eq 'cidr' ) {
                     push( @types, { pg_type => eval 'DBD::Pg::PG_CIDR' } );
                 }
+                elsif ( $type eq 'boolean' ) {
+                    push( @types, { pg_type => eval 'DBD::Pg::PG_BOOL' } );
+                }
                 else {
                     warn "No mapping for type $type";
                     push( @types, undef );
