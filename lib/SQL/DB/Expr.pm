@@ -506,9 +506,10 @@ sub in {
     if ( @_ >= 2 && $_[0] =~ m/^select/i ) {
         return $e1 . " IN (\n" . _query(@_) . ')';
     }
+    my @list = map { ref $_ eq 'ARRAY' ? @$_ : $_ } @_;
     return
       $e1 . ' IN ('
-      . _expr_join( ', ', map { _bval( $_, $e1->_type ) } @_ ) . ')';
+      . _expr_join( ', ', map { _bval( $_, $e1->_type ) } @list ) . ')';
 }
 
 sub not_in {
@@ -516,10 +517,11 @@ sub not_in {
     if ( @_ >= 2 && $_[0] =~ m/^select/i ) {
         return $e1 . " NOT IN (\n" . _query(@_) . ')';
     }
+    my @list = map { ref $_ eq 'ARRAY' ? @$_ : $_ } @_;
     return
         $e1
       . ' NOT IN ('
-      . _expr_join( ', ', map { _bval( $_, $e1->_type ) } @_ ) . ')';
+      . _expr_join( ', ', map { _bval( $_, $e1->_type ) } @list ) . ')';
 }
 
 sub between {

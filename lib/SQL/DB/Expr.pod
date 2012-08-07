@@ -146,11 +146,13 @@ Maps to "IS NOT NULL".
 
 =item in(@values)
 
-Maps to "IN (@VALUES)"
+Maps to "IN (@VALUES)". If C<@values> contains an ARRAY reference it
+will be expanded.
 
 =item not_in( @values )
 
-Maps to "NOT IN ( @VALUES )".
+Maps to "NOT IN ( @VALUES )". If C<@values> contains an ARRAY reference
+it will be expanded.
 
 =item between( $a, $b )
 
