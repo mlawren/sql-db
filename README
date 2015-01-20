@@ -1,5 +1,5 @@
 NAME
-    SQL::DB - SQL database interface for Perl [DEPRECATED]
+    SQL::DB - SQL database interface for Perl (DEPRECATED)
 
 VERSION
     0.971.2. Development release.
