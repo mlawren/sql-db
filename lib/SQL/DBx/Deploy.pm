@@ -9,7 +9,7 @@ use File::Slurp qw/read_file/;
 use File::Temp;
 use Path::Class;
 
-our $VERSION = '0.971.1';
+our $VERSION = '0.971.2';
 
 sub last_deploy_id {
     my $self = shift;
@@ -212,7 +212,10 @@ sub _deploy {
     }
 
     my $latest_change_id = $self->last_deploy_id($app);
-    $log->debug( 'Latest Change ID:', $latest_change_id );
+    $log->debug( 'Current Change ID:',   $latest_change_id );
+    $log->debug( 'Requested Change ID:', scalar @$ref );
+
+    die "Requested Change ID is in the past!" if @$ref < $latest_change_id;
 
     my $count = 0;
     foreach my $cmd (@$ref) {

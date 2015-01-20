@@ -7,7 +7,7 @@ use Moo::Role;
 use Path::Class;
 use SQL::DBx::Deploy;
 
-our $VERSION = '0.971.1';
+our $VERSION = '0.971.2';
 
 sub _clean_database {
     my $self = shift;

@@ -1,5 +1,6 @@
 PRAGMA writable_schema = 1;
 
+delete from sqlite_master where type = 'view';
 delete from sqlite_master where type = 'trigger';
 delete from sqlite_master where type = 'index';
 delete from sqlite_master where type = 'table';

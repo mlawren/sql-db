@@ -1,11 +1,11 @@
 
 =head1 NAME
 
-SQL::DB - SQL database interface for Perl
+SQL::DB - SQL database interface for Perl (DEPRECATED)
 
 =head1 VERSION
 
-0.971.1. Development release.
+0.971.2. Development release.
 
 =head1 SYNOPSIS
 
@@ -104,6 +104,11 @@ SQL::DB - SQL database interface for Perl
 
 
 =head1 DESCRIPTION
+
+NOTE: This module is UNSUPPORTED, UNMAINTAINED, and will be REMOVED
+from CPAN at the end of 2015. If you found the SQL::DB interface suited
+your style of DBI/SQL interaction you may find the L<DBIx::ThinSQL>
+module a suitable replacement.
 
 B<SQL::DB> is an extension to the Perl Database Interface (L<DBI>).  It
 is designed for complicated queries and efficient access to results.
@@ -626,17 +631,17 @@ Maps to "VALUES($arg1, $arg2, ...)".
 
 All SQL::DB releases have so far been DEVELOPMENT!
 
-SQL::DB jumped from version 0.18 to 0.971.1 due to a complete rewrite
+SQL::DB jumped from version 0.18 to 0.971.2 due to a complete rewrite
 based on Moo. Lots of things were simplified, modules deleted,
 dependencies removed, etc. The API changed enough to almost give this
 distribution a new name, except I don't know of anyone using this apart
-from myself. 0.971.1 will be the last release marked as development,
+from myself. 0.971.2 will be the last release marked as development,
 0.99 will be a release candidate, and 1.00 will be the first stable
 release.
 
 =head1 SEE ALSO
 
-L<DBIx::Connector>, L<Log::Any>
+L<DBIx::Connector>, L<Log::Any>, L<DBIx::ThinSQL>
 
 =head1 SUPPORT
 

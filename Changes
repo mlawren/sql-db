@@ -1,26 +1,6 @@
-0.19_11 (2011-11-18)
+0.971.2 (2015.01-20)
 
-v0.191.0_3 - Thu Jul 19 14:17:21 2012
-	test release
-
-	.
-
-    API Changes:
-        - This is a major rewrite, almost to the point where the
-          SQL::DB name should change. However, since *all* releases
-          have been DEVELOPMENT and there have never been any
-          expectations of stability, and there are no known users apart
-          from myself, I don't think there are going to be any issues.
-          Scream if this is not the case for you.
-
-    New Features:
-        - N/A
-
-    Enhancements:
-        - N/A
-
-    Bug Fixes:
-        - N/A
+    DEPRECATED.
 
 For previous changes see the Git repository at:
 
