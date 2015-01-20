@@ -641,7 +641,7 @@ release.
 
 =head1 SEE ALSO
 
-L<DBIx::Connector>, L<Log::Any>
+L<DBIx::Connector>, L<Log::Any>, L<DBIx::ThinSQL>
 
 =head1 SUPPORT
 
