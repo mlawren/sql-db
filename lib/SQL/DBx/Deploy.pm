@@ -9,7 +9,7 @@ use File::Slurp qw/read_file/;
 use File::Temp;
 use Path::Class;
 
-our $VERSION = '0.971.1';
+our $VERSION = '0.971.2';
 
 sub last_deploy_id {
     my $self = shift;

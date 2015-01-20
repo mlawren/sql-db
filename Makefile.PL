@@ -5,7 +5,7 @@ use inc::Module::Install;
 
 name 'SQL-DB';
 license 'GPL';
-version '0.971.1_1';
+version '0.971.2';
 all_from 'lib/SQL/DB.pm';
 readme_from 'lib/SQL/DB.pod';
 
