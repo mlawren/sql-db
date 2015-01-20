@@ -58,5 +58,7 @@ install_share 'share';
 
 auto_install;
 
+add_metadata x_deprecated => 1;
+
 WriteAll;
 

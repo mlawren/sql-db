@@ -1,7 +1,7 @@
 
 =head1 NAME
 
-SQL::DB - SQL database interface for Perl
+SQL::DB - SQL database interface for Perl [DEPRECATED]
 
 =head1 VERSION
 
@@ -104,6 +104,11 @@ SQL::DB - SQL database interface for Perl
 
 
 =head1 DESCRIPTION
+
+NOTE: This module is UNSUPPORTED, UNMAINTAINED, and will be REMOVED
+from CPAN at the end of 2015. If you found the SQL::DB interface suited
+your style of DBI/SQL interaction you may find the L<DBIx::ThinSQL>
+module a suitable replacement.
 
 B<SQL::DB> is an extension to the Perl Database Interface (L<DBI>).  It
 is designed for complicated queries and efficient access to results.
